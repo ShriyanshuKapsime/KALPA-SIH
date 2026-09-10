@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#FAF7F2] text-[#1C1917] font-sans min-h-screen antialiased selection:bg-orange-500/20 selection:text-orange-950;
+    background-color: #FAF7F2;
+  }
+}
+
+/* Warm Ivory & Royal Saffron Card & Panel Styles */
+.royal-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(229, 220, 204, 0.8);
+  box-shadow: 0 4px 20px -2px rgba(28, 25, 23, 0.04);
+}
+
+.royal-card {
+  background: #FFFFFF;
+  border: 1px solid #EAE3D5;
+  box-shadow: 0 2px 12px -2px rgba(28, 25, 23, 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+.royal-card:hover {
+  border-color: #D97706;
+  box-shadow: 0 8px 24px -4px rgba(217, 83, 30, 0.08);
+}
+
+.saffron-gradient-btn {
+  background: linear-gradient(135deg, #EA580C 0%, #D9531E 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px 0 rgba(234, 88, 12, 0.25);
+  transition: all 0.2s ease;
+}
+
+.saffron-gradient-btn:hover {
+  background: linear-gradient(135deg, #C2410C 0%, #B45309 100%);
+  box-shadow: 0 6px 20px 0 rgba(234, 88, 12, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Subtle Topographic Lines Animation */
+@keyframes topo-float {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+.animate-topo {
+  animation: topo-float 24s ease-in-out infinite;
+}
