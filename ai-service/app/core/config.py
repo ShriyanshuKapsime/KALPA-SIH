@@ -34,11 +34,33 @@ class Settings(BaseSettings):
     POSTGIS_ENABLED: bool = True
     PGVECTOR_ENABLED: bool = False
 
-    # Phase 1 AI / LLM Provider (Groq / Qwen / OpenAI)
+    # Phase 1 & 2 AI / LLM Provider (Groq / Qwen / OpenAI)
     LLM_PROVIDER: str = "groq"
-    LLM_MODEL: str = "qwen/qwen3.6-27b"
+    LLM_MODEL: Optional[str] = None
     LLM_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: Optional[str] = None
+
+    @property
+    def active_llm_provider(self) -> str:
+        return (self.LLM_PROVIDER or "groq").lower().strip()
+
+    @property
+    def active_llm_api_key(self) -> Optional[str]:
+        key = self.GROQ_API_KEY or self.LLM_API_KEY
+        if key and not key.startswith("your_") and len(key.strip()) > 5:
+            return key.strip()
+        return None
+
+    @property
+    def active_llm_model(self) -> str:
+        if self.active_llm_provider == "groq":
+            return self.GROQ_MODEL or self.LLM_MODEL or "qwen/qwen3.6-27b"
+        return self.LLM_MODEL or self.GROQ_MODEL or "gpt-4o"
+
+    @property
+    def is_llm_configured(self) -> bool:
+        return bool(self.active_llm_api_key)
 
     # Sarvam AI STT
     SARVAM_API_KEY: Optional[str] = None

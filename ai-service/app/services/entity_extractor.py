@@ -313,6 +313,14 @@ KNOWN_LOCATIONS = {
     "hyderabad": {"district": "Hyderabad", "state": "Telangana"},
     "ಹೈದರಾಬಾದ್": {"district": "Hyderabad", "state": "Telangana"},
     "हैदराबाद": {"district": "Hyderabad", "state": "Telangana"},
+    "jharkhand": {"state": "Jharkhand"},
+    "झारखंड": {"state": "Jharkhand"},
+    "chatra": {"district": "Chatra", "state": "Jharkhand"},
+    "चतरा": {"district": "Chatra", "state": "Jharkhand"},
+    "ranchi": {"district": "Ranchi", "state": "Jharkhand"},
+    "रांची": {"district": "Ranchi", "state": "Jharkhand"},
+    "dhanbad": {"district": "Dhanbad", "state": "Jharkhand"},
+    "धनबाद": {"district": "Dhanbad", "state": "Jharkhand"},
 }
 
 
@@ -570,17 +578,17 @@ async def refine_with_llm(
     Strict LLM extraction refiner.
     Enhances extraction for nuance while guaranteeing deterministic extraction integrity and offline stability.
     """
-    api_key = settings.GROQ_API_KEY or settings.LLM_API_KEY
-    if not api_key or api_key.startswith("your_") or len(api_key) < 10:
+    if not settings.is_llm_configured:
         return deterministic_entities
 
-    is_groq = api_key.startswith("gsk_") or settings.LLM_PROVIDER.lower() == "groq"
+    api_key = settings.active_llm_api_key
+    is_groq = settings.active_llm_provider == "groq" or (api_key and api_key.startswith("gsk_"))
     if is_groq:
         endpoint = "https://api.groq.com/openai/v1/chat/completions"
-        model_name = settings.LLM_MODEL or "qwen/qwen3.6-27b"
+        model_name = settings.active_llm_model
     else:
         endpoint = "https://api.openai.com/v1/chat/completions"
-        model_name = settings.LLM_MODEL or "gpt-4o"
+        model_name = settings.active_llm_model
 
     prompt = f"""You are a strict data extraction engine for the KALPA rural entrepreneurship advisory system.
 Extract structured entities from the user's business description into strict JSON.
@@ -646,6 +654,7 @@ REQUIRED JSON OUTPUT FORMAT:
                         {"role": "user", "content": prompt}
                     ],
                     "response_format": {"type": "json_object"},
+                    "max_tokens": 400,
                     "temperature": 0.0
                 }
             )

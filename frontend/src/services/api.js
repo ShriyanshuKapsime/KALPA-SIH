@@ -7,7 +7,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 30000,
 });
 
 // Response interceptor for centralized error formatting
@@ -15,7 +15,7 @@ apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const customError = {
-      message: error.response?.data?.message || error.message || 'An unexpected error occurred',
+      message: error.response?.data?.message || error.response?.data?.detail || error.message || 'An unexpected error occurred',
       status: error.response?.status || 500,
       details: error.response?.data?.details || null,
     };
@@ -53,8 +53,36 @@ export const apiService = {
   },
 
   classification: {
-    classify: async (intakeData) => apiClient.post('/classification/classify', intakeData),
-    getNICDetails: async (nicCode) => apiClient.get(`/classification/nic/${nicCode}`),
+    classify: async (intakeData) => {
+      console.log('[FRONTEND → GATEWAY] Submitting classification to /classification/classify:', intakeData);
+      return apiClient.post('/classification/classify', intakeData);
+    },
+    clarify: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Submitting clarification to /classification/clarify:', payload);
+      return apiClient.post('/classification/clarify', payload);
+    },
+    getSession: async (sessionId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching classification /classification/${sessionId}`);
+      return apiClient.get(`/classification/${sessionId}`);
+    },
+    getNICDetails: async (nicCode) => {
+      return apiClient.get(`/classification/nic/${nicCode}`);
+    },
+  },
+
+  profile: {
+    buildProfile: async (sessionId) => {
+      console.log('[FRONTEND → GATEWAY] Building canonical profile for session:', sessionId);
+      return apiClient.post('/profile/build', { session_id: sessionId });
+    },
+    getProfileByAnalysisId: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching profile /profile/${analysisId}`);
+      return apiClient.get(`/profile/${analysisId}`);
+    },
+    getProfileBySessionId: async (sessionId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching profile /profile/session/${sessionId}`);
+      return apiClient.get(`/profile/session/${sessionId}`);
+    },
   },
 
   market: {

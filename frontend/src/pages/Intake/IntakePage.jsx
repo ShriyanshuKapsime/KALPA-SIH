@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Mic, 
   MicOff, 
@@ -215,6 +216,7 @@ const UI_STRINGS = {
 };
 
 export const IntakePage = () => {
+  const navigate = useNavigate();
   // Language State: Priority English -> Kannada -> Hindi
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   
@@ -237,6 +239,18 @@ export const IntakePage = () => {
   const [sessionResponse, setSessionResponse] = useState(null);
   const profile = sessionResponse?.profile;
   const nextAction = sessionResponse?.next_action;
+
+  // Sync Stage 1 structured result to sessionStorage
+  useEffect(() => {
+    if (sessionResponse) {
+      console.log('[STAGE 1 RESULT]', sessionResponse);
+      try {
+        sessionStorage.setItem('kalpa_stage1_response', JSON.stringify(sessionResponse));
+      } catch (e) {
+        console.warn('Unable to store Stage 1 result in sessionStorage:', e);
+      }
+    }
+  }, [sessionResponse]);
 
   // Follow-up interaction state
   const [followUpTab, setFollowUpTab] = useState('text'); // 'text' | 'voice'
@@ -1377,11 +1391,19 @@ export const IntakePage = () => {
                   </p>
                 </div>
 
-                <div className="pt-3">
-                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white text-stone-700 text-xs font-bold border border-emerald-300 shadow-sm">
-                    <Lock className="w-4 h-4 text-emerald-600" />
-                    <span>{t.readyForPhase2}</span>
-                  </div>
+                <div className="pt-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sid = sessionResponse?.session_id || sessionResponse?.profile?.session_id || '';
+                      console.log('[STAGE 1 → STAGE 2] Proceeding with session_id:', sid);
+                      navigate(`/classification${sid ? `?session_id=${encodeURIComponent(sid)}` : ''}`);
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-sm font-bold shadow-lg shadow-orange-900/20 transition-all hover:scale-105"
+                  >
+                    <span>Proceed to Stage 2: Business Classification</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}

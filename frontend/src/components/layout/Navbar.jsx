@@ -31,11 +31,12 @@ export const Navbar = () => {
 
   const navLinks = [
     { name: 'Home', path: '/', activeStage: true },
-    { name: '01 Intake & NLP', path: '/intake', activeStage: true, badge: 'Phase 1' },
-    { name: '02 Classification', path: '/analysis', activeStage: false, locked: true },
-    { name: '03 Market Intelligence', path: '/analysis', activeStage: false, locked: true },
-    { name: '04 Feasibility', path: '/feasibility', activeStage: false, locked: true },
-    { name: '05 DPR Generator', path: '/dpr', activeStage: false, locked: true },
+    { name: '01 Intake & NLP', path: '/intake', activeStage: true, badge: 'Stage 1' },
+    { name: '02 Classification', path: '/classification', activeStage: true, badge: 'Stage 2' },
+    { name: '03 Business Profile', path: '/profile', activeStage: true, badge: 'Stage 3' },
+    { name: '04 Market Intel', path: '/market', activeStage: false, locked: true },
+    { name: '05 Feasibility', path: '/feasibility', activeStage: false, locked: true },
+    { name: '06 DPR Generator', path: '/dpr', activeStage: false, locked: true },
   ];
 
   return (

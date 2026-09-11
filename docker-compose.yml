@@ -42,11 +42,13 @@ services:
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-kalpa}
       - POSTGIS_ENABLED=${POSTGIS_ENABLED:-true}
       - PGVECTOR_ENABLED=${PGVECTOR_ENABLED:-false}
-      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
-      - LLM_MODEL=${LLM_MODEL:-gpt-4o}
+      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      - LLM_MODEL=${LLM_MODEL:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-qwen/qwen3.6-27b}
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
-      - SARVAM_STT_MODEL=${SARVAM_STT_MODEL:-saaras:v1}
+      - SARVAM_STT_MODEL=${SARVAM_STT_MODEL:-saaras:v4}
     ports:
       - "8000:8000"
     healthcheck:

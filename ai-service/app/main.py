@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import logger
-from app.api.routes import health_router, intake_router, classification_router
+from app.api.routes import health_router, intake_router, classification_router, profile_router
 
 
 @asynccontextmanager
@@ -17,10 +17,12 @@ async def lifespan(app: FastAPI):
         from app.database.base import Base
         from app.database.session import engine
         from app.services.sarvam_service import log_sarvam_config
+        from app.services.llm_client import log_llm_config
         import app.database.models  # Ensure all models are loaded
         if engine is not None:
             Base.metadata.create_all(bind=engine)
             logger.info("Database tables initialized successfully.")
+        log_llm_config()
         log_sarvam_config()
     except Exception as e:
         logger.warning(f"Database table initialization deferred/skipped: {e}")
@@ -52,6 +54,7 @@ def create_application() -> FastAPI:
     app.include_router(health_router)
     app.include_router(intake_router, prefix=settings.API_V1_STR)
     app.include_router(classification_router, prefix=settings.API_V1_STR)
+    app.include_router(profile_router, prefix=settings.API_V1_STR)
 
     return app
 

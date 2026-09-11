@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/Home/HomePage';
 import IntakePage from './pages/Intake/IntakePage';
+import ClassificationPage from './pages/Classification/ClassificationPage';
+import ProfilePage from './pages/Profile/ProfilePage';
 import AnalysisPage from './pages/Analysis/AnalysisPage';
 import FeasibilityPage from './pages/Feasibility/FeasibilityPage';
 import AssistantPage from './pages/Assistant/AssistantPage';
@@ -14,7 +16,9 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="intake" element={<IntakePage />} />
-        <Route path="analysis" element={<AnalysisPage />} />
+        <Route path="classification" element={<ClassificationPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="analysis" element={<ProfilePage />} />
         <Route path="feasibility" element={<FeasibilityPage />} />
         <Route path="assistant" element={<AssistantPage />} />
         <Route path="dpr" element={<DPRPage />} />

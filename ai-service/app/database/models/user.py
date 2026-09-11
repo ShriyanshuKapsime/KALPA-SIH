@@ -22,3 +22,4 @@ class User(TimeStampedModel):
     entrepreneur_profile = relationship("EntrepreneurProfile", back_populates="user", uselist=False)
     intake_sessions = relationship("IntakeSession", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
+    structured_business_profiles = relationship("StructuredBusinessProfile", back_populates="user")
