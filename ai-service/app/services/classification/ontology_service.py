@@ -173,3 +173,45 @@ def search_ontology_candidates(
 
     scored_candidates.sort(key=lambda x: x["score"], reverse=True)
     return scored_candidates[:limit]
+
+
+def get_node_by_concept(concept: str) -> Optional[Dict[str, Any]]:
+    """Retrieves an ontology node matching a specific business name or alias."""
+    if not concept:
+        return None
+    nodes = load_ontology_data()
+    concept_lower = concept.lower().strip()
+    for node in nodes:
+        if node.get("specific_business", "").lower() == concept_lower or node.get("id", "").lower() == concept_lower:
+            return node
+        aliases = [a.lower().strip() for a in node.get("aliases", [])]
+        if concept_lower in aliases:
+            return node
+    return None
+
+
+class OntologyService:
+    def load_data(self) -> List[Dict[str, Any]]:
+        return load_ontology_data()
+
+    def get_node_by_concept(self, concept: str) -> Optional[Dict[str, Any]]:
+        return get_node_by_concept(concept)
+
+    def normalize_business_concept(self, text: str, language_code: str = "en") -> str:
+        return normalize_business_concept(text, language_code)
+
+    def is_ambiguous(self, text: str) -> bool:
+        return is_ambiguous_concept(text)
+
+    def search_candidates(
+        self,
+        query_text: str,
+        normalized_concept: str = "",
+        product_service: str = "",
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        return search_ontology_candidates(query_text, normalized_concept, product_service, limit)
+
+
+ontology_service = OntologyService()
+

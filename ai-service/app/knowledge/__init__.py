@@ -1,12 +1,22 @@
-from app.knowledge.domain import DomainKnowledgeRegistry, DomainSchemeDoc
-from app.knowledge.benchmark import BenchmarkDatabaseRegistry, NABARDBenchmarkItem
-from app.knowledge.retrieval import EmbeddingGenerator, PGVectorStore
+from app.knowledge.services.knowledge_service import KnowledgeService, get_knowledge_service
+from app.knowledge.repositories import (
+    SourcesRepository,
+    SchemesRepository,
+    BenchmarksRepository,
+    RequirementsRepository,
+    RisksRepository,
+    DocumentsRepository,
+    DynamicRequirementsRepository,
+)
 
 __all__ = [
-    "DomainKnowledgeRegistry",
-    "DomainSchemeDoc",
-    "BenchmarkDatabaseRegistry",
-    "NABARDBenchmarkItem",
-    "EmbeddingGenerator",
-    "PGVectorStore",
+    "KnowledgeService",
+    "get_knowledge_service",
+    "SourcesRepository",
+    "SchemesRepository",
+    "BenchmarksRepository",
+    "RequirementsRepository",
+    "RisksRepository",
+    "DocumentsRepository",
+    "DynamicRequirementsRepository",
 ]

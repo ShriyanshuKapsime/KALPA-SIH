@@ -62,9 +62,20 @@ class Settings(BaseSettings):
     def is_llm_configured(self) -> bool:
         return bool(self.active_llm_api_key)
 
-    # Sarvam AI STT
+    # Sarvam AI STT & LLM
     SARVAM_API_KEY: Optional[str] = None
     SARVAM_STT_MODEL: str = "saaras:v4"
+    SARVAM_LLM_MODEL: str = "sarvam-105b"
+    SARVAM_LLM_ENABLED: bool = True
+    SARVAM_LLM_ENDPOINT: str = "https://api.sarvam.ai/v1/chat/completions"
+
+    @property
+    def is_sarvam_configured(self) -> bool:
+        return bool(self.SARVAM_API_KEY and not self.SARVAM_API_KEY.startswith("your_") and len(self.SARVAM_API_KEY.strip()) > 8)
+
+    @property
+    def is_sarvam_llm_enabled(self) -> bool:
+        return self.is_sarvam_configured and self.SARVAM_LLM_ENABLED
 
     # Multilingual Translation
     INDICTRANS_ENABLED: bool = False

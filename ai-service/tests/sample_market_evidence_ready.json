@@ -1,0 +1,785 @@
+{
+  "success": true,
+  "analysis_id": "00d22469-1b5c-4e85-848c-43bb88ffd13a",
+  "session_id": "75031875-295f-4b8e-a460-771b8fe06121",
+  "status": "complete",
+  "evidence_profile": {
+    "schema_version": "1.0",
+    "analysis_id": "00d22469-1b5c-4e85-848c-43bb88ffd13a",
+    "session_id": "75031875-295f-4b8e-a460-771b8fe06121",
+    "workflow": {
+      "stage": 5,
+      "state": "MARKET_EVIDENCE_COLLECTED",
+      "status": "complete"
+    },
+    "location_context": {
+      "resolved_location": {
+        "village": "Varanasi",
+        "gram_panchayat": null,
+        "block": "Sadar",
+        "tehsil_taluk": null,
+        "district": "Varanasi",
+        "state": "Uttar Pradesh",
+        "country": "India",
+        "pincode": "221002"
+      },
+      "coordinates": {
+        "latitude": 25.3176,
+        "longitude": 82.9739,
+        "accuracy": 10
+      },
+      "geographic_precision": "village",
+      "resolution_confidence": 0.95,
+      "resolution_method": "gps_reverse_geocoding",
+      "conflict": {
+        "has_conflict": false,
+        "location_conflict": false,
+        "user_location_text": null,
+        "gps_resolved_text": null,
+        "text_location": null,
+        "gps_location": null,
+        "selected_location": null,
+        "selection_reason": null,
+        "distance_km": null,
+        "confidence": null,
+        "reason": null
+      }
+    },
+    "collection_plan": {
+      "planner": "deterministic",
+      "requirements": [
+        "catchment_paddy_cultivation_acreage",
+        "marketable_paddy_surplus",
+        "harvest_milling_seasonality",
+        "apmc_mandi_proximity",
+        "commercial_rice_mill_competitors",
+        "3phase_electricity_reliability",
+        "rural_road_freight_access"
+      ],
+      "selected_tools": [
+        "location_intelligence_tool",
+        "knowledge_hub_tool",
+        "demographics_tool",
+        "competitor_discovery_tool",
+        "demand_evidence_tool",
+        "supply_access_tool",
+        "infrastructure_access_tool",
+        "economic_purchasing_power_tool",
+        "dataset_retrieval_tool",
+        "demand_prediction_adapter"
+      ],
+      "fallback_used": true,
+      "reasoning": "Deterministic rule engine planned 7 data vectors across the complete Stage 5 tool ecosystem."
+    },
+    "market_evidence": {
+      "demographics": [
+        {
+          "metric": "total_population",
+          "value": 3676841,
+          "unit": "persons",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230250Z",
+          "proxy": false,
+          "proxy_reason": null
+        },
+        {
+          "metric": "total_households",
+          "value": 536480,
+          "unit": "households",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230289Z",
+          "proxy": false,
+          "proxy_reason": null
+        },
+        {
+          "metric": "female_population",
+          "value": 1753984,
+          "unit": "persons",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230309Z",
+          "proxy": false,
+          "proxy_reason": null
+        },
+        {
+          "metric": "sex_ratio",
+          "value": 912,
+          "unit": "females_per_1000_males",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230323Z",
+          "proxy": false,
+          "proxy_reason": null
+        },
+        {
+          "metric": "rural_percentage",
+          "value": 56.56,
+          "unit": "percent",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230338Z",
+          "proxy": false,
+          "proxy_reason": null
+        },
+        {
+          "metric": "population_density",
+          "value": 2395,
+          "unit": "persons_per_sq_km",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-002",
+            "organization": "Office of the Registrar General & Census Commissioner, India",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+            "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+          },
+          "reference_period": "Census 2011 / LGD 2024",
+          "retrieved_at": "2026-09-11T11:43:03.230354Z",
+          "proxy": false,
+          "proxy_reason": null
+        }
+      ],
+      "competitors": {
+        "direct": [
+          {
+            "competitor_type": "direct",
+            "business_name": "Commercial large-scale rice mills (Varanasi Cluster #1)",
+            "category": "Mini Rice Mill",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Market Zone 1"
+            },
+            "distance_km": 1.2,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.88,
+            "retrieved_at": "2026-09-11T11:42:52.065828Z"
+          },
+          {
+            "competitor_type": "direct",
+            "business_name": "Traditional single-pass hullers (Varanasi Cluster #2)",
+            "category": "Mini Rice Mill",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Market Zone 2"
+            },
+            "distance_km": 2.4,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.88,
+            "retrieved_at": "2026-09-11T11:42:52.065843Z"
+          }
+        ],
+        "adjacent": [
+          {
+            "competitor_type": "adjacent",
+            "business_name": "Local APMC Mandi aggregators (Varanasi)",
+            "category": "Adjacent Trade",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Commercial Hub"
+            },
+            "distance_km": 2.5,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.82,
+            "retrieved_at": "2026-09-11T11:42:52.065854Z"
+          },
+          {
+            "competitor_type": "adjacent",
+            "business_name": "Direct farmer paddy sale to interstate traders (Varanasi)",
+            "category": "Adjacent Trade",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Commercial Hub"
+            },
+            "distance_km": 5,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.82,
+            "retrieved_at": "2026-09-11T11:42:52.065863Z"
+          }
+        ],
+        "substitutes": [
+          {
+            "competitor_type": "substitute",
+            "business_name": "Weekly Haat / Periodic Rural Bazaar",
+            "category": "Substitute Channel",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Periodic / Digital Catchment"
+            },
+            "distance_km": 3,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.8,
+            "retrieved_at": "2026-09-11T11:42:52.065880Z"
+          },
+          {
+            "competitor_type": "substitute",
+            "business_name": "Direct Regional Wholesalers",
+            "category": "Substitute Channel",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Periodic / Digital Catchment"
+            },
+            "distance_km": 6,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.8,
+            "retrieved_at": "2026-09-11T11:42:52.065888Z"
+          },
+          {
+            "competitor_type": "substitute",
+            "business_name": "E-commerce Delivery Points",
+            "category": "Substitute Channel",
+            "location": {
+              "district": "Varanasi",
+              "state": "Uttar Pradesh",
+              "locality": "Periodic / Digital Catchment"
+            },
+            "distance_km": 9,
+            "source": {
+              "source_id": "SRC-004",
+              "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+              "source_type": "OFFICIAL_DATASET",
+              "dataset_name": "UDYAM Registration Portal & District MSME Census",
+              "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+            },
+            "confidence": 0.8,
+            "retrieved_at": "2026-09-11T11:42:52.065895Z"
+          }
+        ]
+      },
+      "demand_indicators": [
+        {
+          "indicator_name": "Catchment Paddy Cultivation Area",
+          "category": "agricultural_demand",
+          "value": 14200,
+          "unit": "acres",
+          "business_relevance": "Raw material acreage available within 25 km custom milling catchment.",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-005",
+            "organization": "National Sample Survey Office (NSSO) / Ministry of Agriculture",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Household Consumer Expenditure Survey & Agricultural Statistics",
+            "url": "https://www.mospi.gov.in"
+          },
+          "retrieved_at": "2026-09-11T11:42:52.066058Z"
+        },
+        {
+          "indicator_name": "Estimated Annual Paddy Surplus",
+          "category": "marketable_surplus",
+          "value": 38000,
+          "unit": "quintals",
+          "business_relevance": "Marketable paddy surplus available for local milling vs APMC aggregation.",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-005",
+            "organization": "National Sample Survey Office (NSSO) / Ministry of Agriculture",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Household Consumer Expenditure Survey & Agricultural Statistics",
+            "url": "https://www.mospi.gov.in"
+          },
+          "retrieved_at": "2026-09-11T11:42:52.066068Z"
+        },
+        {
+          "indicator_name": "Post-Harvest Custom Milling Demand Surge",
+          "category": "seasonality_demand",
+          "value": 1.5,
+          "unit": "seasonal_index_multiplier",
+          "business_relevance": "Surge in custom job-work milling during Kharif harvest (Nov-Feb).",
+          "geography": {
+            "district": "Varanasi",
+            "state": "Uttar Pradesh"
+          },
+          "geographic_precision": "village",
+          "source": {
+            "source_id": "SRC-005",
+            "organization": "National Sample Survey Office (NSSO) / Ministry of Agriculture",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Household Consumer Expenditure Survey & Agricultural Statistics",
+            "url": "https://www.mospi.gov.in"
+          },
+          "retrieved_at": "2026-09-11T11:42:52.066076Z"
+        }
+      ],
+      "supply_access": [
+        {
+          "hub_name": "District APMC Principal Mandi Yard",
+          "hub_type": "mandi",
+          "distance_km": 12.5,
+          "commodities_available": [
+            "Paddy (Common Grade A)",
+            "Swarna Paddy",
+            "Basmati Hybrid",
+            "Paddy Seed"
+          ],
+          "accessibility_rating": "high",
+          "source": {
+            "source_id": "SRC-006",
+            "organization": "AGMARKNET / Ministry of Agriculture & Farmers Welfare / MSME Cluster Maps",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "National APMC Mandi & Industrial Sourcing Directory",
+            "url": "https://agmarknet.gov.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066189Z"
+        },
+        {
+          "hub_name": "Block Level Primary Agricultural Credit Society (PACS) Grain Godown",
+          "hub_type": "cooperative",
+          "distance_km": 4.8,
+          "commodities_available": [
+            "Direct Farmer Paddy Aggregation",
+            "MSP Procurement Lots"
+          ],
+          "accessibility_rating": "high",
+          "source": {
+            "source_id": "SRC-006",
+            "organization": "AGMARKNET / Ministry of Agriculture & Farmers Welfare / MSME Cluster Maps",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "National APMC Mandi & Industrial Sourcing Directory",
+            "url": "https://agmarknet.gov.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066199Z"
+        },
+        {
+          "hub_name": "Interstate Agro-Logistics Highway Corridor Hub",
+          "hub_type": "raw_material_cluster",
+          "distance_km": 28,
+          "commodities_available": [
+            "Bulk Grain Freight",
+            "Burlap Gunny Bags",
+            "Paddy Husk Offtake Logistics"
+          ],
+          "accessibility_rating": "moderate",
+          "source": {
+            "source_id": "SRC-006",
+            "organization": "AGMARKNET / Ministry of Agriculture & Farmers Welfare / MSME Cluster Maps",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "National APMC Mandi & Industrial Sourcing Directory",
+            "url": "https://agmarknet.gov.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066206Z"
+        }
+      ],
+      "infrastructure": [
+        {
+          "infrastructure_type": "road",
+          "name": "All-Weather Metalled Road (PMGSY / State Highway Connecting Varanasi)",
+          "distance_km": 0.4,
+          "status": "available",
+          "reliability_hours_daily": null,
+          "source": {
+            "source_id": "SRC-003",
+            "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+            "url": "https://missionantyodaya.nic.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066313Z"
+        },
+        {
+          "infrastructure_type": "electricity",
+          "name": "State Electricity Board 3-Phase Rural Commercial Feeder",
+          "distance_km": 0,
+          "status": "available",
+          "reliability_hours_daily": 18.5,
+          "source": {
+            "source_id": "SRC-003",
+            "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+            "url": "https://missionantyodaya.nic.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066324Z"
+        },
+        {
+          "infrastructure_type": "commercial_hub",
+          "name": "Varanasi Central Market / Main Bazaar Street",
+          "distance_km": 2.8,
+          "status": "available",
+          "reliability_hours_daily": null,
+          "source": {
+            "source_id": "SRC-003",
+            "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+            "url": "https://missionantyodaya.nic.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066332Z"
+        },
+        {
+          "infrastructure_type": "banking",
+          "name": "Scheduled Commercial Bank / Regional Rural Bank (RRB) Branch & ATM",
+          "distance_km": 1.2,
+          "status": "available",
+          "reliability_hours_daily": null,
+          "source": {
+            "source_id": "SRC-003",
+            "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+            "url": "https://missionantyodaya.nic.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066339Z"
+        },
+        {
+          "infrastructure_type": "transport",
+          "name": "Sub-Divisional Bus Stand & Freight Vehicle Booking Point",
+          "distance_km": 1.8,
+          "status": "available",
+          "reliability_hours_daily": null,
+          "source": {
+            "source_id": "SRC-003",
+            "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+            "url": "https://missionantyodaya.nic.in"
+          },
+          "geographic_precision": "village",
+          "retrieved_at": "2026-09-11T11:42:52.066344Z"
+        }
+      ],
+      "economic_indicators": [
+        {
+          "indicator_type": "district_per_capita_income_proxy",
+          "value": 76400,
+          "unit": "INR_annual",
+          "proxy": true,
+          "proxy_reason": "Village-level granular income ledger unavailable; using official District Domestic Product & Rural Wage proxies.",
+          "geographic_precision": "district",
+          "source": {
+            "source_id": "SRC-007",
+            "organization": "Reserve Bank of India / Ministry of Statistics and Programme Implementation (MOSPI)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "District Domestic Product & Financial Inclusion Indicators",
+            "url": "https://rbi.org.in"
+          },
+          "reference_period": "2023-24",
+          "retrieved_at": "2026-09-11T11:42:52.066459Z"
+        },
+        {
+          "indicator_type": "daily_rural_wage_rate",
+          "value": 350,
+          "unit": "INR_per_day",
+          "proxy": true,
+          "proxy_reason": "Village-level granular income ledger unavailable; using official District Domestic Product & Rural Wage proxies.",
+          "geographic_precision": "district",
+          "source": {
+            "source_id": "SRC-007",
+            "organization": "Reserve Bank of India / Ministry of Statistics and Programme Implementation (MOSPI)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "District Domestic Product & Financial Inclusion Indicators",
+            "url": "https://rbi.org.in"
+          },
+          "reference_period": "2024-Q3",
+          "retrieved_at": "2026-09-11T11:42:52.066468Z"
+        },
+        {
+          "indicator_type": "banking_financial_inclusion_index",
+          "value": 72,
+          "unit": "score_0_to_100",
+          "proxy": true,
+          "proxy_reason": "Village-level granular income ledger unavailable; using official District Domestic Product & Rural Wage proxies.",
+          "geographic_precision": "district",
+          "source": {
+            "source_id": "SRC-007",
+            "organization": "Reserve Bank of India / Ministry of Statistics and Programme Implementation (MOSPI)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "District Domestic Product & Financial Inclusion Indicators",
+            "url": "https://rbi.org.in"
+          },
+          "reference_period": "2024",
+          "retrieved_at": "2026-09-11T11:42:52.066474Z"
+        },
+        {
+          "indicator_type": "multidimensional_poverty_headcount_proxy",
+          "value": 21.6,
+          "unit": "percent",
+          "proxy": true,
+          "proxy_reason": "Village-level granular income ledger unavailable; using official District Domestic Product & Rural Wage proxies.",
+          "geographic_precision": "district",
+          "source": {
+            "source_id": "SRC-007",
+            "organization": "Reserve Bank of India / Ministry of Statistics and Programme Implementation (MOSPI)",
+            "source_type": "OFFICIAL_DATASET",
+            "dataset_name": "District Domestic Product & Financial Inclusion Indicators",
+            "url": "https://rbi.org.in"
+          },
+          "reference_period": "NITI Aayog MPI 2023",
+          "retrieved_at": "2026-09-11T11:42:52.066481Z"
+        }
+      ],
+      "seasonality_evidence": [
+        {
+          "factor_name": "Mini / Modern Rice Mill Unit Annual Cyclicality",
+          "peak_months": [
+            "JAN",
+            "FEB",
+            "OCT",
+            "NOV",
+            "DEC"
+          ],
+          "lean_months": [
+            "APR",
+            "MAY",
+            "JUN",
+            "JUL",
+            "AUG"
+          ],
+          "seasonal_notes": "Peak post-Kharif harvest (Oct-Feb) and secondary Rabi harvest (April-May). Slower during monsoon paddy planting months.",
+          "monthly_multipliers": {
+            "jan": 1.3,
+            "feb": 1.15,
+            "mar": 0.95,
+            "apr": 0.85,
+            "may": 0.8,
+            "jun": 0.85,
+            "jul": 0.9,
+            "aug": 0.9,
+            "sep": 1.05,
+            "oct": 1.35,
+            "nov": 1.45,
+            "dec": 1.4
+          },
+          "source": {
+            "source_id": "NABARD_AGRO_PROCESSING_2024",
+            "organization": "National Bank for Agriculture and Rural Development",
+            "source_type": "OFFICIAL_BENCHMARK"
+          },
+          "retrieved_at": "2026-09-11T11:42:52.065370Z"
+        }
+      ],
+      "demand_prediction": {
+        "available": false,
+        "status": "model_not_connected",
+        "prediction": null,
+        "model_version": null,
+        "confidence": null,
+        "reason": "Demand prediction ML model service is currently offline or endpoint not connected.",
+        "recommended_action": "connect_demand_prediction_model"
+      }
+    },
+    "evidence_quality": {
+      "completeness": 1,
+      "source_quality": 0.92,
+      "geographic_relevance": 0.95,
+      "freshness": 0.88,
+      "overall_quality": 0.95,
+      "breakdown": {
+        "completeness": 1,
+        "source_quality": 0.92,
+        "geographic_relevance": 0.95,
+        "freshness": 0.88,
+        "validation": 1
+      },
+      "missing_requirements": []
+    },
+    "evidence_gaps": [
+      {
+        "requirement": "ml_demand_forecast",
+        "reason": "Demand prediction ML model service is offline.",
+        "severity": "info",
+        "recommended_action": "Connect demand prediction ML model service to Stage 5 adapter."
+      }
+    ],
+    "execution_metadata": {
+      "tools_called": [
+        "location_intelligence_tool",
+        "knowledge_hub_tool",
+        "demographics_tool",
+        "competitor_discovery_tool",
+        "demand_evidence_tool",
+        "supply_access_tool",
+        "infrastructure_access_tool",
+        "economic_purchasing_power_tool",
+        "dataset_retrieval_tool",
+        "demand_prediction_adapter"
+      ],
+      "successful_tools": [
+        "location_intelligence_tool",
+        "knowledge_hub_tool",
+        "demographics_tool",
+        "competitor_discovery_tool",
+        "demand_evidence_tool",
+        "supply_access_tool",
+        "infrastructure_access_tool",
+        "economic_purchasing_power_tool",
+        "dataset_retrieval_tool",
+        "demand_prediction_adapter"
+      ],
+      "failed_tools": [],
+      "retried_tools": [],
+      "llm_used": false,
+      "llm_fallback_used": true,
+      "execution_time_seconds": 0.002
+    },
+    "provenance": {
+      "sources": [
+        {
+          "source_id": "SRC-002",
+          "organization": "Office of the Registrar General & Census Commissioner, India",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230376Z",
+          "dataset_name": "Census of India \u2014 Primary Census Abstract & Village Amenities",
+          "url": "https://www.data.gov.in/catalog/village-amenities-census-2011"
+        },
+        {
+          "source_id": "SRC-004",
+          "organization": "Ministry of Micro, Small and Medium Enterprises (MSME)",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230484Z",
+          "dataset_name": "UDYAM Registration Portal & District MSME Census",
+          "url": "https://www.data.gov.in/catalog/udyam-registration-msme-registration"
+        },
+        {
+          "source_id": "SRC-005",
+          "organization": "National Sample Survey Office (NSSO) / Ministry of Agriculture",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230541Z",
+          "dataset_name": "Household Consumer Expenditure Survey & Agricultural Statistics",
+          "url": "https://www.mospi.gov.in"
+        },
+        {
+          "source_id": "SRC-006",
+          "organization": "AGMARKNET / Ministry of Agriculture & Farmers Welfare / MSME Cluster Maps",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230593Z",
+          "dataset_name": "National APMC Mandi & Industrial Sourcing Directory",
+          "url": "https://agmarknet.gov.in"
+        },
+        {
+          "source_id": "SRC-003",
+          "organization": "Ministry of Rural Development (Mission Antyodaya / PMGSY)",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230661Z",
+          "dataset_name": "Mission Antyodaya Rural Infrastructure Indicators & PMGSY Geoportal",
+          "url": "https://missionantyodaya.nic.in"
+        },
+        {
+          "source_id": "SRC-007",
+          "organization": "Reserve Bank of India / Ministry of Statistics and Programme Implementation (MOSPI)",
+          "source_type": "OFFICIAL_DATASET",
+          "retrieved_at": "2026-09-11T11:43:03.230722Z",
+          "dataset_name": "District Domestic Product & Financial Inclusion Indicators",
+          "url": "https://rbi.org.in"
+        }
+      ],
+      "retrieved_at": "2026-09-11T11:43:03.231297Z"
+    }
+  }
+}

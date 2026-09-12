@@ -22,13 +22,21 @@ import {
   Sparkles
 } from 'lucide-react';
 import apiService from '../../services/api';
+import { useWorkflow } from '../../context/WorkflowContext';
 
 export default function ProfilePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const sessionId = searchParams.get('sessionId') || searchParams.get('session_id') || searchParams.get('id');
-  const analysisIdParam = searchParams.get('analysisId') || searchParams.get('analysis_id');
+  const {
+    sessionId: ctxSessionId,
+    analysisId: ctxAnalysisId,
+    updateWorkflowState,
+    markStageComplete
+  } = useWorkflow();
+
+  const sessionId = searchParams.get('sessionId') || searchParams.get('session_id') || searchParams.get('id') || ctxSessionId || '';
+  const analysisIdParam = searchParams.get('analysisId') || searchParams.get('analysis_id') || ctxAnalysisId || '';
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -51,8 +59,18 @@ export default function ProfilePage() {
       // First try to get existing profile
       try {
         const existing = await apiService.profile.getProfileBySessionId(sid);
-        if (existing && existing.analysis_id) {
+        if (existing && (existing.analysis_id || existing.id)) {
           setProfileData(existing);
+          const aid = existing.analysis_id || existing.id;
+          updateWorkflowState({
+            sessionId: sid,
+            analysisId: aid,
+            businessName: existing.specific_business,
+            currentStage: 3,
+            completedStages: [1, 2, 3],
+            nextStage: 4
+          });
+          markStageComplete(3, 4);
           setLoading(false);
           return;
         }
@@ -62,10 +80,19 @@ export default function ProfilePage() {
 
       // Build canonical profile
       const built = await apiService.profile.buildProfile(sid);
-      if (built && built.profile) {
-        setProfileData(built.profile);
-      } else if (built && built.analysis_id) {
-        setProfileData(built);
+      const prof = built?.profile || (built?.analysis_id ? built : null);
+      if (prof) {
+        setProfileData(prof);
+        const aid = prof.analysis_id || prof.id;
+        updateWorkflowState({
+          sessionId: sid,
+          analysisId: aid,
+          businessName: prof.specific_business,
+          currentStage: 3,
+          completedStages: [1, 2, 3],
+          nextStage: 4
+        });
+        markStageComplete(3, 4);
       }
     } catch (err) {
       console.error('Failed to load/build business profile:', err);
@@ -642,11 +669,16 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  disabled
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-stone-100 border border-stone-300 text-stone-500 text-xs sm:text-sm font-bold shadow-xs cursor-not-allowed"
+                  onClick={() => navigate('/orchestrator', {
+                    state: {
+                      sessionId: profileData.session_id,
+                      analysisId: profileData.analysis_id
+                    }
+                  })}
+                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#EA580C] to-[#C2410C] hover:from-[#C2410C] hover:to-[#9A3412] text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
                 >
-                  <Lock className="w-4 h-4" />
-                  <span>Business Profile Ready for Orchestration</span>
+                  <span>Launch KALPA Manager Orchestrator (Stage 4)</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

@@ -3,7 +3,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.logging import logger
-from app.api.routes import health_router, intake_router, classification_router, profile_router
+from app.api.routes import (
+    health_router,
+    intake_router,
+    classification_router,
+    profile_router,
+    orchestrator_router,
+    knowledge_router,
+    market_intelligence_router,
+    opportunity_evaluation_router,
+    financial_analysis_router,
+)
 
 
 @asynccontextmanager
@@ -55,8 +65,14 @@ def create_application() -> FastAPI:
     app.include_router(intake_router, prefix=settings.API_V1_STR)
     app.include_router(classification_router, prefix=settings.API_V1_STR)
     app.include_router(profile_router, prefix=settings.API_V1_STR)
+    app.include_router(orchestrator_router, prefix=settings.API_V1_STR)
+    app.include_router(knowledge_router, prefix=settings.API_V1_STR)
+    app.include_router(market_intelligence_router, prefix=settings.API_V1_STR)
+    app.include_router(opportunity_evaluation_router, prefix=settings.API_V1_STR)
+    app.include_router(financial_analysis_router, prefix=settings.API_V1_STR)
 
     return app
+
 
 
 app = create_application()

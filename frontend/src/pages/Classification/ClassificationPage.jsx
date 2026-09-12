@@ -31,11 +31,19 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import ContourBackground from '../../components/ui/ContourBackground';
 import apiService from '../../services/api';
+import { useWorkflow } from '../../context/WorkflowContext';
 
 export const ClassificationPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const sessionId = searchParams.get('session_id') || searchParams.get('id') || '';
+
+  const {
+    sessionId: ctxSessionId,
+    updateWorkflowState,
+    markStageComplete
+  } = useWorkflow();
+
+  const sessionId = searchParams.get('session_id') || searchParams.get('id') || ctxSessionId || '';
 
   const [loading, setLoading] = useState(true);
   const [processingStep, setProcessingStep] = useState(0);
@@ -118,13 +126,28 @@ export const ClassificationPage = () => {
         data = await apiService.classification.classify({
           business_concept: 'Rice Mill',
           original_input: 'I want to open a rice mill in Mandya with ₹2 lakh',
-          language_code: 'en'
+          language_code: 'en',
+          location: { district: 'Mandya', state: 'Karnataka' },
+          capital_available: 200000,
+          skills: ['grain processing']
         });
       }
+
       setClassificationResult(data);
+      const activeSid = data?.session_id || sid;
+      if (activeSid) {
+        updateWorkflowState({
+          sessionId: activeSid,
+          businessName: data?.primary_candidate?.nic_name || classificationInput.business_concept,
+          currentStage: 2,
+          completedStages: [1, 2],
+          nextStage: 3
+        });
+        markStageComplete(2, 3);
+      }
     } catch (err) {
-      console.error('Classification fetch failed:', err);
-      setError(err.message || 'Unable to classify business. Please ensure Stage 1 is completed.');
+      console.error('Classification error:', err);
+      setError(err.message || 'Failed to classify business');
     } finally {
       setLoading(false);
     }

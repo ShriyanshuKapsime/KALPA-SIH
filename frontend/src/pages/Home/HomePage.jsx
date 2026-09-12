@@ -10,12 +10,17 @@ import {
   Compass, 
   TrendingUp, 
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  Award,
+  DollarSign,
+  Bot,
+  UserCheck
 } from 'lucide-react';
 import Card, { CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import apiService from '../../services/api';
+import WorkflowTimeline from '../../components/workflow/WorkflowTimeline';
 
 export const HomePage = () => {
   const [gatewayHealth, setGatewayHealth] = useState({ status: 'checking' });
@@ -41,55 +46,66 @@ export const HomePage = () => {
     fetchStatus();
   }, []);
 
-  const sequentialWorkflow = [
+  const journeyPillars = [
     {
       step: '01',
-      title: 'Business Idea & Vernacular Intake',
-      desc: 'Capture entrepreneurial ideas in Hindi, Tamil, Telugu, Marathi, and English via voice or text with Sarvam STT and deterministic NLP.',
+      pillar: 'Understand',
+      title: 'Intake, Classification & Profile',
+      desc: 'Multilingual vernacular voice & text intake, 5-digit NIC ontology classification, and canonical MSME profile.',
       active: true,
-      badge: 'Active — Phase 1',
+      badge: 'Active — Stages 1-3',
       link: '/intake',
-      icon: Mic,
+      icon: UserCheck,
     },
     {
       step: '02',
-      title: 'Entrepreneur Profile & Experience',
-      desc: 'Extract investment capital, location boundaries, technical skills, and past commercial experience.',
-      active: false,
-      badge: 'Stage 2 Ready',
-      locked: true,
+      pillar: 'Discover',
+      title: 'Spatial Market Intelligence',
+      desc: 'Hyper-local radius demographics, competitor mapping, supply chain accessibility, and demand benchmarking.',
+      active: true,
+      badge: 'Orchestrator Stage 5',
+      link: '/market-intelligence',
+      icon: Compass,
     },
     {
       step: '03',
-      title: 'Business Classification & NIC Mapping',
-      desc: 'Deterministic mapping into 5-digit National Industrial Classification (NIC) and domain ontology taxonomy.',
-      active: false,
-      badge: 'Upcoming Stage 2',
-      locked: true,
+      pillar: 'Validate',
+      title: 'Opportunity Evaluation Engine',
+      desc: 'Deterministic 6-factor opportunity score synthesizing demand, competition pressure, infrastructure, and local capacity.',
+      active: true,
+      badge: 'Orchestrator Stage 8',
+      link: '/opportunity-evaluation',
+      icon: Award,
     },
     {
       step: '04',
-      title: 'Spatial Market Intelligence',
-      desc: 'PostGIS hyper-local radius competition mapping, infrastructure accessibility, and demand benchmarking.',
-      active: false,
-      badge: 'Future Stage',
-      locked: true,
+      pillar: 'Finance',
+      title: 'Financial Planning & Scheme Match',
+      desc: 'Fixed CapEx/OpEx structuring, 90% debt sizing, annuity repayment amortization, and institutional PMMY/PMEGP matching.',
+      active: true,
+      badge: 'Orchestrator Stage 9',
+      link: '/financial-planning',
+      icon: DollarSign,
     },
     {
       step: '05',
-      title: 'ML Feasibility & Risk Modeling',
-      desc: 'Multivariate enterprise survivability assessment combining financial viability, local demand, and risk index.',
+      pillar: 'Prepare',
+      title: 'Risk Assessment & DPR Generator',
+      desc: 'Automated climatic & supply risk modeling, SWOT analysis, and institutional bankable Detailed Project Reports.',
       active: false,
-      badge: 'Future Stage',
+      badge: 'Future Stage (Locked)',
       locked: true,
+      icon: ShieldCheck,
     },
     {
       step: '06',
-      title: 'Bankable DPR Generator',
-      desc: 'Institutional-grade Detailed Project Report generation aligned with PMMY / PMEGP credit parameters.',
+      pillar: 'Grow',
+      title: 'Personal AI Advisor & Growth Manager',
+      desc: 'Conversational vernacular advisor for day-to-day operations, working capital monitoring, and market expansion.',
       active: false,
-      badge: 'Future Stage',
+      badge: 'Future Stage (Locked)',
       locked: true,
+      icon: Bot,
     },
   ];
 
@@ -97,87 +113,102 @@ export const HomePage = () => {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16 py-6">
       {/* Hero Section */}
       <section className="text-center space-y-6 pt-4 max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100/80 border border-orange-200/80 text-[#C2410C] text-xs font-semibold shadow-sm">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-orange-100 border border-orange-200 text-[#C2410C] text-xs font-bold shadow-2xs">
           <Sparkles className="w-3.5 h-3.5 text-[#EA580C]" />
-          <span>Smart India Hackathon 2026 • Bharat Rural Advisory</span>
+          <span>Smart India Hackathon 2026 &middot; Rural Enterprise Advisory</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-[#1C1917] font-['Outfit'] leading-tight">
+        <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-[#1C1917] font-['Outfit'] leading-tight">
           AI-Powered Hyper-Local <br />
           <span className="text-[#EA580C]">Livelihood & Business Advisory</span> <br />
           for <span className="text-[#292524]">Rural Bharat</span>
         </h1>
 
-        <p className="text-base sm:text-lg text-[#57534E] max-w-2xl mx-auto leading-relaxed">
-          From an entrepreneurial idea to an informed, sustainable business decision.
+        <p className="text-base sm:text-lg text-[#57534E] max-w-2xl mx-auto leading-relaxed font-normal">
+          A workflow-first journey guided by the KALPA Orchestrator Agent. From an entrepreneurial idea in native vernacular to validated market feasibility and bankable financing.
         </p>
 
-        {/* Primary CTA */}
+        {/* Primary CTAs */}
         <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link to="/intake">
-            <Button size="lg" icon={Mic} className="px-8 py-3.5 text-base shadow-lg shadow-orange-500/20">
-              START YOUR BUSINESS JOURNEY
-            </Button>
+            <button className="saffron-gradient-btn px-8 py-3.5 rounded-xl font-bold text-sm shadow-md hover:scale-105 transition-all flex items-center gap-2 cursor-pointer">
+              <Mic className="w-4 h-4" />
+              <span>START YOUR BUSINESS JOURNEY</span>
+            </button>
+          </Link>
+          <Link to="/journey">
+            <button className="px-6 py-3.5 rounded-xl font-bold text-sm bg-white hover:bg-stone-50 border border-[#EAE3D5] text-[#57534E] shadow-2xs transition-all flex items-center gap-2 cursor-pointer">
+              <Compass className="w-4 h-4 text-[#EA580C]" />
+              <span>Explore Orchestrator Journey</span>
+            </button>
           </Link>
         </div>
 
         {/* Indic Language Pills */}
         <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-[#78716C]">
-          <span>Supports:</span>
-          <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">हिन्दी (Hindi)</span>
-          <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">मराठी (Marathi)</span>
-          <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">தமிழ் (Tamil)</span>
-          <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">తెలుగు (Telugu)</span>
-          <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-700">English</span>
+          <span className="font-semibold">Supports Vernacular Voice:</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-stone-700 font-medium">हिन्दी (Hindi)</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-stone-700 font-medium">मराठी (Marathi)</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-stone-700 font-medium">தமிழ் (Tamil)</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-stone-700 font-medium">తెలుగు (Telugu)</span>
+          <span className="px-2.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-stone-700 font-medium">English</span>
         </div>
       </section>
 
-      {/* Sequential Journey Roadmap */}
+      {/* Embedded Live Workflow Timeline */}
+      <section>
+        <WorkflowTimeline />
+      </section>
+
+      {/* 6 Journey Pillars Roadmap */}
       <section className="space-y-6">
         <div className="text-center max-w-2xl mx-auto space-y-2">
-          <Badge variant="saffron">Sequential Workflow</Badge>
+          <Badge variant="saffron">Sequential Architecture</Badge>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1C1917] font-['Outfit']">
-            The KALPA Entrepreneurship Journey
+            The 6 KALPA Journey Pillars
           </h2>
           <p className="text-xs sm:text-sm text-[#57534E]">
-            A step-by-step advisory pipeline. Only active stages are accessible to ensure structured data integrity.
+            A structured entrepreneurship progression controlled by the KALPA Orchestrator Agent.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
-          {sequentialWorkflow.map((stepItem, idx) => {
-            if (stepItem.active) {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
+          {journeyPillars.map((item, idx) => {
+            const Icon = item.icon;
+            if (item.active) {
               return (
                 <div
                   key={idx}
-                  className="royal-card rounded-2xl p-6 border-2 border-orange-400/80 bg-white shadow-md relative overflow-hidden flex flex-col justify-between"
+                  className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white shadow-sm flex flex-col justify-between hover:border-[#EA580C] transition-all"
                 >
-                  <div className="absolute top-0 right-0 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
-                    Current Stage
-                  </div>
-
                   <div>
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center justify-between mb-3">
                       <span className="text-2xl font-black text-[#EA580C] font-['Outfit']">
-                        {stepItem.step}
+                        {item.step}
                       </span>
-                      <Badge variant="saffron">{stepItem.badge}</Badge>
+                      <span className="text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full bg-orange-100 text-[#C2410C] border border-orange-200">
+                        {item.pillar}
+                      </span>
                     </div>
 
-                    <CardTitle className="text-base text-[#1C1917] mb-2">
-                      {stepItem.title}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-[#57534E]">
-                      {stepItem.desc}
-                    </CardDescription>
+                    <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] mb-1.5">
+                      {item.title}
+                    </h3>
+                    <p className="text-xs text-[#57534E] leading-relaxed">
+                      {item.desc}
+                    </p>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-[#EAE3D5] flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#EA580C]">Ready for Input</span>
-                    <Link to={stepItem.link}>
-                      <Button size="sm" icon={ArrowRight}>
-                        Launch Step 1
-                      </Button>
+                    <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Active Stage
+                    </span>
+                    <Link to={item.link}>
+                      <button className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#C2410C] bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-colors flex items-center gap-1">
+                        <span>Launch</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
                     </Link>
                   </div>
                 </div>
@@ -187,29 +218,30 @@ export const HomePage = () => {
             return (
               <div
                 key={idx}
-                className="rounded-2xl p-6 border border-stone-200/80 bg-stone-50/70 opacity-80 flex flex-col justify-between"
+                className="rounded-2xl p-6 border border-[#EAE3D5]/80 bg-white/70 opacity-80 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xl font-bold text-stone-400 font-['Outfit']">
-                      {stepItem.step}
+                      {item.step}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-stone-200/60 text-stone-600 font-medium">
                       <Lock className="w-3 h-3" />
-                      Locked
+                      Locked Milestone
                     </span>
                   </div>
 
-                  <h3 className="text-sm font-semibold text-stone-700 mb-1.5">
-                    {stepItem.title}
+                  <h3 className="text-sm font-semibold text-stone-700 mb-1.5 font-['Outfit']">
+                    {item.title}
                   </h3>
                   <p className="text-xs text-stone-500 leading-relaxed">
-                    {stepItem.desc}
+                    {item.desc}
                   </p>
                 </div>
 
                 <div className="mt-6 pt-3 border-t border-stone-200/60 flex items-center justify-between text-[11px] text-stone-400">
-                  <span>Sequentially unlocked after Stage {parseInt(stepItem.step) - 1}</span>
+                  <span>Unlocks in Phase 2</span>
+                  <span className="font-semibold">{item.pillar}</span>
                 </div>
               </div>
             );
@@ -218,14 +250,14 @@ export const HomePage = () => {
       </section>
 
       {/* System Infrastructure Banner */}
-      <section className="royal-panel rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <section className="royal-panel rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-[#EAE3D5]">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#1C1917] flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-[#EA580C]" />
-            Pipeline Architecture Status
+            Pipeline Infrastructure Status
           </h3>
           <p className="text-xs text-[#78716C] mt-0.5">
-            Stage 1 Multilingual NLP & Sarvam Saaras STT Engine
+            Stage 1-9 Deterministic Multi-Agent & Scheme Calculation Engine
           </p>
         </div>
 

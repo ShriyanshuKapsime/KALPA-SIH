@@ -18,6 +18,9 @@ except Exception as e:
     SessionLocal = None
 
 
+from contextlib import contextmanager
+
+
 def get_db():
     """
     FastAPI dependency that provides a SQLAlchemy session per request.
@@ -30,3 +33,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def get_db_context():
+    """
+    Context manager providing a database session for background tasks and services.
+    """
+    if SessionLocal is None:
+        yield None
+        return
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+

@@ -85,6 +85,144 @@ export const apiService = {
     },
   },
 
+  orchestrator: {
+    start: async (sessionId, options = {}) => {
+      console.log('[FRONTEND → GATEWAY] Starting orchestrator for session:', sessionId);
+      return apiClient.post('/orchestrator/start', { session_id: sessionId, ...options });
+    },
+    getById: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching orchestration record /orchestrator/${analysisId}`);
+      return apiClient.get(`/orchestrator/${analysisId}`);
+    },
+    getBySessionId: async (sessionId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching orchestration record /orchestrator/session/${sessionId}`);
+      return apiClient.get(`/orchestrator/session/${sessionId}`);
+    },
+    getWorkflowStatus: async (identifier) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching canonical workflow status /orchestrator/workflow/${identifier}`);
+      return apiClient.get(`/orchestrator/workflow/${identifier}`);
+    },
+  },
+
+  knowledge: {
+    getCoverageReport: async () => {
+      console.log('[FRONTEND → GATEWAY] Fetching knowledge coverage report');
+      return apiClient.get('/knowledge/coverage');
+    },
+    getDataSources: async (params = {}) => {
+      return apiClient.get('/knowledge/sources', { params });
+    },
+    getDataSourceById: async (id) => {
+      return apiClient.get(`/knowledge/sources/${encodeURIComponent(id)}`);
+    },
+    getSchemes: async (params = {}) => {
+      return apiClient.get('/knowledge/schemes', { params });
+    },
+    getSchemeById: async (id) => {
+      return apiClient.get(`/knowledge/schemes/${encodeURIComponent(id)}`);
+    },
+    evaluateSchemeEligibility: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Evaluating scheme eligibility:', payload);
+      return apiClient.post('/knowledge/schemes/evaluate', payload);
+    },
+    getFinancialBenchmarks: async () => {
+      return apiClient.get('/knowledge/benchmarks/financial');
+    },
+    getFinancialBenchmarkById: async (id) => {
+      return apiClient.get(`/knowledge/benchmarks/financial/${encodeURIComponent(id)}`);
+    },
+    getMarketBenchmarks: async () => {
+      return apiClient.get('/knowledge/benchmarks/market');
+    },
+    getMarketBenchmarkById: async (id) => {
+      return apiClient.get(`/knowledge/benchmarks/market/${encodeURIComponent(id)}`);
+    },
+    getBusinessProfiles: async () => {
+      return apiClient.get('/knowledge/business-profiles');
+    },
+    getBusinessProfileById: async (id) => {
+      return apiClient.get(`/knowledge/business-profiles/${encodeURIComponent(id)}`);
+    },
+    getMarketKnowledgePack: async (id, params = {}) => {
+      return apiClient.get(`/knowledge/market-pack/${encodeURIComponent(id)}`, { params });
+    },
+    getFinancialKnowledgePack: async (id, params = {}) => {
+      return apiClient.get(`/knowledge/financial-pack/${encodeURIComponent(id)}`, { params });
+    },
+    calculateFinancialFeasibility: async (payload) => {
+      return apiClient.post('/knowledge/financial-pack/calculate', payload);
+    },
+    getComprehensivePack: async (id, params = {}) => {
+      return apiClient.get(`/knowledge/comprehensive-pack/${encodeURIComponent(id)}`, { params });
+    },
+    getBusinessRequirements: async (id) => {
+      return apiClient.get(`/knowledge/business/${encodeURIComponent(id)}/requirements`);
+    },
+    getBusinessKnowledgePack: async (id, params = {}) => {
+      return apiClient.get(`/knowledge/business/${encodeURIComponent(id)}/pack`, { params });
+    },
+    getRisks: async (params = {}) => {
+      return apiClient.get('/knowledge/risks', { params });
+    },
+    getDocuments: async (params = {}) => {
+      return apiClient.get('/knowledge/documents', { params });
+    },
+    getDynamicRequirements: async (params = {}) => {
+      return apiClient.get('/knowledge/dynamic-requirements', { params });
+    },
+  },
+
+  marketIntelligence: {
+    collect: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering market intelligence collection (Stage 5):', payload);
+      return apiClient.post('/market-intelligence/collect', payload);
+    },
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering deterministic market intelligence engine analysis (Stage 6):', payload);
+      return apiClient.post('/market-intelligence/analyze', payload);
+    },
+    getById: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching market evidence /market-intelligence/${analysisId}`);
+      return apiClient.get(`/market-intelligence/${analysisId}`);
+    },
+    getToolHealth: async () => {
+      return apiClient.get('/market-intelligence/tools/health');
+    },
+    retry: async (analysisId, payload = {}) => {
+      return apiClient.post(`/market-intelligence/${analysisId}/retry`, payload);
+    },
+  },
+
+  opportunityEvaluation: {
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering deterministic Opportunity Evaluation Engine analysis (Stage 8):', payload);
+      return apiClient.post('/opportunity-evaluation/analyze', payload);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking Opportunity Evaluation Engine health');
+      return apiClient.get('/opportunity-evaluation/health');
+    },
+  },
+
+  financialAnalysis: {
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering deterministic Financial Engine analysis (Stage 9):', payload);
+      return apiClient.post('/financial-analysis/analyze', payload);
+    },
+    calculate: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering standalone Financial Calculator (Stage 9):', payload);
+      return apiClient.post('/financial-analysis/calculator', payload);
+    },
+    calculator: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering standalone Financial Calculator (Stage 9):', payload);
+      return apiClient.post('/financial-analysis/calculator', payload);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking Financial Engine health');
+      return apiClient.get('/financial-analysis/health');
+    },
+  },
+
   market: {
     getAnalysis: async (businessId) => apiClient.get(`/market/analysis/${businessId}`),
   },
@@ -98,5 +236,6 @@ export const apiService = {
     getReport: async (reportId) => apiClient.get(`/dpr/report/${reportId}`),
   },
 };
+
 
 export default apiService;

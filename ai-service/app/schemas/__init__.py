@@ -16,9 +16,34 @@ from app.schemas.intake import (
 )
 from app.schemas.classification import BusinessClassificationRequest, BusinessClassificationResponse, NICCodeMatch
 from app.schemas.profile import EntrepreneurProfileCreate, BusinessProfileCreate
-from app.schemas.market import SpatialAnalysisRequest, MarketIntelligenceResponse
+from app.schemas.market import (
+    SpatialAnalysisRequest,
+    MarketIntelligenceResponse,
+    MarketEvidenceProfile,
+    CollectMarketEvidenceRequest,
+    CollectMarketEvidenceResponse,
+    ToolHealthReport,
+    LocationContext,
+    CollectionPlan,
+    EvidenceQuality,
+)
 from app.schemas.feasibility import FeasibilityEvaluationRequest, FeasibilityEvaluationResponse, DynamicSWOTResponse
 from app.schemas.dpr import DPRGenerationRequest, DPRGenerationResponse
+
+from app.schemas.knowledge import (
+    ProvenanceSchema,
+    DataSourceMetadataSchema,
+    GovernmentSchemeSchema,
+    FinancialBenchmarkSchema,
+    MarketBenchmarkSchema,
+    BusinessRequirementSchema,
+    RiskItemSchema,
+    InstitutionalDocumentSchema,
+    DynamicDataRequirementSchema,
+    CoverageReportSchema,
+    SchemeEligibilityQuery,
+    SchemeEligibilityResult,
+)
 
 __all__ = [
     "HealthResponse",
@@ -48,4 +73,17 @@ __all__ = [
     "DynamicSWOTResponse",
     "DPRGenerationRequest",
     "DPRGenerationResponse",
+    "ProvenanceSchema",
+    "DataSourceMetadataSchema",
+    "GovernmentSchemeSchema",
+    "FinancialBenchmarkSchema",
+    "MarketBenchmarkSchema",
+    "BusinessRequirementSchema",
+    "RiskItemSchema",
+    "InstitutionalDocumentSchema",
+    "DynamicDataRequirementSchema",
+    "CoverageReportSchema",
+    "SchemeEligibilityQuery",
+    "SchemeEligibilityResult",
 ]
+

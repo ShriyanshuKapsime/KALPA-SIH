@@ -3,6 +3,11 @@ import healthController from '../controllers/healthController.js';
 import intakeController from '../controllers/intakeController.js';
 import classificationController from '../controllers/classificationController.js';
 import profileController from '../controllers/profileController.js';
+import orchestratorController from '../controllers/orchestratorController.js';
+import knowledgeController from '../controllers/knowledgeController.js';
+import marketIntelligenceController from '../controllers/marketIntelligenceController.js';
+import opportunityEvaluationController from '../controllers/opportunityEvaluationController.js';
+import financialAnalysisController from '../controllers/financialAnalysisController.js';
 
 const router = Router();
 
@@ -26,11 +31,56 @@ router.post('/profile/build', profileController.buildProfile);
 router.get('/profile/session/:id', profileController.getProfileBySessionId);
 router.get('/profile/:id', profileController.getProfileByAnalysisId);
 
+// Stage 4 Live Manager Agent / Orchestrator Routes
+router.post('/orchestrator/start', orchestratorController.startOrchestrator);
+router.get('/orchestrator/session/:id', orchestratorController.getOrchestratorBySessionId);
+router.get('/orchestrator/workflow/:id', orchestratorController.getWorkflowStatus);
+router.get('/orchestrator/:id', orchestratorController.getOrchestratorByAnalysisId);
+
+// Stage 4.5 Live Domain Knowledge & Benchmark Hub Routes
+router.get('/knowledge/coverage', knowledgeController.getCoverageReport);
+router.get('/knowledge/sources', knowledgeController.getDataSources);
+router.get('/knowledge/sources/:id', knowledgeController.getDataSourceById);
+router.get('/knowledge/schemes', knowledgeController.getSchemes);
+router.get('/knowledge/schemes/:id', knowledgeController.getSchemeById);
+router.post('/knowledge/schemes/evaluate', knowledgeController.evaluateSchemeEligibility);
+router.get('/knowledge/business-profiles', knowledgeController.getBusinessProfiles);
+router.get('/knowledge/business-profiles/:id', knowledgeController.getBusinessProfileById);
+router.get('/knowledge/benchmarks/financial', knowledgeController.getFinancialBenchmarks);
+router.get('/knowledge/benchmarks/financial/:id', knowledgeController.getFinancialBenchmarkById);
+router.get('/knowledge/benchmarks/market', knowledgeController.getMarketBenchmarks);
+router.get('/knowledge/benchmarks/market/:id', knowledgeController.getMarketBenchmarkById);
+router.get('/knowledge/market-pack/:id', knowledgeController.getMarketKnowledgePack);
+router.get('/knowledge/financial-pack/:id', knowledgeController.getFinancialKnowledgePack);
+router.post('/knowledge/financial-pack/calculate', knowledgeController.calculateFinancialFeasibility);
+router.get('/knowledge/comprehensive-pack/:id', knowledgeController.getComprehensivePack);
+router.get('/knowledge/business/:id/requirements', knowledgeController.getBusinessRequirements);
+router.get('/knowledge/business/:id/pack', knowledgeController.getBusinessKnowledgePack);
+router.get('/knowledge/risks', knowledgeController.getRisks);
+router.get('/knowledge/documents', knowledgeController.getDocuments);
+router.get('/knowledge/dynamic-requirements', knowledgeController.getDynamicRequirements);
+
+// Stage 5 & 6 Live Market Intelligence Routes
+router.post('/market-intelligence/collect', marketIntelligenceController.collectMarketEvidence);
+router.post('/market-intelligence/analyze', marketIntelligenceController.analyzeMarketIntelligence);
+router.get('/market-intelligence/tools/health', marketIntelligenceController.getToolHealthReport);
+router.get('/market-intelligence/:id', marketIntelligenceController.getMarketEvidenceById);
+router.post('/market-intelligence/:id/retry', marketIntelligenceController.retryMarketEvidence);
+
+// Stage 8 Live Opportunity Evaluation Engine Routes
+router.post('/opportunity-evaluation/analyze', opportunityEvaluationController.analyzeOpportunity);
+router.get('/opportunity-evaluation/health', opportunityEvaluationController.getOpportunityEngineHealth);
+
+// Stage 9 Live Financial Engine Routes
+router.post('/financial-analysis/analyze', financialAnalysisController.analyzeFinancialProfile);
+router.post('/financial-analysis/calculator', financialAnalysisController.calculateFinancials);
+router.get('/financial-analysis/health', financialAnalysisController.getFinancialEngineHealth);
+
 // Locked Future Stages
 router.all('/market/*', (req, res) => {
   res.status(501).json({
     status: 'scaffold_only',
-    message: 'Market Intelligence API endpoint will be activated in future phases.',
+    message: 'Market Intelligence Engine analysis endpoint will be activated in future phases.',
   });
 });
 

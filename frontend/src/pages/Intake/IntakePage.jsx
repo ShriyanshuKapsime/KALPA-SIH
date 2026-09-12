@@ -30,6 +30,7 @@ import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import ContourBackground from '../../components/ui/ContourBackground';
 import apiService from '../../services/api';
+import { useWorkflow } from '../../context/WorkflowContext';
 
 // Language Options (Display Labels separated from Sarvam API values)
 const SUPPORTED_LANGUAGES = [
@@ -217,6 +218,7 @@ const UI_STRINGS = {
 
 export const IntakePage = () => {
   const navigate = useNavigate();
+  const { updateWorkflowState, markStageComplete } = useWorkflow();
   // Language State: Priority English -> Kannada -> Hindi
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   
@@ -240,17 +242,28 @@ export const IntakePage = () => {
   const profile = sessionResponse?.profile;
   const nextAction = sessionResponse?.next_action;
 
-  // Sync Stage 1 structured result to sessionStorage
+  // Sync Stage 1 structured result to sessionStorage and central workflow context
   useEffect(() => {
     if (sessionResponse) {
       console.log('[STAGE 1 RESULT]', sessionResponse);
+      const sid = sessionResponse.session_id || sessionResponse.profile?.session_id;
+      const bName = sessionResponse.profile?.business_idea || sessionResponse.profile?.business_concept;
+      if (sid) {
+        updateWorkflowState({
+          sessionId: sid,
+          businessName: bName,
+          currentStage: 1,
+          completedStages: [1],
+          nextStage: 2
+        });
+      }
       try {
         sessionStorage.setItem('kalpa_stage1_response', JSON.stringify(sessionResponse));
       } catch (e) {
         console.warn('Unable to store Stage 1 result in sessionStorage:', e);
       }
     }
-  }, [sessionResponse]);
+  }, [sessionResponse, updateWorkflowState]);
 
   // Follow-up interaction state
   const [followUpTab, setFollowUpTab] = useState('text'); // 'text' | 'voice'

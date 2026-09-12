@@ -49,8 +49,14 @@ services:
       - GROQ_MODEL=${GROQ_MODEL:-qwen/qwen3.6-27b}
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_STT_MODEL=${SARVAM_STT_MODEL:-saaras:v4}
+      - SARVAM_LLM_MODEL=${SARVAM_LLM_MODEL:-sarvam-105b}
+      - SARVAM_LLM_ENABLED=${SARVAM_LLM_ENABLED:-true}
+    volumes:
+      - ./ai-service:/app
     ports:
       - "8000:8000"
+    # Development: hot-reload on file changes
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
       interval: 15s
@@ -76,8 +82,13 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - AI_SERVICE_URL=http://ai-service:8000
       - CORS_ORIGIN=http://localhost:5173
+    volumes:
+      - ./gateway:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
+    # Development: hot-reload on file changes
+    command: ["node", "--watch", "src/server.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "const req = require('http').get('http://127.0.0.1:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1));"]
       interval: 15s

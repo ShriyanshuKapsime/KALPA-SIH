@@ -23,3 +23,4 @@ class User(TimeStampedModel):
     intake_sessions = relationship("IntakeSession", back_populates="user")
     conversations = relationship("Conversation", back_populates="user")
     structured_business_profiles = relationship("StructuredBusinessProfile", back_populates="user")
+    orchestration_records = relationship("OrchestrationRecord", back_populates="user")

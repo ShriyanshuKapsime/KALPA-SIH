@@ -31,3 +31,24 @@ def search_nic_candidates(
         ontology_nic_hints=ontology_nic_hints,
         limit=limit
     )
+
+
+class NICService:
+    def load_data(self) -> List[Dict[str, Any]]:
+        return load_nic_data()
+
+    def get_by_code(self, code: str) -> Optional[Dict[str, Any]]:
+        return get_nic_by_code(code)
+
+    def search_candidates(
+        self,
+        normalized_concept: str,
+        keywords: List[str] = None,
+        ontology_nic_hints: List[str] = None,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        return search_nic_candidates(normalized_concept, keywords, ontology_nic_hints, limit)
+
+
+nic_service = NICService()
+

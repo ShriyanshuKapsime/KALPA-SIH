@@ -67,3 +67,34 @@ class OpportunityEvaluation(TimeStampedModel):
 
     # Relationship
     business = relationship("BusinessProfile", back_populates="opportunity_evaluation")
+
+
+class MarketEvidenceRecord(TimeStampedModel):
+    """
+    Stage 5 Market Evidence Record:
+    Persists the full Stage 5 raw evidence collected, location resolution context,
+    collection plan, explainable quality breakdown, evidence gaps, execution trace, and provenance.
+    """
+    __tablename__ = "market_evidence_records"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)  # analysis_id
+    session_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    schema_version = Column(String(20), default="1.0", nullable=False)
+    workflow_status = Column(String(64), default="MARKET_EVIDENCE_COLLECTED", index=True, nullable=False)
+    geographic_precision = Column(String(32), default="district", nullable=False)
+    overall_quality_score = Column(Float, default=0.0, nullable=False)
+
+    # Structured Components
+    location_context = Column(JSON, default=dict, nullable=False)
+    collection_plan = Column(JSON, default=dict, nullable=False)
+    market_evidence = Column(JSON, default=dict, nullable=False)
+    evidence_quality = Column(JSON, default=dict, nullable=False)
+    evidence_gaps = Column(JSON, default=list, nullable=False)
+    execution_metadata = Column(JSON, default=dict, nullable=False)
+    provenance = Column(JSON, default=dict, nullable=False)
+
+    # Full canonical JSON document
+    full_profile = Column(JSON, nullable=False)
+
