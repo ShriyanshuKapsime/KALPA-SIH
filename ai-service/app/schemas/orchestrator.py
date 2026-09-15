@@ -89,9 +89,12 @@ class CanonicalWorkflowState(BaseModel):
     business_id: Optional[str] = None
     current_stage: int = 4
     workflow_status: str = "ORCHESTRATION_COMPLETE"
-    completed_stages: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 8, 9])
-    available_stages: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 8, 9])
-    locked_stages: List[int] = Field(default_factory=lambda: [10, 11, 12, 13, 14, 15])
+    # Workflow states:
+    # ENTREPRENEUR_PROFILE_PENDING | ENTREPRENEUR_PROFILE_ANALYZING | ENTREPRENEUR_PROFILE_INCOMPLETE | ENTREPRENEUR_PROFILE_ANALYZED
+    # RISK_ANALYSIS_PENDING | RISK_ANALYZING | RISK_ANALYZED | FEASIBILITY_READY
+    completed_stages: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 8, 9, 10, 11])
+    available_stages: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5, 8, 9, 10, 11])
+    locked_stages: List[int] = Field(default_factory=lambda: [12, 13, 14, 15])
     active_agent: Optional[str] = None
     next_stage: Optional[int] = 5
     stage_name: str = "KALPA_MANAGER_ORCHESTRATOR"
@@ -100,7 +103,7 @@ class CanonicalWorkflowState(BaseModel):
         "discover": "ACTIVE",
         "validate": "PENDING",
         "finance": "PENDING",
-        "prepare": "LOCKED",
+        "prepare": "ACTIVE",
         "grow": "LOCKED"
     })
     engine_outputs: Dict[str, Any] = Field(default_factory=dict)

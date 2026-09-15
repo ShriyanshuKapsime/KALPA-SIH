@@ -13,6 +13,8 @@ from app.api.routes import (
     market_intelligence_router,
     opportunity_evaluation_router,
     financial_analysis_router,
+    entrepreneur_profile_router,
+    risk_analysis_router,
 )
 
 
@@ -70,6 +72,8 @@ def create_application() -> FastAPI:
     app.include_router(market_intelligence_router, prefix=settings.API_V1_STR)
     app.include_router(opportunity_evaluation_router, prefix=settings.API_V1_STR)
     app.include_router(financial_analysis_router, prefix=settings.API_V1_STR)
+    app.include_router(entrepreneur_profile_router, prefix=settings.API_V1_STR)
+    app.include_router(risk_analysis_router, prefix=settings.API_V1_STR)
 
     return app
 

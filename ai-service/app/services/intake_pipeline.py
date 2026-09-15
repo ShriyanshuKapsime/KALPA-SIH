@@ -7,6 +7,7 @@ from app.core.logging import logger
 from app.services.language_detector import detect_language, LANGUAGE_MAP
 from app.services.entity_extractor import extract_deterministic_entities, refine_with_llm
 from app.services.money_normalizer import parse_indian_money
+from app.services.intake.canonical_extractor import canonical_intake_extractor
 from app.schemas.intake import (
     Stage1Profile,
     Stage1IntakeResponse,
@@ -247,33 +248,35 @@ async def process_user_intake(
 ) -> Stage1IntakeResponse:
     """
     End-to-End Multilingual Stage 1 Intake Pipeline:
-    Text Normalization -> Language Detection (English / Kannada / Hindi Priority) ->
-    Deterministic Extraction -> LLM Refinement -> Missing Field Evaluation ->
+    Unicode Normalization -> Language Detection (Indic + English + Hinglish) ->
+    Compositional Number & Amount Extraction -> Business Entity Extraction ->
+    LLM Refinement (with graceful offline fallback) -> Missing Field Evaluation ->
     Intelligent Clarification Generation -> Persistence.
     """
     original_text = text.strip() if text else ""
     normalized_text = normalize_multilingual_text(original_text)
     logger.info(f"[STAGE 1 INTAKE PIPELINE] input_type='{input_type}', text='{normalized_text[:60]}...'")
 
-    # 1. Language Detection
-    lang_code, lang_name = detect_language(normalized_text, override_code=language_override)
+    # Execute Canonical Intake Extractor
+    canonical = await canonical_intake_extractor.extract_canonical_profile(
+        text=normalized_text,
+        language_hint=language_override or selected_language,
+        use_llm_refinement=True
+    )
+
+    lang_dict = canonical.get("language", {})
+    lang_code = lang_dict.get("code", "en")
+    lang_name = lang_dict.get("name", "English")
     active_lang = selected_language or lang_code
 
-    # 2. Deterministic Multilingual Extraction
-    deterministic = extract_deterministic_entities(normalized_text, language_code=lang_code)
+    business_concept = canonical.get("business_concept")
+    business_category_hint = canonical.get("business_category_hint")
+    intent = canonical.get("intent", "start_business")
+    business_stage = canonical.get("business_stage", "planning")
+    available_capital = canonical.get("available_capital")
+    capital_currency = canonical.get("capital_currency", "INR")
 
-    # 3. Controlled LLM Structured Refinement (Graceful offline fallback)
-    refined = await refine_with_llm(normalized_text, lang_code, deterministic)
-
-    # 4. Extract entities
-    business_concept = refined.get("business_concept") or deterministic.get("business_concept")
-    business_category_hint = refined.get("business_category_hint") or deterministic.get("business_category_hint")
-    intent = refined.get("intent") or deterministic.get("intent", "start_business")
-    business_stage = refined.get("business_stage") or deterministic.get("business_stage", "planning")
-    available_capital = refined.get("available_capital") if refined.get("available_capital") is not None else deterministic.get("available_capital")
-    capital_currency = refined.get("capital_currency", "INR")
-
-    loc_dict = refined.get("proposed_location") or deterministic.get("proposed_location", {})
+    loc_dict = canonical.get("proposed_location", {})
     proposed_location = LocationData(
         name=loc_dict.get("name", ""),
         district=loc_dict.get("district", ""),
@@ -284,21 +287,21 @@ async def process_user_intake(
         source=loc_dict.get("source", "unresolved")
     )
 
-    skills_list = refined.get("entrepreneur_skills") or deterministic.get("entrepreneur_skills", [])
-    skills_status = refined.get("skills_status") or deterministic.get("skills_status", "unspecified")
+    skills_list = canonical.get("entrepreneur_skills", [])
+    skills_status = canonical.get("skills_status", "unspecified")
     if skills_list and skills_status == "unspecified":
         skills_status = "collected"
 
-    existing_bus_dict = refined.get("existing_business") or deterministic.get("existing_business", {})
+    existing_bus_dict = canonical.get("existing_business", {})
     existing_business = ExistingBusinessData(
         exists=existing_bus_dict.get("exists", intent in ["expand_business", "existing_business"]),
         type=existing_bus_dict.get("type", business_concept or ""),
         current_status=existing_bus_dict.get("current_status", "operational" if intent in ["expand_business", "existing_business"] else "")
     )
 
-    confidence = refined.get("confidence") or deterministic.get("confidence", {})
+    confidence = canonical.get("confidence", {})
 
-    # 5. Evaluate Missing Fields
+    # Evaluate Missing Fields
     missing_fields = evaluate_stage1_missing_fields(
         business_concept=business_concept,
         intent=intent,
@@ -310,7 +313,7 @@ async def process_user_intake(
 
     is_complete = (len(missing_fields) == 0)
 
-    # 6. Generate Language-Consistent Next Action Clarification
+    # Generate Language-Consistent Next Action Clarification
     next_action = build_next_action(missing_fields, language_code=active_lang)
 
     session_id = str(uuid.uuid4())

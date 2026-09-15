@@ -10,6 +10,8 @@ from app.agents.adapters.market_intelligence_adapter import MarketIntelligenceAd
 from app.agents.adapters.market_intelligence_engine_adapter import MarketIntelligenceEngineAdapter
 from app.agents.adapters.opportunity_evaluation_adapter import OpportunityEvaluationAdapter
 from app.agents.adapters.finance_adapter import FinanceAdapter
+from app.agents.adapters.entrepreneur_profile_adapter import EntrepreneurProfileAdapter
+from app.agents.adapters.risk_engine_adapter import RiskEngineAdapter
 from app.agents.adapters.feasibility_adapter import FeasibilityAdapter
 from app.core.logging import logger
 
@@ -25,6 +27,8 @@ class AgentRegistry:
         self.register(MarketIntelligenceEngineAdapter())
         self.register(OpportunityEvaluationAdapter())
         self.register(FinanceAdapter())
+        self.register(EntrepreneurProfileAdapter())
+        self.register(RiskEngineAdapter())
         self.register(FeasibilityAdapter())
         logger.info(f"[AGENT REGISTRY] Registered {len(self._adapters)} agent adapters: {list(self._adapters.keys())}")
 

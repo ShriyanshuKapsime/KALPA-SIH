@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Lock, ArrowLeft } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-
 export const AssistantPage = () => {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-8">

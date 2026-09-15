@@ -223,6 +223,32 @@ export const apiService = {
     },
   },
 
+  entrepreneurProfile: {
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering deterministic Entrepreneur Profile Engine analysis (Stage 10):', payload);
+      return apiClient.post('/entrepreneur-profile/analyze', payload);
+    },
+    clarify: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Submitting entrepreneur clarification to /entrepreneur-profile/clarify:', payload);
+      return apiClient.post('/entrepreneur-profile/clarify', payload);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking Entrepreneur Profile Engine health');
+      return apiClient.get('/entrepreneur-profile/health');
+    },
+  },
+
+  riskAnalysis: {
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering deterministic Risk Engine analysis (Stage 11):', payload);
+      return apiClient.post('/risk-analysis/analyze', payload);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking Risk Engine health');
+      return apiClient.get('/risk-analysis/health');
+    },
+  },
+
   market: {
     getAnalysis: async (businessId) => apiClient.get(`/market/analysis/${businessId}`),
   },

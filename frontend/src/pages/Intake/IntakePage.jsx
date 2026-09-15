@@ -237,17 +237,18 @@ export const IntakePage = () => {
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
 
-  // Stage 1 API Response & Profile
+  // Stage 1 API Response & Canonical Profile Adapter
   const [sessionResponse, setSessionResponse] = useState(null);
-  const profile = sessionResponse?.profile;
-  const nextAction = sessionResponse?.next_action;
+  const profile = sessionResponse?.profile || (sessionResponse?.session_id ? sessionResponse : null);
+  const nextAction = sessionResponse?.next_action || (profile?.next_action || null);
 
   // Sync Stage 1 structured result to sessionStorage and central workflow context
   useEffect(() => {
     if (sessionResponse) {
-      console.log('[STAGE 1 RESULT]', sessionResponse);
-      const sid = sessionResponse.session_id || sessionResponse.profile?.session_id;
-      const bName = sessionResponse.profile?.business_idea || sessionResponse.profile?.business_concept;
+      console.log('[STAGE 1 CANONICAL RESULT]', sessionResponse);
+      const activeProfile = sessionResponse.profile || sessionResponse;
+      const sid = sessionResponse.session_id || activeProfile?.session_id;
+      const bName = activeProfile?.business_concept || activeProfile?.business_idea;
       if (sid) {
         updateWorkflowState({
           sessionId: sid,
@@ -290,8 +291,13 @@ export const IntakePage = () => {
 
   const t = UI_STRINGS[selectedLanguage] || UI_STRINGS.en;
 
-  // Sample Prompts for Instant Testing
+  // Sample Prompts for Instant Multilingual Testing
   const samplePrompts = [
+    {
+      label: 'Saree Shop (Hindi)',
+      lang: 'hi',
+      text: 'मुझे साड़ी का दुकान खोलना है, मेरा बजट एक लाख रुपये।',
+    },
     {
       label: 'Dairy Farm (Kannada)',
       lang: 'kn',
@@ -308,14 +314,9 @@ export const IntakePage = () => {
       text: 'मैं मांड्या में ₹2 लाख के साथ डेयरी फार्म शुरू करना चाहता हूँ। मुझे पशुपालन का अनुभव है।',
     },
     {
-      label: 'Saree Shop (English)',
+      label: 'Expand Grocery (Hinglish)',
       lang: 'en',
-      text: 'I want to open a saree shop in my village with 3 lakh rupees and retail experience.',
-    },
-    {
-      label: 'Expand Grocery (English)',
-      lang: 'en',
-      text: 'I already run a small grocery shop and want to expand it with 1.5 lakh budget.',
+      text: 'Mera chhota kirana dukan hai aur expand karne ke liye 1.5 lakh budget hai.',
     },
   ];
 
@@ -687,9 +688,17 @@ export const IntakePage = () => {
     }
   };
 
-  const formatCurrency = (val) => {
-    if (val === null || val === undefined) return 'Not specified';
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+  const formatCurrency = (val, curr = 'INR') => {
+    if (val === null || val === undefined || isNaN(val)) return 'Not specified';
+    try {
+      return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: curr || 'INR',
+        maximumFractionDigits: 0,
+      }).format(val);
+    } catch {
+      return `₹${Number(val).toLocaleString('en-IN')}`;
+    }
   };
 
   return (
@@ -1105,11 +1114,20 @@ export const IntakePage = () => {
                   ) : (
                     <>
                       <p className="text-base font-bold text-[#1C1917]">
-                        {profile.available_capital !== null ? formatCurrency(profile.available_capital) : <span className="text-amber-600 italic">Pending clarification</span>}
+                        {profile.available_capital !== null && profile.available_capital !== undefined ? (
+                          formatCurrency(profile.available_capital, profile.capital_currency)
+                        ) : (
+                          <span className="text-amber-600 italic">Pending clarification</span>
+                        )}
                       </p>
-                      <span className="text-[11px] text-stone-500">
-                        {profile.available_capital !== null ? 'Verified' : 'Required for Stage 1'}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
+                        <span>Currency: {profile.capital_currency || 'INR'}</span>
+                        {profile.available_capital !== null && (
+                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-medium">
+                            {profile.confidence?.available_capital ? `${Math.round(profile.confidence.available_capital * 100)}% confidence` : 'Canonical'}
+                          </span>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>

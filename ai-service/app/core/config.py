@@ -55,7 +55,12 @@ class Settings(BaseSettings):
     @property
     def active_llm_model(self) -> str:
         if self.active_llm_provider == "groq":
-            return self.GROQ_MODEL or self.LLM_MODEL or "qwen/qwen3.6-27b"
+            raw_model = self.GROQ_MODEL or self.LLM_MODEL or "llama-3.3-70b-versatile"
+            # Normalize invalid model identifiers or prefixes for Groq
+            clean_m = raw_model.strip()
+            if "qwen3.6" in clean_m.lower() or clean_m.lower().startswith("qwen/"):
+                return "llama-3.3-70b-versatile"
+            return clean_m
         return self.LLM_MODEL or self.GROQ_MODEL or "gpt-4o"
 
     @property

@@ -86,11 +86,20 @@ export default function WorkflowTimeline({ currentPillar = 'understand', classNa
     },
     {
       stageNum: 10,
-      name: 'Risk & Feasibility',
+      name: 'Feasibility Prep',
+      pillar: 'prepare',
+      path: '/feasibility',
+      icon: ShieldAlert,
+      desc: 'Readiness & 7-Vector Risk Matrix',
+      output: engineOutputs?.entrepreneur_profile || (completedStages?.includes(10) ? 'Readiness & Risk ✓' : null)
+    },
+    {
+      stageNum: 12,
+      name: 'Final Feasibility',
       pillar: 'prepare',
       locked: true,
-      icon: ShieldAlert,
-      desc: 'Risk Assessment & SWOT Engine'
+      icon: FileCheck2,
+      desc: 'Survivability & Bankability Scoring'
     },
     {
       stageNum: 14,
@@ -102,8 +111,8 @@ export default function WorkflowTimeline({ currentPillar = 'understand', classNa
     }
   ];
 
-  // Compute overall active progress percentage (stages 1, 2, 3, 5, 8, 9)
-  const coreStages = [1, 2, 3, 5, 8, 9];
+  // Compute overall active progress percentage (stages 1, 2, 3, 5, 8, 9, 10, 11)
+  const coreStages = [1, 2, 3, 5, 8, 9, 10, 11];
   const completedCount = coreStages.filter(s => completedStages?.includes(s)).length;
   const progressPct = Math.round((completedCount / coreStages.length) * 100);
 

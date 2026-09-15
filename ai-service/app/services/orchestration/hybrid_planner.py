@@ -123,11 +123,19 @@ class HybridPlanner:
             },
             {
                 "step": 6,
-                "agent": "feasibility_engine",
-                "purpose": "Synthesize composite enterprise viability and regulatory clearances",
+                "agent": "entrepreneur_profile_engine",
+                "purpose": "Evaluate deterministic entrepreneur-business alignment across skills, experience, training, resources, and operations",
                 "priority": "HIGH",
                 "status": "pending",
-                "dependencies": ["domain_knowledge_agent", "market_intelligence_engine", "finance_engine"]
+                "dependencies": ["finance_engine"]
+            },
+            {
+                "step": 7,
+                "agent": "risk_engine",
+                "purpose": "Evaluate Market, Financial, Operational, Seasonal, Supply Chain, Competition, and Infrastructure risks with critical risk preservation",
+                "priority": "HIGH",
+                "status": "pending",
+                "dependencies": ["entrepreneur_profile_engine"]
             }
         ]
         return plan

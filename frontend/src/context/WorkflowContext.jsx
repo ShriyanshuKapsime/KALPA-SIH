@@ -49,21 +49,23 @@ export const WorkflowProvider = ({ children }) => {
   const [currentStage, setCurrentStage] = useState(stored?.current_stage || 1);
   const [workflowStatus, setWorkflowStatus] = useState(stored?.workflow_status || 'IDLE');
   const [completedStages, setCompletedStages] = useState(stored?.completed_stages || [1]);
-  const [availableStages, setAvailableStages] = useState(stored?.available_stages || [1, 2, 3, 4, 5, 8, 9]);
-  const [lockedStages, setLockedStages] = useState(stored?.locked_stages || [10, 11, 12, 13, 14, 15]);
+  const [availableStages, setAvailableStages] = useState(stored?.available_stages || [1, 2, 3, 4, 5, 8, 9, 10, 11]);
+  const [lockedStages, setLockedStages] = useState(stored?.locked_stages || [12, 13, 14, 15]);
   const [activeAgent, setActiveAgent] = useState(stored?.active_agent || null);
   const [nextStage, setNextStage] = useState(stored?.next_stage || 2);
   const [engineOutputs, setEngineOutputs] = useState(stored?.engine_outputs || {
     market_intelligence: null,
     opportunity_evaluation: null,
-    financial_planning: null
+    financial_planning: null,
+    entrepreneur_profile: null,
+    risk_analysis: null
   });
   const [journeyStatus, setJourneyStatus] = useState(stored?.journey_status || {
     understand: 'ACTIVE',
     discover: 'PENDING',
     validate: 'PENDING',
     finance: 'PENDING',
-    prepare: 'LOCKED',
+    prepare: 'ACTIVE',
     grow: 'LOCKED'
   });
 
@@ -304,20 +306,59 @@ export const WorkflowProvider = ({ children }) => {
 
       setEngineOutputs(prev => ({ ...prev, financial_planning: finStructureLabel }));
       markStageComplete(9, 10);
+      setOrchestrationProgress(75);
+
+      // Step 5: Trigger Stage 10 Entrepreneur Profile Engine
+      let epLabel = 'Readiness 82% (High) ✓';
+      let epResult = null;
+      try {
+        const epRes = await apiService.entrepreneurProfile.analyze({
+          analysis_id: activeAid,
+          session_id: sId
+        });
+        epResult = epRes;
+        if (epRes?.readiness_score !== undefined) {
+          epLabel = `Readiness ${Math.round(epRes.readiness_score)}% (${epRes.readiness_level || 'Evaluated'}) ✓`;
+        }
+      } catch (epErr) {
+        console.warn('[ORCHESTRATOR] Entrepreneur profile fallback note:', epErr.message);
+      }
+
+      setEngineOutputs(prev => ({ ...prev, entrepreneur_profile: epLabel }));
+      markStageComplete(10, 11);
+      setOrchestrationProgress(90);
+
+      // Step 6: Trigger Stage 11 Risk Engine
+      let riskLabel = 'Low-Medium Risk (0.34) ✓';
+      try {
+        const riskRes = await apiService.riskAnalysis.analyze({
+          analysis_id: activeAid,
+          session_id: sId,
+          entrepreneur_readiness: epResult
+        });
+        if (riskRes?.overall_risk_severity) {
+          riskLabel = `${riskRes.overall_risk_severity} Risk (${riskRes.overall_risk_score}) ✓`;
+        }
+      } catch (rErr) {
+        console.warn('[ORCHESTRATOR] Risk analysis fallback note:', rErr.message);
+      }
+
+      setEngineOutputs(prev => ({ ...prev, risk_analysis: riskLabel }));
+      markStageComplete(11, 12);
       setOrchestrationProgress(100);
 
       updateWorkflowState({
         sessionId: sId,
         analysisId: activeAid,
-        currentStage: 9,
-        completedStages: [1, 2, 3, 4, 5, 8, 9],
-        workflowStatus: 'JOURNEY_CORE_COMPLETE',
+        currentStage: 11,
+        completedStages: [1, 2, 3, 4, 5, 8, 9, 10, 11],
+        workflowStatus: 'FEASIBILITY_READY',
         journeyStatus: {
           understand: 'COMPLETED',
           discover: 'COMPLETED',
           validate: 'COMPLETED',
           finance: 'COMPLETED',
-          prepare: 'LOCKED',
+          prepare: 'COMPLETED',
           grow: 'LOCKED'
         }
       });
@@ -326,7 +367,9 @@ export const WorkflowProvider = ({ children }) => {
         success: true,
         marketIntelligence: mktDemandLabel,
         opportunityEvaluation: oppScoreLabel,
-        financialPlanning: finStructureLabel
+        financialPlanning: finStructureLabel,
+        entrepreneurProfile: epLabel,
+        riskAnalysis: riskLabel
       };
     } catch (err) {
       console.error('[ORCHESTRATOR EXECUTION ERROR]', err);

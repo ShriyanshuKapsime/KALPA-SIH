@@ -13,30 +13,12 @@ import {
 
 export const FUTURE_STAGES = [
   {
-    id: 'risk_assessment',
-    stageNum: 10,
-    pillar: 'Prepare',
-    name: 'Risk Assessment',
-    icon: ShieldAlert,
-    desc: 'Automated climatic, supply chain, default risk, and regulatory vulnerability index calculation.',
-    badge: 'Stage 10 &middot; Prepare'
-  },
-  {
     id: 'feasibility_engine',
-    stageNum: 11,
+    stageNum: 12,
     pillar: 'Prepare',
     name: 'Feasibility Engine',
     icon: BarChart,
-    desc: 'Multivariate enterprise survivability modeling across varying raw material and revenue stress scenarios.',
-    badge: 'Stage 11 &middot; Prepare'
-  },
-  {
-    id: 'swot_engine',
-    stageNum: 12,
-    pillar: 'Prepare',
-    name: 'SWOT Engine',
-    icon: FileSpreadsheet,
-    desc: 'Algorithmic identification of micro-location strengths, weaknesses, expansion opportunities, and competitor threats.',
+    desc: 'Multivariate enterprise survivability and viability modeling across raw material and revenue stress scenarios.',
     badge: 'Stage 12 &middot; Prepare'
   },
   {

@@ -7,6 +7,8 @@ from app.api.routes.knowledge import router as knowledge_router
 from app.api.routes.market_intelligence import router as market_intelligence_router
 from app.api.routes.opportunity_evaluation import router as opportunity_evaluation_router
 from app.api.routes.financial_analysis import router as financial_analysis_router
+from app.api.routes.entrepreneur_profile import router as entrepreneur_profile_router
+from app.api.routes.risk_analysis import router as risk_analysis_router
 
 __all__ = [
     "health_router",
@@ -18,5 +20,7 @@ __all__ = [
     "market_intelligence_router",
     "opportunity_evaluation_router",
     "financial_analysis_router",
+    "entrepreneur_profile_router",
+    "risk_analysis_router",
 ]
 

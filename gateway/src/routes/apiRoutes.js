@@ -8,6 +8,8 @@ import knowledgeController from '../controllers/knowledgeController.js';
 import marketIntelligenceController from '../controllers/marketIntelligenceController.js';
 import opportunityEvaluationController from '../controllers/opportunityEvaluationController.js';
 import financialAnalysisController from '../controllers/financialAnalysisController.js';
+import entrepreneurProfileController from '../controllers/entrepreneurProfileController.js';
+import riskAnalysisController from '../controllers/riskAnalysisController.js';
 
 const router = Router();
 
@@ -75,6 +77,15 @@ router.get('/opportunity-evaluation/health', opportunityEvaluationController.get
 router.post('/financial-analysis/analyze', financialAnalysisController.analyzeFinancialProfile);
 router.post('/financial-analysis/calculator', financialAnalysisController.calculateFinancials);
 router.get('/financial-analysis/health', financialAnalysisController.getFinancialEngineHealth);
+
+// Stage 10 Live Entrepreneur Profile Engine Routes
+router.post('/entrepreneur-profile/analyze', entrepreneurProfileController.analyzeEntrepreneurProfile);
+router.post('/entrepreneur-profile/clarify', entrepreneurProfileController.clarifyEntrepreneurProfile);
+router.get('/entrepreneur-profile/health', entrepreneurProfileController.getEntrepreneurProfileEngineHealth);
+
+// Stage 11 Live Risk Engine Routes
+router.post('/risk-analysis/analyze', riskAnalysisController.analyzeRiskProfile);
+router.get('/risk-analysis/health', riskAnalysisController.getRiskEngineHealth);
 
 // Locked Future Stages
 router.all('/market/*', (req, res) => {

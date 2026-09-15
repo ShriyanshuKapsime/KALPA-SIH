@@ -78,7 +78,8 @@ def test_scenario_1_complete_profile_deterministic_routing_no_llm():
     assert "domain_knowledge_agent" in summary["completed"]
     assert "market_intelligence_agent" in summary["completed"]
     assert "finance_engine" in summary["completed"]
-    assert "feasibility_engine" in summary["completed"]
+    assert "entrepreneur_profile_engine" in summary["completed"]
+    assert "risk_engine" in summary["completed"]
 
     # Verify Domain Knowledge Output
     knowledge = data["knowledge_context"]

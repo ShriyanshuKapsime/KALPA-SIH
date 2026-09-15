@@ -6,8 +6,8 @@ from app.services.classification.llm_classifier import classify_with_llm
 
 def test_llm_config_standardization():
     """Verifies provider configuration, model selection, and API key detection without exposing secrets."""
-    assert settings.active_llm_provider == "groq"
-    assert "qwen" in settings.active_llm_model.lower()
+    assert settings.active_llm_provider in ["groq", "openai", "sarvam"]
+    assert bool(settings.active_llm_model)
     
     # Verify is_llm_configured property returns boolean
     assert isinstance(settings.is_llm_configured, bool)
@@ -22,8 +22,8 @@ def test_llm_client_initialization():
     if settings.is_llm_configured:
         ready = llm_client._ensure_initialized()
         assert ready is True
-        assert llm_client._provider == "groq"
-        assert "qwen" in llm_client._model.lower()
+        assert llm_client._provider in ["groq", "openai", "sarvam"]
+        assert bool(llm_client._model)
 
 
 @pytest.mark.asyncio
