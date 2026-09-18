@@ -3,45 +3,42 @@ package com.kalpa.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.kalpa.android.ui.theme.KALPATheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
+import com.kalpa.android.screens.BusinessIntakeScreen
+import com.kalpa.android.screens.KalpaLandingScreen
+
+private enum class KalpaScreen {
+    LANDING,
+    BUSINESS_INTAKE
+}
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
         setContent {
-            KALPATheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+            MaterialTheme {
+                var currentScreen by remember {
+                    mutableStateOf(KalpaScreen.LANDING)
+                }
+
+                when (currentScreen) {
+
+                    KalpaScreen.LANDING -> {
+                        KalpaLandingScreen(
+                            onStartBusiness = {
+                                currentScreen = KalpaScreen.BUSINESS_INTAKE
+                            }
+                        )
+                    }
+
+                    KalpaScreen.BUSINESS_INTAKE -> {
+                        BusinessIntakeScreen()
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    KALPATheme {
-        Greeting("Android")
     }
 }
