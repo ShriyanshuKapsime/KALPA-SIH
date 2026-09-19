@@ -15,6 +15,7 @@ from app.database.models.market import (
 )
 from app.database.models.finance import FinancialProfile
 from app.database.models.feasibility import FeasibilityResult
+from app.database.models.swot import SwotResult
 from app.database.models.report import GeneratedReport
 from app.database.models.feedback import FeedbackRecord
 from app.database.models.profile import StructuredBusinessProfile
@@ -45,6 +46,7 @@ __all__ = [
     "MarketEvidenceRecord",
     "FinancialProfile",
     "FeasibilityResult",
+    "SwotResult",
     "GeneratedReport",
     "FeedbackRecord",
     "StructuredBusinessProfile",

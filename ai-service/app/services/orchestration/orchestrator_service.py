@@ -26,7 +26,222 @@ from app.core.logging import logger
 
 class OrchestratorService:
     def __init__(self):
-        pass
+        self._active_tasks: Dict[str, Dict[str, Any]] = {}
+
+    def update_agent_progress(self, analysis_id: Optional[str], agent_id: str):
+        """Updates real-time progress for active background task."""
+        if not analysis_id or analysis_id not in self._active_tasks:
+            return
+
+        task = self._active_tasks[analysis_id]
+        task["current_agent"] = agent_id
+
+        stages_map = {
+            "domain_knowledge_agent": (4, 15, [1, 2, 3]),
+            "market_intelligence_agent": (5, 25, [1, 2, 3, 4]),
+            "market_intelligence_engine": (6, 40, [1, 2, 3, 4, 5]),
+            "opportunity_evaluation_engine": (8, 55, [1, 2, 3, 4, 5, 6]),
+            "finance_engine": (9, 70, [1, 2, 3, 4, 5, 6, 8]),
+            "entrepreneur_profile_engine": (10, 80, [1, 2, 3, 4, 5, 6, 8, 9]),
+            "risk_engine": (11, 90, [1, 2, 3, 4, 5, 6, 8, 9, 10]),
+            "feasibility_engine": (12, 95, [1, 2, 3, 4, 5, 6, 8, 9, 10, 11]),
+        }
+        if agent_id in stages_map:
+            st, prog, comp = stages_map[agent_id]
+            task["current_stage"] = st
+            task["progress"] = prog
+            for s in comp:
+                if s not in task["completed_stages"]:
+                    task["completed_stages"].append(s)
+
+        completed = task.get("completed_agents", [])
+        if agent_id not in completed:
+            completed.append(agent_id)
+        task["completed_agents"] = completed
+
+    async def start_orchestrator_async(
+        self,
+        request: StartOrchestratorRequest,
+        db: Optional[Session] = None
+    ) -> Dict[str, Any]:
+        """
+        Starts orchestrator pipeline asynchronously in background and returns HTTP 202 Accepted.
+        Handles ALREADY_RUNNING and ALREADY_COMPLETE idempotently.
+        """
+        analysis_id = request.analysis_id
+        session_id = request.session_id
+        profile_json = request.business_profile
+
+        if not profile_json:
+            profile_record = await self._fetch_profile_record(analysis_id, session_id, db)
+            if profile_record:
+                profile_json = profile_record.profile_json
+                analysis_id = str(profile_record.id)
+                session_id = str(profile_record.session_id)
+            elif not analysis_id and not session_id:
+                raise ValueError("No Stage 3 Canonical Business Profile found. Please execute Stage 3 first.")
+
+        if not analysis_id:
+            analysis_id = (profile_json or {}).get("analysis_id") or str(uuid.uuid4())
+        if not session_id:
+            session_id = (profile_json or {}).get("session_id") or str(uuid.uuid4())
+
+        # 1. Check if already actively running
+        if analysis_id in self._active_tasks and self._active_tasks[analysis_id].get("workflow_status") == "RUNNING":
+            logger.info(f"[ORCHESTRATOR ASYNC] Analysis '{analysis_id}' is already running.")
+            return {
+                "status": "ALREADY_RUNNING",
+                "analysis_id": analysis_id,
+                "session_id": session_id,
+                "workflow_status": "RUNNING",
+                "current_stage": self._active_tasks[analysis_id].get("current_stage", 4),
+                "progress": self._active_tasks[analysis_id].get("progress", 10),
+                "message": "Orchestrator pipeline is already actively running for this analysis."
+            }
+
+        # 2. Check if already complete and not force_refresh
+        if not request.force_refresh:
+            existing_orch = await self.get_by_analysis_id(analysis_id, db=db)
+            if existing_orch:
+                logger.info(f"[ORCHESTRATOR ASYNC] Analysis '{analysis_id}' is already complete in database.")
+                return {
+                    "status": "ALREADY_COMPLETE",
+                    "analysis_id": analysis_id,
+                    "session_id": session_id,
+                    "workflow_status": "COMPLETED",
+                    "current_stage": 12 if "feasibility_engine" in (existing_orch.get("completed_agents") or []) else 4,
+                    "progress": 100,
+                    "completed_stages": existing_orch.get("completed_stages") or [1, 2, 3, 4, 5, 8, 9, 10, 11, 12],
+                    "completed_agents": existing_orch.get("completed_agents") or [],
+                    "message": "Orchestrator analysis already completed.",
+                    "result": existing_orch
+                }
+
+        # 3. Initialize background tracking state
+        self._active_tasks[analysis_id] = {
+            "analysis_id": analysis_id,
+            "session_id": session_id,
+            "workflow_status": "RUNNING",
+            "current_stage": 4,
+            "current_agent": "domain_knowledge_agent",
+            "completed_stages": [1, 2, 3],
+            "completed_agents": [],
+            "progress": 10,
+            "error": None,
+            "result": None
+        }
+
+        req_copy = StartOrchestratorRequest(
+            session_id=session_id,
+            analysis_id=analysis_id,
+            business_profile=profile_json,
+            force_llm=request.force_llm,
+            force_refresh=request.force_refresh
+        )
+
+        # 4. Launch background execution task
+        import asyncio
+        asyncio.create_task(self._run_orchestrator_bg(req_copy, analysis_id, session_id))
+
+        logger.info(f"[ORCHESTRATOR ASYNC ACCEPTED] analysis_id={analysis_id}, session_id={session_id}")
+        return {
+            "status": "ACCEPTED",
+            "analysis_id": analysis_id,
+            "session_id": session_id,
+            "workflow_status": "RUNNING",
+            "current_stage": 4,
+            "progress": 10,
+            "completed_stages": [1, 2, 3],
+            "completed_agents": [],
+            "message": "Orchestrator pipeline started in background."
+        }
+
+    async def _run_orchestrator_bg(
+        self,
+        request: StartOrchestratorRequest,
+        analysis_id: str,
+        session_id: str
+    ):
+        """Runs the LangGraph orchestrator in background task."""
+        try:
+            logger.info(f"[ORCHESTRATOR BG RUN] Starting execution for analysis_id={analysis_id}")
+            response = await self.run_orchestrator(request)
+
+            task = self._active_tasks.get(analysis_id, {})
+            task["workflow_status"] = "COMPLETED"
+            task["progress"] = 100
+            task["current_stage"] = response.current_stage or 12
+            task["completed_stages"] = response.completed_stages or [1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
+            task["completed_agents"] = response.agent_execution_summary.completed or []
+            task["current_agent"] = None
+            task["result"] = response.model_dump()
+            self._active_tasks[analysis_id] = task
+
+            logger.info(f"[ORCHESTRATOR COMPLETE] analysis_id={analysis_id}")
+        except Exception as e:
+            logger.error(f"[ORCHESTRATOR BG ERROR] analysis_id={analysis_id}: {e}", exc_info=True)
+            task = self._active_tasks.get(analysis_id, {})
+            task["workflow_status"] = "FAILED"
+            task["error"] = str(e)
+            self._active_tasks[analysis_id] = task
+
+    async def get_orchestrator_status(
+        self,
+        analysis_id: str,
+        db: Optional[Session] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Returns live or persisted status of the orchestrator pipeline."""
+        # 1. In-memory active task state
+        if analysis_id in self._active_tasks:
+            return self._active_tasks[analysis_id]
+
+        # 2. Check PostgreSQL OrchestrationRecord
+        try:
+            target_uuid = uuid.UUID(analysis_id)
+        except Exception:
+            return None
+
+        lookup_fn = lambda sess: sess.query(OrchestrationRecord).filter(
+            (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
+        ).order_by(OrchestrationRecord.created_at.desc()).first()
+
+        rec = None
+        if db:
+            rec = lookup_fn(db)
+        else:
+            with get_db_context() as sess:
+                if sess:
+                    rec = lookup_fn(sess)
+
+        if rec:
+            out = rec.orchestration_output or {}
+            completed = rec.completed_agents or []
+            is_complete = rec.workflow_status in ["ORCHESTRATION_COMPLETE", "FEASIBILITY_COMPLETE"]
+            is_s12 = "feasibility_engine" in completed
+
+            stages = [1, 2, 3, 4]
+            if "market_intelligence_agent" in completed: stages.append(5)
+            if "market_intelligence_engine" in completed: stages.append(6)
+            if "opportunity_evaluation_engine" in completed: stages.append(8)
+            if "finance_engine" in completed: stages.append(9)
+            if "entrepreneur_profile_engine" in completed: stages.append(10)
+            if "risk_engine" in completed: stages.append(11)
+            if "feasibility_engine" in completed: stages.append(12)
+
+            return {
+                "analysis_id": str(rec.id),
+                "session_id": str(rec.session_id),
+                "workflow_status": "COMPLETED" if is_complete else rec.workflow_status,
+                "current_stage": 12 if is_s12 else (max(stages) if stages else 4),
+                "current_agent": rec.current_node,
+                "completed_stages": sorted(list(set(stages))),
+                "completed_agents": completed,
+                "progress": 100 if is_complete else 50,
+                "error": None if is_complete else (str(rec.errors[0]) if rec.errors else None),
+                "result": out
+            }
+
+        return None
 
     async def run_orchestrator(
         self,
@@ -479,13 +694,28 @@ class OrchestratorService:
         if "market_intelligence_agent" in completed:
             if 5 not in completed_stages:
                 completed_stages.append(5)
-        if "feasibility_engine" in completed or "finance_engine" in completed or "opportunity_evaluation_engine" in completed:
+        if "market_intelligence_engine" in completed:
             if 6 not in completed_stages:
                 completed_stages.append(6)
+        if "opportunity_evaluation_engine" in completed:
+            if 8 not in completed_stages:
+                completed_stages.append(8)
+        if "finance_engine" in completed:
+            if 9 not in completed_stages:
+                completed_stages.append(9)
+        if "entrepreneur_profile_engine" in completed:
+            if 10 not in completed_stages:
+                completed_stages.append(10)
+        if "risk_engine" in completed:
+            if 11 not in completed_stages:
+                completed_stages.append(11)
+        if "feasibility_engine" in completed:
+            if 12 not in completed_stages:
+                completed_stages.append(12)
 
         workflow_status = state.get("workflow_status", "ORCHESTRATION_COMPLETE")
-        current_stage = 4
-        next_stage = 5 if 5 in completed_stages else 5
+        current_stage = 12 if "feasibility_engine" in completed else (max(completed_stages) if completed_stages else 4)
+        next_stage = 13 if "feasibility_engine" in completed else (5 if 5 not in completed_stages else 8)
 
         workflow_obj = CanonicalWorkflowState(
             session_id=state.get("session_id", ""),

@@ -81,4 +81,5 @@ class BusinessProfile(TimeStampedModel):
     financial_profile = relationship("FinancialProfile", back_populates="business", uselist=False)
     feasibility_result = relationship("FeasibilityResult", back_populates="business", uselist=False)
     opportunity_evaluation = relationship("OpportunityEvaluation", back_populates="business", uselist=False)
+    swot_result = relationship("SwotResult", back_populates="business", uselist=False)
     reports = relationship("GeneratedReport", back_populates="business")

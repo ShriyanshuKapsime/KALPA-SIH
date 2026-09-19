@@ -41,7 +41,10 @@ async def analyze_opportunity(
         # If payload only contains analysis_id and no market indicators, attempt lookup from DB
         if analysis_id and not payload.get("market_indicators") and not payload.get("market_intelligence"):
             try:
-                rec = db.query(MarketEvidenceRecord).filter(MarketEvidenceRecord.analysis_id == analysis_id).first()
+                target_uuid = uuid.UUID(analysis_id)
+                rec = db.query(MarketEvidenceRecord).filter(
+                    (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
+                ).first()
                 if rec and rec.full_profile:
                     # Enrich payload with Stage 5 / Stage 6 evidence from DB
                     payload["market_intelligence"] = rec.full_profile

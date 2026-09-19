@@ -9,6 +9,7 @@ import ProfilePage from './pages/Profile/ProfilePage';
 import OrchestratorPage from './pages/Orchestrator/OrchestratorPage';
 import AnalysisPage from './pages/Analysis/AnalysisPage';
 import FeasibilityPage from './pages/Feasibility/FeasibilityPage';
+import SWOTPage from './pages/SWOT/SWOTPage';
 import AssistantPage from './pages/Assistant/AssistantPage';
 import DPRPage from './pages/DPR/DPRPage';
 import KnowledgeHubPage from './pages/Knowledge/KnowledgeHubPage';
@@ -35,6 +36,7 @@ function App() {
           <Route path="financial-analysis" element={<FinancialAnalysisPage />} />
           <Route path="analysis" element={<MarketIntelligencePage />} />
           <Route path="feasibility" element={<FeasibilityPage />} />
+          <Route path="swot" element={<SWOTPage />} />
           <Route path="assistant" element={<AssistantPage />} />
           <Route path="dpr" element={<DPRPage />} />
           <Route path="*" element={<HomePage />} />

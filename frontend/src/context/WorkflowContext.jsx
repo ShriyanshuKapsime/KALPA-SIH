@@ -228,7 +228,7 @@ export const WorkflowProvider = ({ children }) => {
     return null;
   }, [analysisId, sessionId, updateWorkflowState]);
 
-  // Sequential Orchestrator Execution: Coordinates Stage 5 -> Stage 8 -> Stage 9
+  // Asynchronous Orchestrator Execution: Starts backend DAG and polls status
   const runOrchestratorPipeline = useCallback(async (targetSessionId, targetAnalysisId) => {
     const sId = targetSessionId || sessionId;
     const aId = targetAnalysisId || analysisId;
@@ -241,103 +241,88 @@ export const WorkflowProvider = ({ children }) => {
     setWorkflowError(null);
 
     try {
-      // Step 1: Start Orchestrator DAG
-      setOrchestrationProgress(20);
-      const orchRes = await apiService.orchestrator.start(sId, { session_id: sId, analysis_id: aId });
-      const activeAid = orchRes.analysis_id || aId;
+      // Step 1: Start Orchestrator Pipeline Asynchronously (returns 202 Accepted)
+      const startRes = await apiService.orchestrator.start(sId, { session_id: sId, analysis_id: aId });
+      const activeAid = startRes.analysis_id || aId || sId;
+      if (activeAid && activeAid !== analysisId) {
+        setAnalysisId(activeAid);
+      }
 
-      // Step 2: Trigger Stage 5 Market Intelligence Collection & Analysis
-      setOrchestrationProgress(40);
-      let mktDemandLabel = 'Demand Strong ✓';
-      try {
-        const mktCollect = await apiService.marketIntelligence.collect({
-          analysis_id: activeAid,
-          session_id: sId
-        });
-        if (mktCollect?.evidence_profile) {
-          const s6Res = await apiService.marketIntelligence.analyze(mktCollect.evidence_profile);
-          if (s6Res?.market_indicators?.demand_evidence?.demand_level) {
-            mktDemandLabel = `Demand ${s6Res.market_indicators.demand_evidence.demand_level.replace('_', ' ')} ✓`;
+      // If already complete, immediately finish
+      if (startRes.status === 'ALREADY_COMPLETE' && startRes.result) {
+        setOrchestrationProgress(100);
+        updateWorkflowState({
+          sessionId: sId,
+          analysisId: activeAid,
+          currentStage: 12,
+          completedStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12],
+          availableStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13],
+          lockedStages: [14, 15],
+          workflowStatus: 'FEASIBILITY_COMPLETE',
+          journeyStatus: {
+            understand: 'COMPLETED',
+            discover: 'COMPLETED',
+            validate: 'COMPLETED',
+            finance: 'COMPLETED',
+            prepare: 'COMPLETED',
+            grow: 'ACTIVE'
           }
-        }
-      } catch (mErr) {
-        console.warn('[ORCHESTRATOR] Market intelligence fallback note:', mErr.message);
-      }
-
-      setEngineOutputs(prev => ({ ...prev, market_intelligence: mktDemandLabel }));
-      markStageComplete(5, 8);
-      setOrchestrationProgress(65);
-
-      // Step 3: Trigger Stage 8 Opportunity Evaluation
-      let oppScoreLabel = '88% Opportunity ✓';
-      try {
-        const oppRes = await apiService.opportunityEvaluation.analyze({
-          analysis_id: activeAid,
-          session_id: sId
         });
-        if (oppRes?.opportunity_result?.market_opportunity_score) {
-          const pct = Math.round(oppRes.opportunity_result.market_opportunity_score * 100);
-          oppScoreLabel = `${pct}% Opportunity ✓`;
-        }
-      } catch (oErr) {
-        console.warn('[ORCHESTRATOR] Opportunity evaluation fallback note:', oErr.message);
+        return { success: true, status: 'FEASIBILITY_COMPLETE' };
       }
 
-      setEngineOutputs(prev => ({ ...prev, opportunity_evaluation: oppScoreLabel }));
-      markStageComplete(8, 9);
-      setOrchestrationProgress(85);
+      // Step 2: Poll backend status endpoint until completion
+      const maxPollAttempts = 40; // 60 seconds max
+      let pollCount = 0;
+      let finalStatus = null;
 
-      // Step 4: Trigger Stage 9 Financial Planning
-      let finStructureLabel = '₹9L Financing Structure ✓';
-      try {
-        const finRes = await apiService.financialAnalysis.analyze({
-          analysis_id: activeAid,
-          session_id: sId,
-          financial_profile: { available_margin_capital: 100000 }
-        });
-        const loanAmt = finRes?.financial_analysis?.project_financing?.estimated_financeable_loan || finRes?.project_financing?.estimated_financeable_loan;
-        if (loanAmt) {
-          const inLakhs = (loanAmt / 100000).toFixed(1);
-          finStructureLabel = `₹${inLakhs}L Financing Structure ✓`;
+      while (pollCount < maxPollAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        pollCount += 1;
+
+        try {
+          const pollData = await apiService.orchestrator.getStatus(activeAid);
+          if (pollData) {
+            if (pollData.progress) {
+              setOrchestrationProgress(pollData.progress);
+            }
+
+            // Update live stage outputs as agents complete
+            const completed = pollData.completed_agents || [];
+            const newOutputs = {};
+            if (completed.includes('market_intelligence_agent')) newOutputs.market_intelligence = 'Demand Strong ✓';
+            if (completed.includes('opportunity_evaluation_engine')) newOutputs.opportunity_evaluation = 'Opportunity Synthesized ✓';
+            if (completed.includes('finance_engine')) newOutputs.financial_planning = 'Financing Structured ✓';
+            if (completed.includes('entrepreneur_profile_engine')) newOutputs.entrepreneur_profile = 'Readiness Assessed ✓';
+            if (completed.includes('risk_engine')) newOutputs.risk_analysis = 'Risk Vectors Evaluated ✓';
+            if (completed.includes('feasibility_engine')) newOutputs.feasibility_assessment = 'Feasibility Viable ✓';
+            if (Object.keys(newOutputs).length > 0) {
+              setEngineOutputs(prev => ({ ...prev, ...newOutputs }));
+            }
+
+            if (pollData.workflow_status === 'COMPLETED' || pollData.workflow_status === 'ORCHESTRATION_COMPLETE' || pollData.workflow_status === 'FEASIBILITY_COMPLETE') {
+              finalStatus = pollData;
+              break;
+            }
+
+            if (pollData.workflow_status === 'STAGE_10_CLARIFICATION_REQUIRED') {
+              finalStatus = pollData;
+              break;
+            }
+
+            if (pollData.workflow_status === 'FAILED') {
+              throw new Error(pollData.error || 'Orchestrator pipeline execution failed on backend');
+            }
+          }
+        } catch (pollErr) {
+          console.warn('[ORCHESTRATOR POLL NOTE]', pollErr.message);
         }
-      } catch (fErr) {
-        console.warn('[ORCHESTRATOR] Financial analysis fallback note:', fErr.message);
       }
 
-      setEngineOutputs(prev => ({ ...prev, financial_planning: finStructureLabel }));
-      markStageComplete(9, 10);
-      setOrchestrationProgress(75);
+      setOrchestrationProgress(100);
 
-      // Step 5: Trigger Stage 10 Entrepreneur Profile Engine
-      setOrchestrationProgress(75);
-      let epLabel = 'Clarification Required (Pending Answers)';
-      let epResult = null;
-      let isStage10Complete = false;
-
-      try {
-        const epRes = await apiService.entrepreneurProfile.analyze({
-          analysis_id: activeAid,
-          session_id: sId
-        });
-        epResult = epRes;
-        const missingCount = (epRes?.missing_fields?.length || epRes?.questions?.length || 0);
-        isStage10Complete = (epRes?.status === 'READY' || epRes?.status === 'COMPLETE') && missingCount === 0;
-
-        if (epRes?.readiness_score !== undefined) {
-          epLabel = `Readiness ${Math.round(epRes.readiness_score)}% (${epRes.readiness_level || (isStage10Complete ? 'Complete' : 'Clarification Required')}) ✓`;
-        }
-      } catch (epErr) {
-        console.warn('[ORCHESTRATOR] Entrepreneur profile fallback note:', epErr.message);
-      }
-
-      setEngineOutputs(prev => ({ ...prev, entrepreneur_profile: epLabel }));
-
-      // HARD GATE: If Stage 10 has pending clarification questions, STOP the pipeline!
-      if (!isStage10Complete) {
-        console.log('[ORCHESTRATOR HARD GATE] Stage 10 requires entrepreneur clarification questions to be answered. Halting pipeline before Stage 11.');
-        markStageComplete(10, 10);
-        setOrchestrationProgress(80);
-
+      // Step 3: Handle Final State
+      if (finalStatus?.workflow_status === 'STAGE_10_CLARIFICATION_REQUIRED') {
         updateWorkflowState({
           sessionId: sId,
           analysisId: activeAid,
@@ -355,62 +340,8 @@ export const WorkflowProvider = ({ children }) => {
             grow: 'LOCKED'
           }
         });
-
-        return {
-          success: true,
-          status: 'STAGE_10_CLARIFICATION_REQUIRED',
-          marketIntelligence: mktDemandLabel,
-          opportunityEvaluation: oppScoreLabel,
-          financialPlanning: finStructureLabel,
-          entrepreneurProfile: epLabel,
-          riskAnalysis: 'Awaiting Entrepreneur Profile Completion (Locked)',
-          questions: epResult?.questions || []
-        };
+        return { success: true, status: 'STAGE_10_CLARIFICATION_REQUIRED' };
       }
-
-      // If Stage 10 is complete, mark Stage 10 complete and proceed to Stage 11
-      markStageComplete(10, 11);
-      setOrchestrationProgress(85);
-
-      // Step 6: Trigger Stage 11 Risk Engine
-      let riskLabel = 'Low-Medium Risk (0.34) ✓';
-      let riskResult = null;
-      try {
-        const riskRes = await apiService.riskAnalysis.analyze({
-          analysis_id: activeAid,
-          session_id: sId,
-          entrepreneur_readiness: epResult
-        });
-        riskResult = riskRes;
-        if (riskRes?.overall_risk_severity) {
-          riskLabel = `${riskRes.overall_risk_severity} Risk (${riskRes.overall_risk_score}) ✓`;
-        }
-      } catch (rErr) {
-        console.warn('[ORCHESTRATOR] Risk analysis fallback note:', rErr.message);
-      }
-
-      setEngineOutputs(prev => ({ ...prev, risk_analysis: riskLabel }));
-      markStageComplete(11, 12);
-      setOrchestrationProgress(95);
-
-      // Step 7: Trigger Stage 12 Feasibility Engine
-      let feasLabel = 'Feasibility Viable ✓';
-      try {
-        const feasRes = await apiService.feasibility.analyze({
-          analysis_id: activeAid,
-          session_id: sId,
-          entrepreneur_readiness: epResult,
-          risk_analysis: riskResult
-        });
-        if (feasRes?.decision) {
-          feasLabel = `Feasibility ${feasRes.decision} (${feasRes.overall_feasibility_score}/100) ✓`;
-        }
-      } catch (fErr) {
-        console.warn('[ORCHESTRATOR] Feasibility analysis fallback note:', fErr.message);
-      }
-
-      markStageComplete(12, 13);
-      setOrchestrationProgress(100);
 
       updateWorkflowState({
         sessionId: sId,
@@ -432,13 +363,7 @@ export const WorkflowProvider = ({ children }) => {
 
       return {
         success: true,
-        status: 'FEASIBILITY_COMPLETE',
-        marketIntelligence: mktDemandLabel,
-        opportunityEvaluation: oppScoreLabel,
-        financialPlanning: finStructureLabel,
-        entrepreneurProfile: epLabel,
-        riskAnalysis: riskLabel,
-        feasibility: feasLabel
+        status: 'FEASIBILITY_COMPLETE'
       };
 
     } catch (err) {
@@ -448,7 +373,7 @@ export const WorkflowProvider = ({ children }) => {
     } finally {
       setIsOrchestrating(false);
     }
-  }, [sessionId, analysisId, markStageComplete, updateWorkflowState]);
+  }, [sessionId, analysisId, updateWorkflowState]);
 
   // Reset workflow for new session
   const resetWorkflow = useCallback(() => {

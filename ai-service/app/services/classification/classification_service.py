@@ -1,6 +1,7 @@
 import uuid
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
+from app.database.session import get_db_context
 from app.core.logging import logger
 from app.database.models.intake import IntakeSession
 from app.services.classification.ontology_service import (
@@ -391,11 +392,10 @@ async def run_business_classification(
     }
 
     # STEP 10: Persist canonical profile to database
-    if db:
-        try:
-            _persist_business_profile(db, session_id, canonical_profile)
-        except Exception as err:
-            logger.error(f"[DATABASE PERSIST ERROR] Failed saving structured canonical profile: {err}")
+    try:
+        _persist_business_profile(db, session_id, canonical_profile)
+    except Exception as err:
+        logger.error(f"[DATABASE PERSIST ERROR] Failed saving structured canonical profile: {err}")
 
     final_result = {
         "success": True,
@@ -427,29 +427,37 @@ async def run_business_classification(
     return final_result
 
 
-def _persist_business_profile(db: Session, session_id: str, profile_dict: Dict[str, Any]):
+def _persist_business_profile(db: Optional[Session], session_id: str, profile_dict: Dict[str, Any]):
     """
     Saves or updates the IntakeSession structured profile with the canonical Stage 2 business profile.
     """
+    if not session_id:
+        return
     try:
-        intake_uuid = None
-        try:
-            intake_uuid = uuid.UUID(session_id)
-        except Exception:
-            pass
+        intake_uuid = uuid.UUID(str(session_id))
+    except Exception:
+        return
 
-        intake_sess = None
-        if intake_uuid:
-            intake_sess = db.query(IntakeSession).filter(IntakeSession.id == intake_uuid).first()
-
+    def _do_update(sess: Session):
+        intake_sess = sess.query(IntakeSession).filter(IntakeSession.id == intake_uuid).first()
         if intake_sess:
-            current_profile = intake_sess.structured_profile or {}
+            current_profile = dict(intake_sess.structured_profile or {})
             current_profile["stage_2_classification"] = profile_dict
             current_profile["canonical_business_profile"] = profile_dict
             intake_sess.structured_profile = current_profile
-            db.commit()
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(intake_sess, "structured_profile")
+            sess.commit()
             logger.info(f"[DATABASE] Updated IntakeSession {session_id} with Canonical Stage 2 Profile.")
 
+    try:
+        if db:
+            _do_update(db)
+        else:
+            with get_db_context() as sess:
+                if sess:
+                    _do_update(sess)
     except Exception as e:
         logger.error(f"[DATABASE ERROR] _persist_business_profile error: {e}")
-        db.rollback()
+        if db:
+            db.rollback()

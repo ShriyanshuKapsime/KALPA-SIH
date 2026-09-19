@@ -243,7 +243,10 @@ async def build_canonical_profile_for_session(session_id: str, db: Session) -> D
     if not stage2_data or not stage2_data.get("official_classification", {}).get("nic"):
         logger.info(f"[STAGE 3 PROFILE] Running Stage 2 Classification for session_id={session_id}")
         classification_result = await run_business_classification(structured_intake, db=db)
-        stage2_data = classification_result.get("canonical_profile") or classification_result
+        stage2_data = (classification_result.get("canonical_profile") or classification_result) if classification_result else {}
+
+    if not isinstance(stage2_data, dict):
+        stage2_data = {}
 
     logger.info(f"[STAGE 3 LOADED CLASSIFICATION] session_id={session_id}")
 
@@ -271,17 +274,31 @@ async def build_canonical_profile_for_session(session_id: str, db: Session) -> D
     services = ontology_sec.get("services", [])
 
     # NIC details from Stage 2
-    official_class = stage2_data.get("official_classification", {})
-    nic_node = official_class.get("nic", {})
-    nic_act = nic_node.get("activity", {})
-    nic_div = nic_node.get("division", {})
-    nic_grp = nic_node.get("group", {})
-    nic_cls = nic_node.get("class", {})
-    conf_node = official_class.get("confidence", {})
+    official_class = stage2_data.get("official_classification") or {}
+    if not isinstance(official_class, dict):
+        official_class = {}
+    nic_node = official_class.get("nic") or {}
+    if not isinstance(nic_node, dict):
+        nic_node = {}
+    nic_act = nic_node.get("activity") or {}
+    if not isinstance(nic_act, dict):
+        nic_act = {}
+    nic_div = nic_node.get("division") or {}
+    if not isinstance(nic_div, dict):
+        nic_div = {}
+    nic_grp = nic_node.get("group") or {}
+    if not isinstance(nic_grp, dict):
+        nic_grp = {}
+    nic_cls = nic_node.get("class") or {}
+    if not isinstance(nic_cls, dict):
+        nic_cls = {}
+    conf_node = official_class.get("confidence") or {}
+    if not isinstance(conf_node, dict):
+        conf_node = {}
 
     nic_code = nic_act.get("code") or nic_node.get("code", "")
     nic_title = nic_act.get("official_title") or nic_act.get("title") or nic_node.get("title", "")
-    confidence_score = conf_node.get("score") or stage2_data.get("classification_confidence", 0.90)
+    confidence_score = conf_node.get("score") if isinstance(conf_node.get("score"), (int, float)) else stage2_data.get("classification_confidence", 0.90)
 
     # Entrepreneur Profile
     skills = structured_intake.get("skills") or structured_intake.get("entrepreneur_skills") or []

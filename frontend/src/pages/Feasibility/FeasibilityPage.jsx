@@ -144,15 +144,26 @@ export const normalizeClarification = (item) => {
 };
 
 // ---------------------------------------------------------------------------
-// Authoritative Stage 10 Completion Checker
+// Authoritative Stage Completion & Validity Checkers
 // ---------------------------------------------------------------------------
+export const isValidStageResult = (result) => {
+  return Boolean(
+    result &&
+    typeof result === 'object' &&
+    result.status !== 'error' &&
+    result.status !== 'DATA_GAP'
+  );
+};
+
 export const isStage10Complete = (data) => {
-  if (!data) return false;
+  if (!data || typeof data !== 'object') return false;
   if (
     data.status === 'CLARIFICATION_REQUIRED' ||
     data.readiness_status === 'CLARIFICATION_REQUIRED' ||
     data.status === 'PROFILE_INCOMPLETE' ||
-    data.status === 'INCOMPLETE'
+    data.status === 'INCOMPLETE' ||
+    data.status === 'error' ||
+    data.status === 'DATA_GAP'
   ) {
     return false;
   }
@@ -170,6 +181,13 @@ export const isStage10Complete = (data) => {
     return true;
   }
   return data.readiness_score !== undefined && data.readiness_score !== null;
+};
+
+export const isStage11Complete = (data) => {
+  if (!data || typeof data !== 'object') return false;
+  if (data.status === 'error' || data.status === 'DATA_GAP') return false;
+  if (data.overall_risk_severity === 'DATA_GAP' || data.overall_risk_severity === 'UNKNOWN') return false;
+  return (data.overall_risk_score !== undefined && data.overall_risk_score !== null) || Boolean(data.overall_risk_severity);
 };
 
 // ---------------------------------------------------------------------------
@@ -742,8 +760,27 @@ export const FeasibilityPage = () => {
   } = useWorkflow();
 
   const queryParams = new URLSearchParams(location.search);
-  const sessionId = location.state?.sessionId || queryParams.get('session_id') || ctxSessionId || '';
-  const analysisId = location.state?.analysisId || queryParams.get('analysis_id') || ctxAnalysisId || '';
+  const effectiveSessionId =
+    location.state?.sessionId ||
+    queryParams.get('session_id') ||
+    ctxSessionId ||
+    sessionStorage.getItem('kalpa_session_id') ||
+    '';
+
+  const effectiveAnalysisId =
+    location.state?.analysisId ||
+    queryParams.get('analysis_id') ||
+    ctxAnalysisId ||
+    sessionStorage.getItem('kalpa_analysis_id') ||
+    effectiveSessionId;
+
+  const sessionId = effectiveSessionId;
+  const analysisId = effectiveAnalysisId;
+
+  useEffect(() => {
+    if (effectiveSessionId) sessionStorage.setItem('kalpa_session_id', effectiveSessionId);
+    if (effectiveAnalysisId) sessionStorage.setItem('kalpa_analysis_id', effectiveAnalysisId);
+  }, [effectiveSessionId, effectiveAnalysisId]);
 
   // Tab state: 'stage12' | 'stage10' | 'stage11'
   const [activeTab, setActiveTab] = useState('stage10');
@@ -779,6 +816,49 @@ export const FeasibilityPage = () => {
 
   const isInitialFetchDone = useRef(false);
 
+  // ---------------------------------------------------------------------------
+  // Canonical Derived Upstream Status (Single Source of Truth)
+  // ---------------------------------------------------------------------------
+  const isS10Ready = isStage10Complete(stage10Data);
+  const isS11Ready = isStage11Complete(stage11Data);
+  const isS12Ready = Boolean(feasibilityData && feasibilityData.overall_feasibility_score !== undefined && feasibilityData.overall_feasibility_score !== null);
+
+  const upstreamStatus = {
+    stage8: {
+      ready: true,
+      name: 'Stage 08 • Market Opportunity',
+      status: 'COMPLETED',
+    },
+    stage9: {
+      ready: true,
+      name: 'Stage 09 • Financial Position',
+      status: 'COMPLETED',
+    },
+    stage10: {
+      ready: isS10Ready,
+      data: stage10Data,
+      name: 'Stage 10 • Entrepreneur Profile',
+      status: isS10Ready ? 'COMPLETED' : (stage10Data?.questions?.length > 0 ? 'CLARIFICATION_REQUIRED' : 'PENDING'),
+    },
+    stage11: {
+      ready: isS11Ready,
+      data: stage11Data,
+      name: 'Stage 11 • Enterprise Risk Engine',
+      status: isS11Ready ? 'COMPLETED' : (!isS10Ready ? 'LOCKED' : 'PENDING'),
+    },
+    stage12: {
+      ready: isS12Ready,
+      data: feasibilityData,
+      name: 'Stage 12 • Final Feasibility Synthesis',
+      status: isS12Ready ? 'COMPLETED' : (!isS11Ready ? 'LOCKED' : 'PENDING'),
+    }
+  };
+
+  const s10Ready = upstreamStatus.stage10.ready;
+  const s11Ready = upstreamStatus.stage11.ready;
+  const s12Ready = upstreamStatus.stage12.ready;
+  const allUpstreamReady = s10Ready && s11Ready;
+
   // Fetch full pipeline hydration with strict Stage 10 -> Stage 11 -> Stage 12 hard gating
   const fetchData = useCallback(async () => {
     if (!analysisId && !sessionId) {
@@ -796,12 +876,12 @@ export const FeasibilityPage = () => {
         session_id: sessionId,
       });
       setStage10Data(epRes);
-      if (epRes.business_title) setBusinessTitle(epRes.business_title);
+      if (epRes?.business_title) setBusinessTitle(epRes.business_title);
 
-      const isS10Ready = isStage10Complete(epRes);
+      const isS10CompleteNow = isStage10Complete(epRes);
 
       // HARD GATE: If Stage 10 is NOT complete, STOP! Do not call Stage 11 or Stage 12!
-      if (!isS10Ready) {
+      if (!isS10CompleteNow) {
         setStage11Data(null);
         setFeasibilityData(null);
         setActiveTab('stage10');
@@ -826,6 +906,14 @@ export const FeasibilityPage = () => {
           return;
         }
         throw riskErr;
+      }
+
+      const isS11CompleteNow = isStage11Complete(riskRes);
+      if (!isS11CompleteNow) {
+        setFeasibilityData(null);
+        setActiveTab('stage11');
+        setLoading(false);
+        return;
       }
 
       // 3. Fetch Stage 12 Final Feasibility Analysis ONLY after Stage 11 is complete
@@ -983,8 +1071,39 @@ export const FeasibilityPage = () => {
     });
   };
 
-  const s10Ready = isStage10Complete(stage10Data);
-  const s11Ready = Boolean(stage11Data && stage11Data.overall_risk_score !== undefined);
+  if (!loading && !sessionId && !analysisId) {
+    return (
+      <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center p-6">
+        <div className="bg-white rounded-3xl p-8 border-2 border-stone-200 shadow-xl max-w-lg w-full text-center space-y-4 animate-fadeIn">
+          <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mx-auto text-stone-600">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-bold text-stone-900 font-['Outfit']">
+              Analysis Context Unavailable
+            </h2>
+            <p className="text-xs text-stone-600 leading-relaxed">
+              No active business session or analysis ID was found. Please complete the business intake and evaluation pipeline first.
+            </p>
+          </div>
+          <div className="pt-2 flex justify-center space-x-3">
+            <Link
+              to="/intake"
+              className="px-4 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition shadow-sm inline-flex items-center"
+            >
+              Start New Analysis
+            </Link>
+            <Link
+              to="/journey"
+              className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition inline-flex items-center"
+            >
+              Return to Journey
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] pb-24 text-stone-900 font-sans">
@@ -1102,7 +1221,7 @@ export const FeasibilityPage = () => {
               <div>
                 <div className="font-bold">03. Entrepreneur Profile</div>
                 <div className="text-[10px] opacity-90 font-mono">
-                  Stage 10 • {s10Ready ? `${Math.round(stage10Data.readiness_score)}/100` : 'Clarifications Needed'}
+                  Stage 10 • {s10Ready && stage10Data?.readiness_score !== null && stage10Data?.readiness_score !== undefined ? `${Math.round(stage10Data.readiness_score)}/100` : 'Clarifications Needed'}
                 </div>
               </div>
             </div>
@@ -1150,7 +1269,7 @@ export const FeasibilityPage = () => {
               <div>
                 <div className="font-bold">05. Final Feasibility</div>
                 <div className="text-[10px] font-mono">
-                  {!s11Ready ? 'Stage 12 • Locked' : (feasibilityData?.overall_feasibility_score ? `${Math.round(feasibilityData.overall_feasibility_score)}/100` : 'Stage 12')}
+                  {!s11Ready ? 'Stage 12 • Locked' : (feasibilityData?.overall_feasibility_score !== undefined && feasibilityData?.overall_feasibility_score !== null ? `${Math.round(feasibilityData.overall_feasibility_score)}/100` : 'Stage 12')}
                 </div>
               </div>
             </div>
@@ -1965,14 +2084,14 @@ export const FeasibilityPage = () => {
                           YES PATHWAY UNLOCKED
                         </span>
                         <span className="text-xs font-bold text-emerald-800">
-                          Stage 13 DPR Generator & Institutional Credit Ready
+                          Stage 13 Dynamic SWOT & Strategic Advisory Ready
                         </span>
                       </div>
                       <h3 className="text-xl font-bold text-emerald-950 font-['Outfit']">
-                        Venture Approved for Bank Detailed Project Report (DPR)
+                        Venture Feasibility Verified — Proceed to Stage 13 SWOT
                       </h3>
                       <p className="text-xs text-emerald-800 max-w-2xl">
-                        Your enterprise metrics satisfy viability thresholds. Proceed to generate bank-ready DPR documentation tailored for PMEGP, PMMY Mudra, and CGTMSE schemes.
+                        Your enterprise metrics satisfy viability thresholds. Stage 13 Dynamic SWOT Agent will synthesize cross-engine findings across market, finance, readiness, and risk into an evidence-grounded SWOT matrix and strategic roadmap.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
@@ -1980,11 +2099,22 @@ export const FeasibilityPage = () => {
                         onClick={() => setIsSWOTModalOpen(true)}
                         className="px-4 py-2.5 bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                       >
-                        Dynamic SWOT Matrix
+                        Quick Matrix Preview
                       </button>
-                      <Link to="/dpr">
-                        <button className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">
-                          <span>Generate DPR Report</span>
+                      <Link
+                        to="/swot"
+                        state={{
+                          analysisId: effectiveAnalysisId,
+                          sessionId: effectiveSessionId,
+                          feasibilityResult: feasibilityData,
+                          businessProfile: feasibilityData?.business_name ? { specific_business: feasibilityData.business_name } : undefined,
+                          locationProfile: feasibilityData?.location_summary ? { location_summary: feasibilityData.location_summary } : undefined,
+                          entrepreneurReadiness: stage10Data,
+                          riskAnalysis: stage11Data
+                        }}
+                      >
+                        <button className="px-5 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">
+                          <span>Proceed to Stage 13 SWOT</span>
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       </Link>

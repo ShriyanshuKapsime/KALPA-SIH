@@ -62,6 +62,11 @@ class FinanceAdapter(BaseAgentAdapter):
         if pref_cost is not None:
             pref_cost = float(pref_cost)
 
+        logger.info(
+            f"[FINANCIAL INPUT] analysis_id={analysis_id}, session_id={session_id}, "
+            f"margin_capital={available_margin}, project_cost={pref_cost}"
+        )
+
         existing_income = fin_raw.get("existing_monthly_income")
         existing_debt = fin_raw.get("existing_monthly_debt_obligations")
 

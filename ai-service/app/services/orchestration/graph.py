@@ -224,6 +224,12 @@ async def node_execute_agent(state: KALPAOrchestratorState) -> KALPAOrchestrator
 
     try:
         logger.info(f"[GRAPH:EXECUTE_AGENT] Running adapter for '{current_agent}'")
+        try:
+            from app.services.orchestration.orchestrator_service import orchestrator_service
+            orchestrator_service.update_agent_progress(state.get("analysis_id"), current_agent)
+        except Exception:
+            pass
+
         adapter_output = await agent_registry.execute_agent(
             agent_id=current_agent,
             business_profile=profile,

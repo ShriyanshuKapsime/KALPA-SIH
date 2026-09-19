@@ -93,8 +93,31 @@ export const getWorkflowStatus = async (req, res, next) => {
   }
 };
 
+export const getOrchestratorStatus = async (req, res, next) => {
+  const { id } = req.params;
+  console.log(`[GATEWAY ROUTE HIT] GET /api/orchestrator/status/${id}`);
+  try {
+    const aiResponse = await axios.get(
+      `${config.aiServiceUrl}/api/v1/orchestrator/status/${id}`,
+      { timeout: 15000 }
+    );
+    return res.status(aiResponse.status).json(aiResponse.data);
+  } catch (error) {
+    logger.error(`Gateway Error proxying GET /api/orchestrator/status/${id}:`, error.message);
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(502).json({
+      error: 'Bad Gateway',
+      message: 'Failed to retrieve orchestrator status from AI Service',
+      details: error.message,
+    });
+  }
+};
+
 export default {
   startOrchestrator,
+  getOrchestratorStatus,
   getOrchestratorByAnalysisId,
   getOrchestratorBySessionId,
   getWorkflowStatus,

@@ -243,9 +243,8 @@ class FeasibilitySynthesisEngine:
         composite_score = mkt_contrib + fin_contrib + ent_contrib + rsk_contrib
         composite_score = round(max(0.0, min(100.0, composite_score)), 1)
 
-        # Average confidence across available pillars
-        active_confs = [c for c in [mkt_conf, fin_conf, ent_conf, risk_conf] if c > 0]
-        overall_confidence = round(sum(active_confs) / len(active_confs), 2) if active_confs else 0.0
+        # Average confidence across all 4 pillars (missing pillars contribute 0.0)
+        overall_confidence = round((mkt_conf + fin_conf + ent_conf + risk_conf) / 4.0, 2)
 
         # -------------------------------------------------------------------
         # 5. Critical Gate Impact & Final Decision Determination
@@ -264,7 +263,7 @@ class FeasibilitySynthesisEngine:
 
         if is_data_insufficient:
             decision = "DATA_INSUFFICIENT"
-            recommendation = "NEEDS_VALIDATION"
+            recommendation = "CONDITIONAL"
         elif has_restrict_gate:
             decision = "NOT_FEASIBLE"
             recommendation = "NO"
@@ -299,33 +298,33 @@ class FeasibilitySynthesisEngine:
         conditions: List[Dict[str, Any]] = []
 
         # Positive drivers
-        if mkt_val >= 65.0:
+        if not mkt_is_gap and mkt_val is not None and mkt_val >= 65.0:
             positive_drivers.append({
                 "factor": "Strong Market Demand & Opportunity",
                 "evidence": f"Stage 8 Opportunity Score of {mkt_val:.0f}/100 indicates robust local demand density.",
                 "source": "STAGE_8_OPPORTUNITY"
             })
-        if dscr_val >= 1.35:
+        if not fin_is_gap and dscr_val is not None and dscr_val >= 1.35:
             positive_drivers.append({
                 "factor": "Healthy Debt Service Coverage",
                 "evidence": f"Projected DSCR of {dscr_val:.2f}x exceeds statutory 1.35x benchmark.",
                 "source": "STAGE_9_FINANCIAL"
             })
-        if ent_val >= 65.0:
+        if not ent_is_gap and ent_val is not None and ent_val >= 65.0:
             positive_drivers.append({
                 "factor": "Relevant Operating Experience & Capability",
                 "evidence": f"Founder readiness evaluated at {ent_val:.0f}/100 with demonstrated domain capability.",
                 "source": "STAGE_10_ENTREPRENEUR"
             })
-        if resilience_val >= 65.0:
+        if not rsk_is_gap and resilience_val is not None and resilience_val >= 65.0:
             positive_drivers.append({
                 "factor": "Low Multi-Vector Risk Exposure",
-                "evidence": f"Enterprise risk severity is {feature_vector.overall_risk_severity.value} ({risk_score:.2f}).",
+                "evidence": f"Enterprise risk severity is {feature_vector.overall_risk_severity.value} ({risk_score:.2f})." if risk_score is not None else "Enterprise risk evaluated.",
                 "source": "STAGE_11_RISK"
             })
 
         # Key constraints
-        if dscr_val < 1.35:
+        if not fin_is_gap and dscr_val is not None and dscr_val < 1.35:
             key_constraints.append({
                 "constraint": "Narrow Debt Repayment Buffer",
                 "severity": "CRITICAL" if dscr_val < 1.15 else "HIGH",

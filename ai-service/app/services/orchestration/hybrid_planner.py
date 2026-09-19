@@ -136,6 +136,14 @@ class HybridPlanner:
                 "priority": "HIGH",
                 "status": "pending",
                 "dependencies": ["entrepreneur_profile_engine"]
+            },
+            {
+                "step": 8,
+                "agent": "feasibility_engine",
+                "purpose": "Evaluate Stage 12 deterministic composite feasibility scoring consuming Stage 8, Stage 9, Stage 10, and Stage 11 outputs",
+                "priority": "HIGH",
+                "status": "pending",
+                "dependencies": ["opportunity_evaluation_engine", "finance_engine", "entrepreneur_profile_engine", "risk_engine"]
             }
         ]
         return plan
@@ -232,7 +240,7 @@ class HybridPlanner:
             "    ...\n"
             "  ]\n"
             "}\n"
-            "Available Agents: domain_knowledge_agent, market_intelligence_agent, opportunity_evaluation_engine, finance_engine, feasibility_engine."
+            "Available Agents: domain_knowledge_agent, market_intelligence_agent, market_intelligence_engine, opportunity_evaluation_engine, finance_engine, entrepreneur_profile_engine, risk_engine, feasibility_engine."
         )
 
         user_prompt = f"Canonical Business Profile:\n{json.dumps(profile, indent=2)}\n\nBaseline Plan:\n{json.dumps(fallback_plan, indent=2)}"

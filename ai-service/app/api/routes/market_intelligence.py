@@ -196,7 +196,10 @@ async def analyze_market_intelligence(
         analysis_id = stage5_payload.get("analysis_id")
         if analysis_id and not stage5_payload.get("market_evidence") and not stage5_payload.get("evidence_profile"):
             try:
-                rec = db.query(MarketEvidenceRecord).filter(MarketEvidenceRecord.analysis_id == analysis_id).first()
+                target_uuid = uuid.UUID(analysis_id)
+                rec = db.query(MarketEvidenceRecord).filter(
+                    (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
+                ).first()
                 if rec and rec.full_profile:
                     stage5_payload = rec.full_profile
             except Exception as e:

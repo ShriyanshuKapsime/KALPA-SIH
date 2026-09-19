@@ -42,6 +42,9 @@ export default function OrchestratorVisualization({ onRunSuccess, className = ''
   const isStage5Done = completedStages?.includes(5) || Boolean(engineOutputs?.market_intelligence);
   const isStage8Done = completedStages?.includes(8) || Boolean(engineOutputs?.opportunity_evaluation);
   const isStage9Done = completedStages?.includes(9) || Boolean(engineOutputs?.financial_planning);
+  const isStage10Done = completedStages?.includes(10) || Boolean(engineOutputs?.entrepreneur_profile);
+  const isStage11Done = completedStages?.includes(11) || Boolean(engineOutputs?.risk_analysis);
+  const isStage12Done = completedStages?.includes(12) || Boolean(engineOutputs?.feasibility_assessment);
 
   const engines = [
     {
@@ -85,6 +88,48 @@ export default function OrchestratorVisualization({ onRunSuccess, className = ''
       desc: 'CapEx/OpEx, 90% Loan Structuring, Annuity EMI & Scheme Eligibility Match',
       highlightColor: 'from-emerald-500/10 to-teal-500/5',
       borderColor: 'border-emerald-200'
+    },
+    {
+      id: 'stage10',
+      stageNum: 10,
+      pillar: 'Founder',
+      title: 'Entrepreneur Profile Engine',
+      icon: BarChart3,
+      status: isStage10Done ? 'COMPLETED' : isOrchestrating && isStage9Done ? 'EXECUTING' : 'PENDING',
+      output: engineOutputs?.entrepreneur_profile || (isStage10Done ? 'Readiness Assessed ✓' : null),
+      metricLabel: 'Skills & Readiness Audit',
+      path: '/entrepreneur-profile',
+      desc: 'Multi-Factor Capability Scoring, Experience Verification & Statutory Training Gaps',
+      highlightColor: 'from-purple-500/10 to-violet-500/5',
+      borderColor: 'border-purple-200'
+    },
+    {
+      id: 'stage11',
+      stageNum: 11,
+      pillar: 'Resilience',
+      title: 'Enterprise Risk Engine',
+      icon: TrendingUp,
+      status: isStage11Done ? 'COMPLETED' : isOrchestrating && isStage10Done ? 'EXECUTING' : 'PENDING',
+      output: engineOutputs?.risk_analysis || (isStage11Done ? 'Risk Vectors Evaluated ✓' : null),
+      metricLabel: '7-Vector Severity Assessment',
+      path: '/risk-analysis',
+      desc: 'Market, Climate, Regulatory, Financial, Liquidity & Execution Risk Synthesis',
+      highlightColor: 'from-rose-500/10 to-pink-500/5',
+      borderColor: 'border-rose-200'
+    },
+    {
+      id: 'stage12',
+      stageNum: 12,
+      pillar: 'Viability',
+      title: 'Feasibility Synthesis Engine',
+      icon: ShieldCheck,
+      status: isStage12Done ? 'COMPLETED' : isOrchestrating && isStage11Done ? 'EXECUTING' : 'PENDING',
+      output: engineOutputs?.feasibility_assessment || (isStage12Done ? 'Feasibility Synthesized ✓' : null),
+      metricLabel: 'Master Feasibility Matrix',
+      path: '/feasibility',
+      desc: '4-Pillar Mathematical Synthesis, Critical Go/No-Go Gates & Bankable Viability Decision',
+      highlightColor: 'from-amber-500/15 to-emerald-500/10',
+      borderColor: 'border-amber-300'
     }
   ];
 
@@ -179,8 +224,8 @@ export default function OrchestratorVisualization({ onRunSuccess, className = ''
         )}
       </div>
 
-      {/* 3-Engine Output Visualizer Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* 6-Engine Output Visualizer Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {engines.map((engine, idx) => {
           const Icon = engine.icon;
           const isDone = engine.status === 'COMPLETED';

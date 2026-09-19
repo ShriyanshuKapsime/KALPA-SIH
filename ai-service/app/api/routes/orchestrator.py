@@ -1,8 +1,8 @@
 """
 FastAPI Routes for Stage 4: KALPA Manager Agent / LangGraph Orchestrator.
 """
-from typing import Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -54,18 +54,27 @@ async def get_consolidated_workflow_context(
 
 @router.post(
     "/start",
-    response_model=OrchestratorResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Start LangGraph Agentic Orchestration",
-    description="Loads Stage 3 Canonical Profile, executes LangGraph multi-agent orchestration, and persists results."
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Start LangGraph Agentic Orchestration Asynchronously",
+    description="Loads Stage 3 Profile, initializes LangGraph multi-agent orchestration in background, and returns HTTP 202 Accepted immediately."
 )
 async def start_orchestrator(
     request: StartOrchestratorRequest,
+    response: Response,
     db: Session = Depends(get_db)
 ):
     try:
-        response = await orchestrator_service.run_orchestrator(request, db=db)
-        return response
+        if request.sync:
+            sync_res = await orchestrator_service.run_orchestrator(request, db=db)
+            response.status_code = status.HTTP_200_OK
+            return sync_res
+
+        res = await orchestrator_service.start_orchestrator_async(request, db=db)
+        if res.get("status") == "ALREADY_COMPLETE":
+            response.status_code = status.HTTP_200_OK
+        else:
+            response.status_code = status.HTTP_202_ACCEPTED
+        return res
     except ValueError as ve:
         logger.warning(f"[ORCHESTRATOR API WARNING] {ve}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
@@ -73,8 +82,28 @@ async def start_orchestrator(
         logger.error(f"[ORCHESTRATOR API ERROR] Execution failure: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Orchestrator execution error: {str(e)}"
+            detail=f"Orchestrator start error: {str(e)}"
         )
+
+
+@router.get(
+    "/status/{analysis_id}",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Get Live / Persisted Orchestrator Pipeline Status",
+    description="Returns real-time progress (0-100%), current stage, active agent, completed stages, and final result."
+)
+async def get_orchestrator_status(
+    analysis_id: str,
+    db: Session = Depends(get_db)
+):
+    st = await orchestrator_service.get_orchestrator_status(analysis_id, db=db)
+    if not st:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active or persisted orchestrator pipeline found for analysis_id='{analysis_id}'"
+        )
+    return st
 
 
 @router.get(

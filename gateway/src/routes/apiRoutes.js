@@ -11,6 +11,7 @@ import financialAnalysisController from '../controllers/financialAnalysisControl
 import entrepreneurProfileController from '../controllers/entrepreneurProfileController.js';
 import riskAnalysisController from '../controllers/riskAnalysisController.js';
 import feasibilityController from '../controllers/feasibilityController.js';
+import swotController from '../controllers/swotController.js';
 
 
 const router = Router();
@@ -38,6 +39,7 @@ router.get('/profile/:id', profileController.getProfileByAnalysisId);
 
 // Stage 4 Live Manager Agent / Orchestrator Routes
 router.post('/orchestrator/start', orchestratorController.startOrchestrator);
+router.get('/orchestrator/status/:id', orchestratorController.getOrchestratorStatus);
 router.get('/orchestrator/session/:id', orchestratorController.getOrchestratorBySessionId);
 router.get('/orchestrator/workflow/:id', orchestratorController.getWorkflowStatus);
 router.get('/orchestrator/:id', orchestratorController.getOrchestratorByAnalysisId);
@@ -96,6 +98,11 @@ router.get('/feasibility/health', feasibilityController.getFeasibilityHealth);
 router.get('/feasibility/:id/calculation', feasibilityController.getFeasibilityCalculation);
 router.get('/feasibility/:id', feasibilityController.getFeasibilityById);
 router.post('/feasibility/pivot-suggestions', feasibilityController.getPivotSuggestions);
+
+// Stage 13 Live Dynamic SWOT Agent Routes
+router.post('/swot/analyze', swotController.analyzeSWOT);
+router.get('/swot/health', swotController.getSWOTHealth);
+router.get('/swot/:id', swotController.getSWOTById);
 
 // Locked Future Stages
 router.all('/market/*', (req, res) => {

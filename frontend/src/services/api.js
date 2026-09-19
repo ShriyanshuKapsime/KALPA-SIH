@@ -94,6 +94,9 @@ export const apiService = {
       console.log('[FRONTEND → GATEWAY] Starting orchestrator for session:', sessionId);
       return apiClient.post('/orchestrator/start', { session_id: sessionId, ...options });
     },
+    getStatus: async (analysisId) => {
+      return apiClient.get(`/orchestrator/status/${analysisId}`);
+    },
     getById: async (analysisId) => {
       console.log(`[FRONTEND → GATEWAY] Fetching orchestration record /orchestrator/${analysisId}`);
       return apiClient.get(`/orchestrator/${analysisId}`);
@@ -280,6 +283,20 @@ export const apiService = {
     },
   },
 
+  swot: {
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering Stage 13 Dynamic SWOT Agent:', payload);
+      return apiClient.post('/swot/analyze', payload, { timeout: 120000 });
+    },
+    getById: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching SWOT record /swot/${analysisId}`);
+      return apiClient.get(`/swot/${analysisId}`);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking SWOT Agent health');
+      return apiClient.get('/swot/health');
+    },
+  },
 
   dpr: {
     generateReport: async (businessId) => apiClient.post(`/dpr/generate/${businessId}`),

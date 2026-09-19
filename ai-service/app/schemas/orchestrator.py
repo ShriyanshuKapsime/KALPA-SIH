@@ -81,6 +81,8 @@ class StartOrchestratorRequest(BaseModel):
     analysis_id: Optional[str] = Field(default=None, description="Direct Stage 3 profile UUID")
     business_profile: Optional[Dict[str, Any]] = Field(default=None, description="Optional raw Stage 3 profile JSON override")
     force_llm: bool = Field(default=False, description="Flag for testing/evaluating LLM escalation path")
+    force_refresh: bool = Field(default=False, description="Flag to force recalculation")
+    sync: bool = Field(default=False, description="Run synchronously and wait for complete OrchestratorResponse")
 
 
 class CanonicalWorkflowState(BaseModel):
