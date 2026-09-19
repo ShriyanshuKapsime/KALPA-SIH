@@ -182,6 +182,14 @@ class FinancialBenchmarkSchema(BaseModel):
     timelines: BenchmarkTimelinesSchema
     unit_economics: Dict[str, Any] = {}
 
+    @property
+    def business_id(self) -> str:
+        return self.business_node_id
+
+    @property
+    def business_name(self) -> str:
+        return self.business_title
+
     @model_validator(mode="before")
     @classmethod
     def normalize_fin_benchmark(cls, data: Any) -> Any:
@@ -235,6 +243,14 @@ class MarketBenchmarkSchema(BaseModel):
     provenance: Optional[ProvenanceSchema] = None
     quality: Optional[QualityMetadataSchema] = None
 
+    @property
+    def business_id(self) -> str:
+        return self.business_node_id
+
+    @property
+    def business_name(self) -> str:
+        return self.business_title
+
     @model_validator(mode="before")
     @classmethod
     def normalize_mkt_benchmark(cls, data: Any) -> Any:
@@ -285,6 +301,14 @@ class BusinessProfileSchema(BaseModel):
     risk_factors: List[str] = []
     quality: Optional[QualityMetadataSchema] = None
     provenance: Optional[ProvenanceSchema] = None
+
+    @property
+    def business_id(self) -> str:
+        return self.business_node_id
+
+    @property
+    def business_name(self) -> str:
+        return self.business_title
 
     @model_validator(mode="before")
     @classmethod
@@ -341,6 +365,14 @@ class BusinessRequirementSchema(BaseModel):
     skills_and_manpower: Dict[str, Any] = {}
     supply_chain: Dict[str, Any] = {}
     compliance_and_licensing: List[ComplianceLicenseItemSchema] = []
+
+    @property
+    def business_id(self) -> str:
+        return self.business_node_id
+
+    @property
+    def business_name(self) -> str:
+        return self.business_title
 
 
 # ---------------------------------------------------------

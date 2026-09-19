@@ -32,6 +32,26 @@ async def get_canonical_workflow_state(
     return workflow_state
 
 
+@router.get(
+    "/workflow-context/{identifier}",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Get Consolidated Authoritative Workflow Context (Stage 3 -> 6 -> 8 -> 9 -> 10 -> 11)",
+    description="Returns the unified workflow context containing business metadata and outputs across all pipeline stages."
+)
+async def get_consolidated_workflow_context(
+    identifier: str,
+    db: Session = Depends(get_db)
+):
+    ctx = await orchestrator_service.get_authoritative_workflow_context(identifier, db=db)
+    if not ctx:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No workflow context found for identifier='{identifier}'"
+        )
+    return ctx
+
+
 @router.post(
     "/start",
     response_model=OrchestratorResponse,

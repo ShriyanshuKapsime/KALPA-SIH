@@ -181,111 +181,288 @@ class OrchestratorService:
         session: Session,
         target_uuid: uuid.UUID
     ) -> Optional[CanonicalWorkflowState]:
-        # 1. Try OrchestrationRecord
-        orch = session.query(OrchestrationRecord).filter(
-            (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
-        ).order_by(OrchestrationRecord.created_at.desc()).first()
+        from app.database.models.feasibility import FeasibilityResult
+        from app.database.models.finance import FinancialProfile
+        from app.services.entrepreneur_profile_engine import entrepreneur_profile_engine
 
-        if orch and orch.orchestration_output:
-            out = orch.orchestration_output
-            wf = out.get("workflow", {})
-            completed_stages = out.get("completed_stages") or wf.get("completed_stages") or [1, 2, 3, 4]
-            engine_results = out.get("agent_results", {})
-            
-            # Extract high-level summary labels for engines
-            engine_outputs = {}
-            if "market_intelligence_agent" in engine_results or 5 in completed_stages:
-                engine_outputs["market_intelligence"] = "Demand Strong ✓"
-            if "opportunity_evaluation_engine" in engine_results or 8 in completed_stages:
-                engine_outputs["opportunity_evaluation"] = "88% Opportunity ✓"
-            if "finance_engine" in engine_results or 9 in completed_stages:
-                engine_outputs["financial_planning"] = "₹9L Financing Structure ✓"
-
-            return CanonicalWorkflowState(
-                session_id=str(orch.session_id),
-                analysis_id=str(orch.id),
-                business_id=out.get("business_id") or out.get("business_context", {}).get("specific_business"),
-                current_stage=out.get("current_stage", 4),
-                workflow_status=orch.workflow_status,
-                completed_stages=completed_stages,
-                available_stages=[1, 2, 3, 4, 5, 8, 9],
-                locked_stages=[10, 11, 12, 13, 14, 15],
-                active_agent=out.get("active_agent"),
-                next_stage=out.get("next_stage", 5),
-                stage_name="KALPA_MANAGER_ORCHESTRATOR",
-                journey_status={
-                    "understand": "COMPLETED" if all(s in completed_stages for s in [1, 2, 3]) else "ACTIVE",
-                    "discover": "COMPLETED" if 5 in completed_stages else "ACTIVE",
-                    "validate": "COMPLETED" if 8 in completed_stages else "PENDING",
-                    "finance": "COMPLETED" if 9 in completed_stages else "PENDING",
-                    "prepare": "LOCKED",
-                    "grow": "LOCKED"
-                },
-                engine_outputs=engine_outputs,
-                details={"source": "orchestration_record"}
-            )
-
-        # 2. Try MarketEvidenceRecord
-        mkt = session.query(MarketEvidenceRecord).filter(
-            (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
-        ).order_by(MarketEvidenceRecord.created_at.desc()).first()
-
-        if mkt:
-            return CanonicalWorkflowState(
-                session_id=str(mkt.session_id),
-                analysis_id=str(mkt.id),
-                business_id=mkt.full_profile.get("business_profile", {}).get("specific_business") if mkt.full_profile else None,
-                current_stage=5,
-                workflow_status=mkt.workflow_status,
-                completed_stages=[1, 2, 3, 4, 5],
-                available_stages=[1, 2, 3, 4, 5, 8, 9],
-                locked_stages=[10, 11, 12, 13, 14, 15],
-                active_agent=None,
-                next_stage=8,
-                stage_name="MARKET_INTELLIGENCE_AGENT",
-                journey_status={
-                    "understand": "COMPLETED",
-                    "discover": "COMPLETED",
-                    "validate": "ACTIVE",
-                    "finance": "PENDING",
-                    "prepare": "LOCKED",
-                    "grow": "LOCKED"
-                },
-                engine_outputs={"market_intelligence": "Demand Strong ✓"},
-                details={"source": "market_evidence_record"}
-            )
-
-        # 3. Try StructuredBusinessProfile
+        # 1. Fetch all pipeline DB records for this target identifier
         prof = session.query(StructuredBusinessProfile).filter(
             (StructuredBusinessProfile.id == target_uuid) | (StructuredBusinessProfile.session_id == target_uuid)
         ).order_by(StructuredBusinessProfile.created_at.desc()).first()
 
-        if prof:
-            return CanonicalWorkflowState(
-                session_id=str(prof.session_id),
-                analysis_id=str(prof.id),
-                business_id=prof.specific_business,
-                current_stage=3,
-                workflow_status=prof.workflow_state,
-                completed_stages=[1, 2, 3],
-                available_stages=[1, 2, 3, 4, 5, 8, 9],
-                locked_stages=[10, 11, 12, 13, 14, 15],
-                active_agent=None,
-                next_stage=4,
-                stage_name="CANONICAL_BUSINESS_PROFILE",
-                journey_status={
-                    "understand": "COMPLETED",
-                    "discover": "PENDING",
-                    "validate": "PENDING",
-                    "finance": "PENDING",
-                    "prepare": "LOCKED",
-                    "grow": "LOCKED"
-                },
-                engine_outputs={},
-                details={"source": "structured_business_profile"}
-            )
+        mkt = session.query(MarketEvidenceRecord).filter(
+            (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
+        ).order_by(MarketEvidenceRecord.created_at.desc()).first()
 
-        return None
+        fin = session.query(FinancialProfile).filter(
+            (FinancialProfile.id == target_uuid) | (FinancialProfile.business_id == target_uuid)
+        ).first()
+
+        orch = session.query(OrchestrationRecord).filter(
+            (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
+        ).order_by(OrchestrationRecord.created_at.desc()).first()
+
+        feas = session.query(FeasibilityResult).filter(
+            (FeasibilityResult.id == target_uuid) | (FeasibilityResult.session_id == target_uuid)
+        ).order_by(FeasibilityResult.created_at.desc()).first()
+
+        if not (prof or mkt or fin or orch or feas):
+            return None
+
+        # Determine effective Session ID, Analysis ID, Business ID
+        s_id = str(feas.session_id if feas and feas.session_id else (prof.session_id if prof else (mkt.session_id if mkt else target_uuid)))
+        a_id = str(feas.id if feas else (prof.id if prof else (mkt.id if mkt else target_uuid)))
+        biz_id = None
+        if prof:
+            biz_id = prof.specific_business
+        elif mkt and mkt.full_profile:
+            biz_id = mkt.full_profile.get("business_profile", {}).get("specific_business")
+
+        # 2. Build completed stages and outputs dynamically
+        completed_stages = [1, 2, 3]
+        if orch:
+            completed_stages.append(4)
+        engine_outputs = {}
+
+        # Stage 5 (Market Intelligence)
+        if mkt or (orch and "market_intelligence_agent" in (orch.completed_agents or [])):
+            if 5 not in completed_stages:
+                completed_stages.append(5)
+            engine_outputs["market_intelligence"] = "Demand Strong ✓"
+
+        # Stage 8 (Opportunity Evaluation)
+        if orch and orch.orchestration_output:
+            out = orch.orchestration_output
+            res = out.get("agent_results", {})
+            if res.get("opportunity_evaluation_engine"):
+                if 8 not in completed_stages:
+                    completed_stages.append(8)
+                engine_outputs["opportunity_evaluation"] = "88% Opportunity ✓"
+
+        # Stage 9 (Financial Engine)
+        if fin or (orch and "finance_engine" in (orch.completed_agents or [])):
+            if 9 not in completed_stages:
+                completed_stages.append(9)
+            engine_outputs["financial_planning"] = "₹9L Financing Structure ✓"
+
+        # Stage 10 (Entrepreneur Profile Check)
+        is_s10_complete = False
+        if prof and prof.profile_json:
+            p_json = prof.profile_json
+            ep_user = p_json.get("entrepreneur_profile") or p_json.get("user_profile") or {}
+            ep_eval = entrepreneur_profile_engine.analyze({
+                "business_profile": p_json.get("business_profile") or {"specific_business": prof.specific_business},
+                "entrepreneur_profile": ep_user,
+                "location_profile": p_json.get("location_profile")
+            })
+            is_s10_complete = entrepreneur_profile_engine.is_stage10_complete(ep_eval)
+            if is_s10_complete:
+                if 10 not in completed_stages:
+                    completed_stages.append(10)
+                engine_outputs["entrepreneur_profile"] = f"Readiness {round(ep_eval.readiness_score) if hasattr(ep_eval, 'readiness_score') else 80}% ✓"
+
+        # Stage 11 & Stage 12
+        if feas:
+            if 10 not in completed_stages:
+                completed_stages.append(10)
+            if 11 not in completed_stages:
+                completed_stages.append(11)
+            if 12 not in completed_stages:
+                completed_stages.append(12)
+            engine_outputs["feasibility_assessment"] = f"Feasibility {feas.viability_status} ✓"
+
+        # 3. Derive Workflow State Machine & Stage Availability
+        if feas:
+            current_stage = 12
+            next_stage = 13
+            workflow_status = "FEASIBILITY_COMPLETE"
+            available_stages = [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13]
+            locked_stages = [14, 15]
+        elif is_s10_complete:
+            current_stage = 11
+            next_stage = 11
+            workflow_status = "STAGE_10_COMPLETE"
+            available_stages = [1, 2, 3, 4, 5, 8, 9, 10, 11]
+            locked_stages = [12, 13, 14, 15]
+        elif 9 in completed_stages:
+            current_stage = 10
+            next_stage = 10
+            workflow_status = "STAGE_10_CLARIFICATION_REQUIRED"
+            available_stages = [1, 2, 3, 4, 5, 8, 9, 10]
+            locked_stages = [11, 12, 13, 14, 15]
+        elif 8 in completed_stages:
+            current_stage = 9
+            next_stage = 9
+            workflow_status = "STAGE_8_COMPLETE"
+            available_stages = [1, 2, 3, 4, 5, 8, 9]
+            locked_stages = [10, 11, 12, 13, 14, 15]
+        elif 5 in completed_stages:
+            current_stage = 8
+            next_stage = 8
+            workflow_status = "STAGE_5_COMPLETE"
+            available_stages = [1, 2, 3, 4, 5, 8]
+            locked_stages = [9, 10, 11, 12, 13, 14, 15]
+        else:
+            current_stage = 4
+            next_stage = 5
+            workflow_status = "PROFILE_READY"
+            available_stages = [1, 2, 3, 4, 5]
+            locked_stages = [8, 9, 10, 11, 12, 13, 14, 15]
+
+        return CanonicalWorkflowState(
+            session_id=s_id,
+            analysis_id=a_id,
+            business_id=biz_id,
+            current_stage=current_stage,
+            workflow_status=workflow_status,
+            completed_stages=sorted(list(set(completed_stages))),
+            available_stages=available_stages,
+            locked_stages=locked_stages,
+            active_agent=None,
+            next_stage=next_stage,
+            stage_name="KALPA_MANAGER_ORCHESTRATOR",
+            journey_status={
+                "understand": "COMPLETED" if all(s in completed_stages for s in [1, 2, 3]) else "ACTIVE",
+                "discover": "COMPLETED" if 5 in completed_stages else "PENDING",
+                "validate": "COMPLETED" if 8 in completed_stages else "PENDING",
+                "finance": "COMPLETED" if 9 in completed_stages else "PENDING",
+                "prepare": "COMPLETED" if 12 in completed_stages else ("ACTIVE" if 10 in available_stages else "LOCKED"),
+                "grow": "ACTIVE" if 12 in completed_stages else "LOCKED"
+            },
+            engine_outputs=engine_outputs,
+            details={"is_stage10_complete": is_s10_complete}
+        )
+
+    def invalidate_downstream_stages(self, target_uuid: uuid.UUID, from_stage: int, session: Session):
+        """
+        Invalidates downstream stage records in PostgreSQL when an upstream stage is updated.
+        """
+        from app.database.models.feasibility import FeasibilityResult
+        if from_stage <= 11:
+            session.query(FeasibilityResult).filter(
+                (FeasibilityResult.id == target_uuid) | (FeasibilityResult.session_id == target_uuid)
+            ).delete(synchronize_session=False)
+            session.commit()
+            logger.info(f"[ORCHESTRATOR INVALIDATION] Invalidated downstream Feasibility records for target_uuid={target_uuid}")
+
+
+    async def get_authoritative_workflow_context(
+        self,
+        identifier: str,
+        db: Optional[Session] = None
+    ) -> Dict[str, Any]:
+        """
+        Builds the consolidated authoritative workflow context object merging Stage 3, Stage 6, Stage 8, Stage 9, Stage 10, Stage 11.
+        """
+        try:
+            target_uuid = uuid.UUID(identifier)
+        except Exception:
+            return {"session_id": identifier, "analysis_id": identifier}
+
+        lookup_fn = lambda sess: self._build_canonical_context_from_db(sess, target_uuid)
+        if db:
+            return lookup_fn(db)
+        with get_db_context() as session:
+            return lookup_fn(session)
+
+    def _build_canonical_context_from_db(self, session: Session, target_uuid: uuid.UUID) -> Dict[str, Any]:
+        from app.database.models.finance import FinancialProfile
+
+        ctx = {
+            "session_id": str(target_uuid),
+            "analysis_id": str(target_uuid),
+            "business_context": {},
+            "stage6_market_intelligence": {},
+            "stage8_opportunity_evaluation": {},
+            "stage9_financial_analysis": {},
+            "stage10_entrepreneur_profile": {},
+            "stage11_risk_analysis": {},
+            "stage12_feasibility_assessment": {}
+        }
+
+
+        # 1. StructuredBusinessProfile
+        prof = session.query(StructuredBusinessProfile).filter(
+            (StructuredBusinessProfile.id == target_uuid) | (StructuredBusinessProfile.session_id == target_uuid)
+        ).order_by(StructuredBusinessProfile.created_at.desc()).first()
+        if prof and prof.profile_json:
+            p_json = prof.profile_json
+            ctx["session_id"] = str(prof.session_id)
+            ctx["analysis_id"] = str(prof.id)
+            ctx["business_context"] = {
+                "business_id": p_json.get("business_profile", {}).get("business_id"),
+                "business_name": p_json.get("business_profile", {}).get("specific_business") or prof.specific_business,
+                "business_category": p_json.get("business_profile", {}).get("category"),
+                "location": p_json.get("location_profile", {}).get("village") or p_json.get("location_profile", {}).get("block"),
+                "district": p_json.get("location_profile", {}).get("district") or prof.district,
+                "state": p_json.get("location_profile", {}).get("state") or prof.state
+            }
+            ctx["stage10_entrepreneur_profile"] = p_json.get("entrepreneur_profile") or p_json.get("user_profile") or {}
+            if p_json.get("financial_analysis"):
+                ctx["stage9_financial_analysis"] = p_json["financial_analysis"]
+
+        # 2. MarketEvidenceRecord (Stage 6)
+        mkt = session.query(MarketEvidenceRecord).filter(
+            (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
+        ).order_by(MarketEvidenceRecord.created_at.desc()).first()
+        if mkt:
+            ctx["stage6_market_intelligence"] = mkt.full_profile or mkt.market_evidence or {}
+
+        # 3. FinancialProfile (Stage 9)
+        fin = session.query(FinancialProfile).filter(
+            (FinancialProfile.id == target_uuid) | (FinancialProfile.business_id == target_uuid)
+        ).first()
+        if fin:
+            ctx["stage9_financial_analysis"] = {
+                "debt_service": {"dscr": fin.debt_service_coverage_ratio},
+                "break_even": {"break_even_point_percentage": fin.break_even_percentage},
+                "project_financing": {
+                    "total_project_cost": fin.total_project_cost,
+                    "estimated_financeable_loan": fin.bank_loan_requirement,
+                    "promoter_contribution": fin.promoter_contribution
+                },
+                "breakdown": fin.breakdown_json or {}
+            }
+
+        # 4. OrchestrationRecord
+        orch = session.query(OrchestrationRecord).filter(
+            (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
+        ).order_by(OrchestrationRecord.created_at.desc()).first()
+        if orch and orch.orchestration_output:
+            out = orch.orchestration_output
+            res = out.get("agent_results", {})
+            if res.get("opportunity_evaluation_engine"):
+                ctx["stage8_opportunity_evaluation"] = res["opportunity_evaluation_engine"]
+            if res.get("finance_engine") and not ctx["stage9_financial_analysis"]:
+                ctx["stage9_financial_analysis"] = res["finance_engine"]
+
+        # 5. FeasibilityResult (Stage 12)
+        from app.database.models.feasibility import FeasibilityResult
+        feas = session.query(FeasibilityResult).filter(
+            (FeasibilityResult.id == target_uuid) | (FeasibilityResult.session_id == target_uuid)
+        ).order_by(FeasibilityResult.created_at.desc()).first()
+        if feas:
+            ctx["stage12_feasibility_assessment"] = {
+                "overall_feasibility_score": feas.overall_feasibility_score,
+                "decision": feas.viability_status,
+                "recommendation": feas.recommendation,
+                "confidence_score": feas.confidence_score,
+                "pillar_scores": feas.pillar_scores or {},
+                "critical_gates": feas.critical_gates or [],
+                "positive_drivers": feas.positive_drivers or [],
+                "key_constraints": feas.key_constraints or [],
+                "conditions": feas.conditions or [],
+                "dynamic_swot": {
+                    "strengths": feas.strengths or [],
+                    "weaknesses": feas.weaknesses or [],
+                    "opportunities": feas.opportunities or [],
+                    "threats": feas.threats or []
+                },
+                "pivot_recommendations": feas.pivot_recommendations or []
+            }
+
+        return ctx
+
 
     def _build_response(self, state: KALPAOrchestratorState) -> OrchestratorResponse:
         completed = state.get("completed_agents", [])
@@ -438,6 +615,54 @@ class OrchestratorService:
             session.commit()
             logger.info(f"[STAGE 4 DATABASE INSERT] Created OrchestrationRecord analysis_id={analysis_uuid}")
 
+    async def invalidate_downstream_stages(self, session_id: str, modified_stage: int = 10) -> Dict[str, Any]:
+        """
+        Invalidates downstream stages when an upstream stage is modified or re-evaluated.
+        Rules:
+        - Stage 10 changed -> Invalidate Stage 11 (Risk) & Stage 12 (Feasibility).
+        - Stage 9 changed -> Invalidate Stage 11 & Stage 12.
+        - Stage 6 changed -> Invalidate Stage 8, Stage 11 & Stage 12.
+        """
+        invalidated = []
+        if modified_stage == 10:
+            invalidated = [11, 12]
+        elif modified_stage == 9:
+            invalidated = [11, 12]
+        elif modified_stage in [5, 6]:
+            invalidated = [8, 11, 12]
+        elif modified_stage == 8:
+            invalidated = [11, 12]
+        elif modified_stage == 11:
+            invalidated = [12]
+
+        logger.info(f"[ORCHESTRATOR INVALIDATION] session_id='{session_id}', modified_stage={modified_stage}, invalidated={invalidated}")
+
+        with get_db_context() as session:
+            if session:
+                try:
+                    s_uuid = uuid.UUID(session_id)
+                    rec = session.query(OrchestrationRecord).filter(
+                        (OrchestrationRecord.session_id == s_uuid) | (OrchestrationRecord.id == s_uuid)
+                    ).order_by(OrchestrationRecord.created_at.desc()).first()
+
+                    if rec:
+                        current_completed = [s for s in (rec.completed_agents or []) if s not in invalidated]
+                        rec.completed_agents = current_completed
+                        if rec.workflow_status in ["ORCHESTRATION_COMPLETE", "FEASIBILITY_COMPLETE", "RISK_COMPLETE"]:
+                            rec.workflow_status = "STAGE_10_CLARIFICATION_REQUIRED" if modified_stage == 10 else "ANALYZING"
+                        session.commit()
+                except Exception as e:
+                    logger.warning(f"[ORCHESTRATOR INVALIDATION DB NOTE] {e}")
+
+        return {
+            "session_id": session_id,
+            "modified_stage": modified_stage,
+            "invalidated_stages": invalidated,
+            "locked_stages": invalidated,
+            "status": "DOWNSTREAM_STAGES_INVALIDATED"
+        }
+
 
 # Global singleton instance
 orchestrator_service = OrchestratorService()
+

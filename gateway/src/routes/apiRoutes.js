@@ -10,6 +10,8 @@ import opportunityEvaluationController from '../controllers/opportunityEvaluatio
 import financialAnalysisController from '../controllers/financialAnalysisController.js';
 import entrepreneurProfileController from '../controllers/entrepreneurProfileController.js';
 import riskAnalysisController from '../controllers/riskAnalysisController.js';
+import feasibilityController from '../controllers/feasibilityController.js';
+
 
 const router = Router();
 
@@ -19,6 +21,7 @@ router.get('/health/ai', healthController.getAIHealth);
 // Stage 1 Live Intake Routes
 router.post('/intake/text', intakeController.submitTextIntake);
 router.post('/intake/voice', intakeController.submitVoiceIntake);
+router.post('/intake/transcribe', intakeController.transcribeVoice);
 router.post('/intake/continue', intakeController.continueIntake);
 router.get('/intake/session/:id', intakeController.getIntakeSession);
 
@@ -87,18 +90,18 @@ router.get('/entrepreneur-profile/health', entrepreneurProfileController.getEntr
 router.post('/risk-analysis/analyze', riskAnalysisController.analyzeRiskProfile);
 router.get('/risk-analysis/health', riskAnalysisController.getRiskEngineHealth);
 
+// Stage 12 Live Feasibility Engine Routes
+router.post('/feasibility/analyze', feasibilityController.analyzeFeasibility);
+router.get('/feasibility/health', feasibilityController.getFeasibilityHealth);
+router.get('/feasibility/:id/calculation', feasibilityController.getFeasibilityCalculation);
+router.get('/feasibility/:id', feasibilityController.getFeasibilityById);
+router.post('/feasibility/pivot-suggestions', feasibilityController.getPivotSuggestions);
+
 // Locked Future Stages
 router.all('/market/*', (req, res) => {
   res.status(501).json({
     status: 'scaffold_only',
     message: 'Market Intelligence Engine analysis endpoint will be activated in future phases.',
-  });
-});
-
-router.all('/feasibility/*', (req, res) => {
-  res.status(501).json({
-    status: 'scaffold_only',
-    message: 'Feasibility API endpoint will be activated in future phases.',
   });
 });
 
@@ -110,3 +113,4 @@ router.all('/dpr/*', (req, res) => {
 });
 
 export default router;
+

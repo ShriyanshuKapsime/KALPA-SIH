@@ -46,7 +46,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-}
       - LLM_API_KEY=${LLM_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
-      - GROQ_MODEL=${GROQ_MODEL:-qwen/qwen3.6-27b}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
       - SARVAM_API_KEY=${SARVAM_API_KEY:-}
       - SARVAM_STT_MODEL=${SARVAM_STT_MODEL:-saaras:v4}
       - SARVAM_LLM_MODEL=${SARVAM_LLM_MODEL:-sarvam-105b}

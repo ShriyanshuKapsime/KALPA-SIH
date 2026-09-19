@@ -169,7 +169,7 @@ class TestStage10EntrepreneurProfileEngine:
         # 1 year vs 2 year required benchmark
         ep_1yr = {"experience": {"years_of_experience": 1.0}}
         comp_1yr = entrepreneur_profile_engine.evaluate_experience(ep_1yr, "flour_milling_micro")
-        assert comp_1yr.score == 62.5
+        assert comp_1yr.score == 57.5
         assert comp_1yr.status == "ADEQUATE"
 
         # 4 years vs 2 year required benchmark

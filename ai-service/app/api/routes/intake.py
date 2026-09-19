@@ -183,6 +183,63 @@ async def continue_intake(
         )
 
 
+@router.post("/transcribe", status_code=status.HTTP_200_OK)
+async def transcribe_voice(
+    file: UploadFile = File(..., description="Audio recording file (wav, webm, mp3, etc.)"),
+    language_code: Optional[str] = Form(None),
+):
+    """
+    Direct Speech-to-Text transcription via Sarvam Saaras STT without triggering Stage 1 full intake.
+    Used for clarification questions, voice responses, and multilingual input across all stages.
+    """
+    logger.info("[AI INTAKE ROUTE HIT] POST /api/v1/intake/transcribe")
+    try:
+        audio_bytes = await file.read()
+        if not audio_bytes or len(audio_bytes) < 50:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded audio file is empty or corrupted."
+            )
+
+        transcript, detected_lang = await sarvam_stt_service.transcribe_audio(
+            audio_bytes=audio_bytes,
+            filename=file.filename or "recording.webm",
+            content_type=file.content_type or "audio/webm",
+            language_code=language_code
+        )
+
+        if not transcript or not transcript.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Could not detect clear speech in the recording. Please speak closer to the mic or type your answer."
+            )
+
+        return {
+            "success": True,
+            "transcript": transcript.strip(),
+            "language": detected_lang or language_code or "unknown"
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.warning(f"Voice transcribe configuration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "success": False,
+                "error": "STT_CONFIG_ERROR",
+                "message": str(e),
+                "details": {"received_language": language_code or "unknown"}
+            }
+        )
+    except Exception as e:
+        logger.error(f"Voice transcribe error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Voice transcription failed: {str(e)}"
+        )
+
+
 @router.get("/session/{session_id}", response_model=Stage1IntakeResponse, status_code=status.HTTP_200_OK)
 async def get_intake_session(
     session_id: str,

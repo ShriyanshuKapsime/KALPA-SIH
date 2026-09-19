@@ -309,33 +309,79 @@ export const WorkflowProvider = ({ children }) => {
       setOrchestrationProgress(75);
 
       // Step 5: Trigger Stage 10 Entrepreneur Profile Engine
-      let epLabel = 'Readiness 82% (High) ✓';
+      setOrchestrationProgress(75);
+      let epLabel = 'Clarification Required (Pending Answers)';
       let epResult = null;
+      let isStage10Complete = false;
+
       try {
         const epRes = await apiService.entrepreneurProfile.analyze({
           analysis_id: activeAid,
           session_id: sId
         });
         epResult = epRes;
+        const missingCount = (epRes?.missing_fields?.length || epRes?.questions?.length || 0);
+        isStage10Complete = (epRes?.status === 'READY' || epRes?.status === 'COMPLETE') && missingCount === 0;
+
         if (epRes?.readiness_score !== undefined) {
-          epLabel = `Readiness ${Math.round(epRes.readiness_score)}% (${epRes.readiness_level || 'Evaluated'}) ✓`;
+          epLabel = `Readiness ${Math.round(epRes.readiness_score)}% (${epRes.readiness_level || (isStage10Complete ? 'Complete' : 'Clarification Required')}) ✓`;
         }
       } catch (epErr) {
         console.warn('[ORCHESTRATOR] Entrepreneur profile fallback note:', epErr.message);
       }
 
       setEngineOutputs(prev => ({ ...prev, entrepreneur_profile: epLabel }));
+
+      // HARD GATE: If Stage 10 has pending clarification questions, STOP the pipeline!
+      if (!isStage10Complete) {
+        console.log('[ORCHESTRATOR HARD GATE] Stage 10 requires entrepreneur clarification questions to be answered. Halting pipeline before Stage 11.');
+        markStageComplete(10, 10);
+        setOrchestrationProgress(80);
+
+        updateWorkflowState({
+          sessionId: sId,
+          analysisId: activeAid,
+          currentStage: 10,
+          completedStages: [1, 2, 3, 4, 5, 8, 9],
+          availableStages: [1, 2, 3, 4, 5, 8, 9, 10],
+          lockedStages: [11, 12, 13, 14, 15],
+          workflowStatus: 'STAGE_10_CLARIFICATION_REQUIRED',
+          journeyStatus: {
+            understand: 'COMPLETED',
+            discover: 'COMPLETED',
+            validate: 'COMPLETED',
+            finance: 'COMPLETED',
+            prepare: 'ACTIVE',
+            grow: 'LOCKED'
+          }
+        });
+
+        return {
+          success: true,
+          status: 'STAGE_10_CLARIFICATION_REQUIRED',
+          marketIntelligence: mktDemandLabel,
+          opportunityEvaluation: oppScoreLabel,
+          financialPlanning: finStructureLabel,
+          entrepreneurProfile: epLabel,
+          riskAnalysis: 'Awaiting Entrepreneur Profile Completion (Locked)',
+          questions: epResult?.questions || []
+        };
+      }
+
+      // If Stage 10 is complete, mark Stage 10 complete and proceed to Stage 11
       markStageComplete(10, 11);
-      setOrchestrationProgress(90);
+      setOrchestrationProgress(85);
 
       // Step 6: Trigger Stage 11 Risk Engine
       let riskLabel = 'Low-Medium Risk (0.34) ✓';
+      let riskResult = null;
       try {
         const riskRes = await apiService.riskAnalysis.analyze({
           analysis_id: activeAid,
           session_id: sId,
           entrepreneur_readiness: epResult
         });
+        riskResult = riskRes;
         if (riskRes?.overall_risk_severity) {
           riskLabel = `${riskRes.overall_risk_severity} Risk (${riskRes.overall_risk_score}) ✓`;
         }
@@ -345,32 +391,56 @@ export const WorkflowProvider = ({ children }) => {
 
       setEngineOutputs(prev => ({ ...prev, risk_analysis: riskLabel }));
       markStageComplete(11, 12);
+      setOrchestrationProgress(95);
+
+      // Step 7: Trigger Stage 12 Feasibility Engine
+      let feasLabel = 'Feasibility Viable ✓';
+      try {
+        const feasRes = await apiService.feasibility.analyze({
+          analysis_id: activeAid,
+          session_id: sId,
+          entrepreneur_readiness: epResult,
+          risk_analysis: riskResult
+        });
+        if (feasRes?.decision) {
+          feasLabel = `Feasibility ${feasRes.decision} (${feasRes.overall_feasibility_score}/100) ✓`;
+        }
+      } catch (fErr) {
+        console.warn('[ORCHESTRATOR] Feasibility analysis fallback note:', fErr.message);
+      }
+
+      markStageComplete(12, 13);
       setOrchestrationProgress(100);
 
       updateWorkflowState({
         sessionId: sId,
         analysisId: activeAid,
-        currentStage: 11,
-        completedStages: [1, 2, 3, 4, 5, 8, 9, 10, 11],
-        workflowStatus: 'FEASIBILITY_READY',
+        currentStage: 12,
+        completedStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12],
+        availableStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13],
+        lockedStages: [14, 15],
+        workflowStatus: 'FEASIBILITY_COMPLETE',
         journeyStatus: {
           understand: 'COMPLETED',
           discover: 'COMPLETED',
           validate: 'COMPLETED',
           finance: 'COMPLETED',
           prepare: 'COMPLETED',
-          grow: 'LOCKED'
+          grow: 'ACTIVE'
         }
       });
 
       return {
         success: true,
+        status: 'FEASIBILITY_COMPLETE',
         marketIntelligence: mktDemandLabel,
         opportunityEvaluation: oppScoreLabel,
         financialPlanning: finStructureLabel,
         entrepreneurProfile: epLabel,
-        riskAnalysis: riskLabel
+        riskAnalysis: riskLabel,
+        feasibility: feasLabel
       };
+
     } catch (err) {
       console.error('[ORCHESTRATOR EXECUTION ERROR]', err);
       setWorkflowError(err.message || 'Orchestration execution failed');

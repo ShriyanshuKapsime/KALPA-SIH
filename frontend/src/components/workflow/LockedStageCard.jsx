@@ -13,22 +13,13 @@ import {
 
 export const FUTURE_STAGES = [
   {
-    id: 'feasibility_engine',
-    stageNum: 12,
-    pillar: 'Prepare',
-    name: 'Feasibility Engine',
-    icon: BarChart,
-    desc: 'Multivariate enterprise survivability and viability modeling across raw material and revenue stress scenarios.',
-    badge: 'Stage 12 &middot; Prepare'
-  },
-  {
     id: 'dpr_generator',
     stageNum: 13,
     pillar: 'Prepare',
     name: 'DPR Generator',
     icon: FileText,
     desc: 'Institutional-grade Detailed Project Report generation aligned with PMMY / PMEGP credit parameters.',
-    badge: 'Stage 13 &middot; Prepare'
+    badge: 'Stage 13 · Prepare'
   },
   {
     id: 'personal_ai_assistant',
@@ -37,7 +28,7 @@ export const FUTURE_STAGES = [
     name: 'Personal AI Assistant',
     icon: Bot,
     desc: 'Multilingual conversational agent providing day-to-day regulatory, taxation, and operational advice in native vernacular.',
-    badge: 'Stage 14 &middot; Grow'
+    badge: 'Stage 14 · Grow'
   },
   {
     id: 'growth_manager',
@@ -46,7 +37,7 @@ export const FUTURE_STAGES = [
     name: 'Growth Manager',
     icon: TrendingUp,
     desc: 'Continuous performance tracking, working capital alerts, and supply chain expansion recommendations.',
-    badge: 'Stage 15 &middot; Grow'
+    badge: 'Stage 15 · Grow'
   }
 ];
 

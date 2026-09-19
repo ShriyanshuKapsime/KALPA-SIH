@@ -33,22 +33,41 @@ class BusinessRepository:
             self._profiles = []
 
     def _matches_identifier(self, profile: Dict[str, Any], query_id: str) -> bool:
-        q = query_id.strip().lower()
+        if not query_id:
+            return False
+        q = query_id.strip().lower().replace("-", "_")
+        q_clean = q.replace(" ", "_").replace("ont_", "")
+        
         node_id = str(profile.get("business_node_id") or profile.get("business_id") or "").strip().lower()
-        if node_id:
-            if node_id == q or node_id.replace("_", "") == q.replace("_", ""):
+        node_clean = node_id.replace("-", "_").replace("ont_", "")
+
+        if node_clean:
+            if node_clean == q_clean or node_clean.replace("_", "") == q_clean.replace("_", ""):
                 return True
-            if node_id.replace("ont_", "") == q.replace("ont_", ""):
+            if node_clean in q_clean or q_clean in node_clean:
                 return True
-            if node_id.replace("ont_", "").replace("_", "") == q.replace("ont_", "").replace("_", ""):
-                return True
+
+        b_name = str(profile.get("business_name") or "").strip().lower()
+        if b_name and (q in b_name or b_name in q):
+            return True
 
         aliases = [str(a).strip().lower() for a in profile.get("aliases", [])]
         for a in aliases:
-            if a == q or a.replace(" ", "_") == q or a.replace("_", " ") == q:
+            a_clean = a.replace("-", "_").replace(" ", "_").replace("ont_", "")
+            if a_clean == q_clean or a_clean in q_clean or q_clean in a_clean:
                 return True
-            if a.replace("ont_", "").replace(" ", "_") == q.replace("ont_", "").replace(" ", "_"):
+            if a == q or q in a or a in q:
                 return True
+
+        # Check classification sector / category
+        cls_dict = profile.get("classification") or {}
+        cat = str(cls_dict.get("category") or "").strip().lower()
+        sub_cat = str(cls_dict.get("sub_category") or "").strip().lower()
+        if cat and (q_clean in cat.replace(" ", "_") or cat.replace(" ", "_") in q_clean):
+            return True
+        if sub_cat and (q_clean in sub_cat.replace(" ", "_") or sub_cat.replace(" ", "_") in q_clean):
+            return True
+
         return False
 
     def get_profile(self, business_id: str) -> Optional[BusinessProfileSchema]:

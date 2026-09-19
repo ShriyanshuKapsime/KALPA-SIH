@@ -27,7 +27,13 @@ from app.schemas.market import (
     CollectionPlan,
     EvidenceQuality,
 )
-from app.schemas.feasibility import FeasibilityEvaluationRequest, FeasibilityEvaluationResponse, DynamicSWOTResponse
+from app.schemas.feasibility import (
+    FeasibilityEvaluationRequest,
+    FeasibilityAnalysisResponse,
+    FeasibilityAnalysisResponse as FeasibilityEvaluationResponse,
+    DynamicSWOTResponse
+)
+
 from app.schemas.dpr import DPRGenerationRequest, DPRGenerationResponse
 
 from app.schemas.knowledge import (
@@ -70,7 +76,9 @@ __all__ = [
     "MarketIntelligenceResponse",
     "FeasibilityEvaluationRequest",
     "FeasibilityEvaluationResponse",
+    "FeasibilityAnalysisResponse",
     "DynamicSWOTResponse",
+
     "DPRGenerationRequest",
     "DPRGenerationResponse",
     "ProvenanceSchema",

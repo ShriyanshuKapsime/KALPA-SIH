@@ -38,6 +38,10 @@ export const apiService = {
       console.log('[FRONTEND → GATEWAY] Submitting voice intake to /intake/voice');
       return apiClient.post('/intake/voice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     },
+    transcribe: async (formData) => {
+      console.log('[FRONTEND → GATEWAY] Transcribing audio at /intake/transcribe');
+      return apiClient.post('/intake/transcribe', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
     submitText: async (payload) => {
       console.log('[FRONTEND → GATEWAY] Submitting text intake to /intake/text:', payload);
       return apiClient.post('/intake/text', payload);
@@ -254,8 +258,28 @@ export const apiService = {
   },
 
   feasibility: {
-    evaluate: async (businessId) => apiClient.post(`/feasibility/evaluate/${businessId}`),
+    analyze: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Triggering Stage 12 Feasibility Engine synthesis:', payload);
+      return apiClient.post('/feasibility/analyze', payload);
+    },
+    getById: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching feasibility record /feasibility/${analysisId}`);
+      return apiClient.get(`/feasibility/${analysisId}`);
+    },
+    getCalculation: async (analysisId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching feasibility calculation trace /feasibility/${analysisId}/calculation`);
+      return apiClient.get(`/feasibility/${analysisId}/calculation`);
+    },
+    getPivotSuggestions: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Fetching pivot suggestions:', payload);
+      return apiClient.post('/feasibility/pivot-suggestions', payload);
+    },
+    getHealth: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking Feasibility Engine health');
+      return apiClient.get('/feasibility/health');
+    },
   },
+
 
   dpr: {
     generateReport: async (businessId) => apiClient.post(`/dpr/generate/${businessId}`),
