@@ -32,7 +32,8 @@ export const createApp = () => {
   // Root & Health Endpoints
   app.use('/', healthRoutes);
 
-  // API Versioned Routing
+  // API Versioned Routing (supports /api/v1 and /api canonical prefixes)
+  app.use('/api/v1', apiRoutes);
   app.use('/api', apiRoutes);
 
   // 404 Handler

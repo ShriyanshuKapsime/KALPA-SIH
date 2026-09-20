@@ -298,6 +298,40 @@ export const apiService = {
     },
   },
 
+  assistant: {
+    health: async () => {
+      console.log('[FRONTEND → GATEWAY] Checking assistant health');
+      return apiClient.get('/assistant/health');
+    },
+    chat: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Sending assistant chat message:', payload);
+      return apiClient.post('/assistant/chat', payload, { timeout: 95000 });
+    },
+    stt: async (formData) => {
+      console.log('[FRONTEND → GATEWAY] Sending assistant voice audio for STT (Saaras v4)');
+      return apiClient.post('/assistant/stt', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 45000,
+      });
+    },
+    tts: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Requesting assistant voice synthesis for TTS (Bulbul v3):', payload?.language);
+      return apiClient.post('/assistant/tts', payload, { timeout: 45000 });
+    },
+    getHistory: async (targetId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching assistant history for: ${targetId}`);
+      return apiClient.get(`/assistant/${targetId}/history`);
+    },
+    getContext: async (targetId) => {
+      console.log(`[FRONTEND → GATEWAY] Fetching assistant context for: ${targetId}`);
+      return apiClient.get(`/assistant/${targetId}/context`);
+    },
+    clearHistory: async (targetId) => {
+      console.log(`[FRONTEND → GATEWAY] Clearing assistant history for: ${targetId}`);
+      return apiClient.delete(`/assistant/${targetId}/history`);
+    },
+  },
+
   dpr: {
     generateReport: async (businessId) => apiClient.post(`/dpr/generate/${businessId}`),
     getReport: async (reportId) => apiClient.get(`/dpr/report/${reportId}`),

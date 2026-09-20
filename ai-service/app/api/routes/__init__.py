@@ -11,6 +11,7 @@ from app.api.routes.entrepreneur_profile import router as entrepreneur_profile_r
 from app.api.routes.risk_analysis import router as risk_analysis_router
 from app.api.routes.feasibility import router as feasibility_router
 from app.api.routes.swot import router as swot_router
+from app.api.routes.assistant import router as assistant_router
 
 __all__ = [
     "health_router",
@@ -26,6 +27,7 @@ __all__ = [
     "risk_analysis_router",
     "feasibility_router",
     "swot_router",
+    "assistant_router",
 ]
 
 

@@ -12,6 +12,7 @@ import entrepreneurProfileController from '../controllers/entrepreneurProfileCon
 import riskAnalysisController from '../controllers/riskAnalysisController.js';
 import feasibilityController from '../controllers/feasibilityController.js';
 import swotController from '../controllers/swotController.js';
+import assistantController from '../controllers/assistantController.js';
 
 
 const router = Router();
@@ -103,6 +104,18 @@ router.post('/feasibility/pivot-suggestions', feasibilityController.getPivotSugg
 router.post('/swot/analyze', swotController.analyzeSWOT);
 router.get('/swot/health', swotController.getSWOTHealth);
 router.get('/swot/:id', swotController.getSWOTById);
+
+// Stage 15 Live Personal AI Business Assistant Routes
+router.get('/assistant/health', assistantController.getAssistantHealth);
+router.post('/assistant/chat', assistantController.chatWithAssistant);
+router.post('/assistant/stt', assistantController.transcribeAssistantAudio);
+router.post('/assistant/tts', assistantController.synthesizeAssistantSpeech);
+router.get('/assistant/:id/history', assistantController.getAssistantHistory);
+router.get('/assistant/history/:id', assistantController.getAssistantHistory);
+router.get('/assistant/:id/context', assistantController.getAssistantContext);
+router.get('/assistant/context/:id', assistantController.getAssistantContext);
+router.delete('/assistant/:id/history', assistantController.clearAssistantHistory);
+router.delete('/assistant/history/:id', assistantController.clearAssistantHistory);
 
 // Locked Future Stages
 router.all('/market/*', (req, res) => {

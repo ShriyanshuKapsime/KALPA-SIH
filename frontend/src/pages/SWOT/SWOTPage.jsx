@@ -1143,24 +1143,30 @@ export default function SWOTPage() {
               </div>
             )}
 
-            {/* Bottom Next Step Call-To-Action -> DPR Stage 14 */}
-            <div className="bg-[#EA580C] text-white rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
+            {/* Bottom Next Step Call-To-Action -> Assistant (Stage 15) & DPR (Stage 14) */}
+            <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-amber-950 text-white rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6 border border-stone-700">
               <div className="space-y-1.5 text-center md:text-left">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white">
-                  NEXT STAGE UNLOCKED
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  STAGE 15 BUSINESS ADVISOR READY
                 </span>
-                <h3 className="text-xl font-bold font-['Outfit']">
-                  Ready to Generate Bank Detailed Project Report (DPR)?
+                <h3 className="text-xl font-bold font-['Outfit'] text-white">
+                  Have questions about your scores, loans, or next steps?
                 </h3>
-                <p className="text-xs text-orange-100 max-w-2xl">
-                  Your SWOT matrix and strategic priorities are now finalized. Proceed to compile a bank-ready DPR for PMEGP, Mudra, or CGTMSE institutional financing.
+                <p className="text-xs text-stone-300 max-w-2xl">
+                  Consult your Personal AI Business Advisor for tailored guidance on bank loans, subsidy schemes (PMEGP/MUDRA), licensing, and execution steps.
                 </p>
               </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link to="/assistant">
+                  <button className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-stone-900 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
+                    <Sparkles className="w-4 h-4 text-stone-900" />
+                    <span>Talk to AI Business Advisor</span>
+                  </button>
+                </Link>
                 <Link to="/dpr">
-                  <button className="px-6 py-3 bg-white hover:bg-orange-50 text-[#EA580C] rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
-                    <span>Proceed to Stage 14 DPR</span>
+                  <button className="px-5 py-3 bg-stone-800 hover:bg-stone-700 text-white border border-stone-600 rounded-xl text-xs font-semibold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
+                    <span>Proceed to DPR</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </Link>
@@ -1171,6 +1177,15 @@ export default function SWOTPage() {
         )}
 
       </div>
+
+      {/* Floating Personal Assistant Trigger Button */}
+      <Link
+        to="/assistant"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-full shadow-2xl transition-all transform hover:scale-105 border-2 border-amber-300"
+      >
+        <Sparkles className="w-4 h-4" />
+        <span>Ask AI Advisor</span>
+      </Link>
     </div>
   );
 }

@@ -17,6 +17,7 @@ from app.api.routes import (
     risk_analysis_router,
     feasibility_router,
     swot_router,
+    assistant_router,
 )
 
 
@@ -79,6 +80,7 @@ def create_application() -> FastAPI:
     app.include_router(risk_analysis_router, prefix=settings.API_V1_STR)
     app.include_router(feasibility_router, prefix=settings.API_V1_STR)
     app.include_router(swot_router, prefix=settings.API_V1_STR)
+    app.include_router(assistant_router, prefix=settings.API_V1_STR)
 
     return app
 

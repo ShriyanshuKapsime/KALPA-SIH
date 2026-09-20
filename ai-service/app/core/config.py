@@ -67,10 +67,14 @@ class Settings(BaseSettings):
     def is_llm_configured(self) -> bool:
         return bool(self.active_llm_api_key)
 
-    # Sarvam AI STT & LLM
+    # Sarvam AI STT, TTS & LLM
     SARVAM_API_KEY: Optional[str] = None
     SARVAM_STT_MODEL: str = "saaras:v4"
+    SARVAM_TTS_MODEL: str = "bulbul:v3"
+    SARVAM_TTS_SPEAKER: str = "shreya"
     SARVAM_LLM_MODEL: str = "sarvam-105b"
+    SARVAM_ASSISTANT_MODEL: str = "sarvam-105b-conversations"
+    SARVAM_ASSISTANT_TIMEOUT: float = 90.0
     SARVAM_LLM_ENABLED: bool = True
     SARVAM_LLM_ENDPOINT: str = "https://api.sarvam.ai/v1/chat/completions"
 
