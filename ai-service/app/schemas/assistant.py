@@ -12,6 +12,8 @@ class AssistantChatRequest(BaseModel):
     business_id: Optional[str] = Field(None, description="Business UUID (optional)")
     message: str = Field(..., description="User message / question")
     language: Optional[str] = Field("en", description="User preferred language (en, hi, te, ta, etc.)")
+    financial_context: Optional[Dict[str, Any]] = Field(None, description="Canonical Stage 9 financial context")
+    financial_analysis: Optional[Dict[str, Any]] = Field(None, description="Stage 9 financial analysis breakdown")
 
 
 class GroundingSourceItem(BaseModel):

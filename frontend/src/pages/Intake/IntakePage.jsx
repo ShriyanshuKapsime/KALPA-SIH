@@ -216,6 +216,57 @@ const UI_STRINGS = {
   }
 };
 
+// Display-safe error normalization helper (Guarantees strings; never renders objects as React children)
+function getDisplayError(err, fallback = 'Something went wrong. Please try again.') {
+  if (!err) return null;
+  if (typeof err === 'string') return err;
+
+  // Known STT error codes with friendly human explanations
+  const code = err.code || err.error || (err.details && (err.details.error || err.details.code));
+  if (code === 'STT_PROCESSING_FAILED') {
+    return 'Voice recognition could not process your recording. Please try speaking clearly or enter your idea as text.';
+  }
+  if (code === 'STT_LANGUAGE_CODE_INVALID') {
+    return 'The selected language is not supported for voice recognition. Please try typing your idea.';
+  }
+  if (code === 'STT_CONFIG_ERROR' || code === 'STT_INTERNAL_ERROR') {
+    return 'Voice recognition service is temporarily unavailable. Please type your business idea below.';
+  }
+
+  // String message on error object
+  if (typeof err.message === 'string' && err.message.trim()) {
+    return err.message;
+  }
+  // Nested message object
+  if (err.message && typeof err.message === 'object') {
+    return getDisplayError(err.message, fallback);
+  }
+
+  // String detail
+  if (typeof err.detail === 'string' && err.detail.trim()) {
+    return err.detail;
+  }
+  if (err.detail && typeof err.detail === 'object') {
+    return getDisplayError(err.detail, fallback);
+  }
+
+  // Details dictionary
+  if (err.details && typeof err.details === 'object') {
+    if (typeof err.details.message === 'string' && err.details.message.trim()) {
+      return err.details.message;
+    }
+    if (typeof err.details.provider_error === 'string' && err.details.provider_error.trim()) {
+      return err.details.provider_error;
+    }
+  }
+
+  if (typeof err.error === 'string' && err.error.trim()) {
+    return err.error;
+  }
+
+  return fallback;
+}
+
 export const IntakePage = () => {
   const navigate = useNavigate();
   const { updateWorkflowState, markStageComplete } = useWorkflow();
@@ -463,16 +514,25 @@ export const IntakePage = () => {
 
     try {
       const response = await apiService.intake.submitVoice(formData);
-      setVoiceTranscript(response.transcript || '');
-      setVoiceStatus('received');
-      setSessionResponse(response);
+      if (response && response.transcript) {
+        setVoiceTranscript(String(response.transcript));
+        setVoiceStatus('received');
+        setSessionResponse(response);
+      } else {
+        throw {
+          code: 'STT_PROCESSING_FAILED',
+          message: 'Could not detect clear speech in the recording. Please speak closer to the microphone or enter your idea as text.'
+        };
+      }
     } catch (err) {
-      console.error('Voice submission error:', err);
-      const errMsg = err.details?.message || err.details?.provider_error || err.message || 'Voice processing is temporarily unavailable. Please try typing your idea.';
-      setErrorMessage(errMsg);
+      console.error('[INTAKE → VOICE]', err);
+      const displayMsg = getDisplayError(err, 'Voice recognition could not process your recording. Please try speaking clearly or enter your idea as text.');
+      setErrorMessage(displayMsg);
       setVoiceStatus('idle');
     } finally {
       setIsProcessing(false);
+      setIsRecording(false);
+      setRecordingTime(0);
     }
   };
 
@@ -498,8 +558,9 @@ export const IntakePage = () => {
       });
       setSessionResponse(response);
     } catch (err) {
-      console.error('Text intake error:', err);
-      setErrorMessage(err.message || 'Failed to process business intake. Please try again.');
+      console.error('[INTAKE → TEXT]', err);
+      const displayMsg = getDisplayError(err, 'Failed to process business intake. Please try again.');
+      setErrorMessage(displayMsg);
     } finally {
       setIsProcessing(false);
     }
@@ -544,6 +605,7 @@ export const IntakePage = () => {
 
   const handleFollowUpVoiceSTT = async (audioBlob) => {
     setIsSubmittingFollowUp(true);
+    setErrorMessage(null);
     const langConfig = SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
     const formData = new FormData();
     formData.append('file', audioBlob, 'followup_recording.webm');
@@ -552,16 +614,24 @@ export const IntakePage = () => {
 
     try {
       const response = await apiService.intake.submitVoice(formData);
-      if (response.transcript) {
-        setFollowUpAnswer(response.transcript);
+      if (response && response.transcript) {
+        setFollowUpAnswer(String(response.transcript));
         // Automatically submit transcribed text to follow up
-        await submitFollowUpPayload({ text: response.transcript });
+        await submitFollowUpPayload({ text: String(response.transcript) });
+      } else {
+        throw {
+          code: 'STT_PROCESSING_FAILED',
+          message: 'Could not detect clear speech. Please type your response.'
+        };
       }
     } catch (err) {
-      console.error('Follow-up voice STT error:', err);
-      setErrorMessage('Could not process voice answer. Please type your response.');
+      console.error('[INTAKE → FOLLOW-UP VOICE]', err);
+      const displayMsg = getDisplayError(err, 'Could not process voice answer. Please type your response.');
+      setErrorMessage(displayMsg);
     } finally {
       setIsSubmittingFollowUp(false);
+      setIsFollowUpRecording(false);
+      setFollowUpRecordingTime(0);
     }
   };
 
@@ -590,8 +660,9 @@ export const IntakePage = () => {
       setSessionResponse(updatedResponse);
       setFollowUpAnswer('');
     } catch (err) {
-      console.error('Follow-up submit error:', err);
-      setErrorMessage('Could not update profile. Please try again.');
+      console.error('[INTAKE → FOLLOW-UP SUBMIT]', err);
+      const displayMsg = getDisplayError(err, 'Could not update profile. Please try again.');
+      setErrorMessage(displayMsg);
     } finally {
       setIsSubmittingFollowUp(false);
     }
@@ -670,7 +741,9 @@ export const IntakePage = () => {
       setSessionResponse(updatedResponse);
       setEditingField(null);
     } catch (err) {
-      setErrorMessage('Could not update field. Please try again.');
+      console.error('[INTAKE → INLINE EDIT]', err);
+      const displayMsg = getDisplayError(err, 'Could not update field. Please try again.');
+      setErrorMessage(displayMsg);
     }
   };
 
@@ -788,7 +861,9 @@ export const IntakePage = () => {
         {errorMessage && (
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-3 animate-fadeIn">
             <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
-            <div className="flex-grow font-medium">{errorMessage}</div>
+            <div className="flex-grow font-medium">
+              {typeof errorMessage === 'string' ? errorMessage : getDisplayError(errorMessage)}
+            </div>
             <button onClick={() => setErrorMessage(null)} className="text-rose-600 font-bold text-sm">×</button>
           </div>
         )}
@@ -1140,7 +1215,7 @@ export const IntakePage = () => {
                       Business Location
                     </span>
                     <button
-                      onClick={() => handleStartEdit('proposed_location', profile.proposed_location?.district || profile.proposed_location?.name)}
+                      onClick={() => handleStartEdit('proposed_location', typeof profile.proposed_location === 'string' ? profile.proposed_location : (profile.proposed_location?.district || profile.proposed_location?.name))}
                       className="text-[11px] text-[#EA580C] hover:underline font-semibold flex items-center gap-0.5"
                     >
                       <Edit3 className="w-3 h-3" />
@@ -1164,9 +1239,11 @@ export const IntakePage = () => {
                   ) : (
                     <>
                       <p className="text-sm font-bold text-[#1C1917]">
-                        {profile.proposed_location?.district 
-                          ? `${profile.proposed_location.district}${profile.proposed_location.state ? ', ' + profile.proposed_location.state : ''}`
-                          : profile.proposed_location?.name || <span className="text-amber-600 italic">Pending clarification</span>}
+                        {typeof profile.proposed_location === 'string'
+                          ? profile.proposed_location
+                          : profile.proposed_location?.district 
+                            ? `${profile.proposed_location.district}${profile.proposed_location.state ? ', ' + profile.proposed_location.state : ''}`
+                            : profile.proposed_location?.name || <span className="text-amber-600 italic">Pending clarification</span>}
                       </p>
                       <span className="text-[11px] text-stone-500 flex items-center gap-1">
                         Source: {profile.proposed_location?.source === 'gps' ? t.sourceGPS : t.sourceUser}

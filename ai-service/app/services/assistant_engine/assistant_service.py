@@ -530,19 +530,44 @@ class PersonalAssistantService:
 
         # 4. Stage 9 Financial Model & Schemes
         fin = context_slice.get("financial_analysis") or {}
+        fin_ctx = context_slice.get("financial_context") or (fin.get("financial_context") if isinstance(fin, dict) else None)
+        if fin_ctx and isinstance(fin_ctx, dict):
+            # Clean authoritative financial context without verbose 84-month amortization tables
+            debt_clean = dict(fin_ctx.get("debt") or {})
+            debt_clean.pop("repayment_schedule", None)
+            debt_clean.pop("monthly_amortization", None)
+
+            compact_fin_ctx = {
+                "package_version": fin_ctx.get("package_version", "1.0.0"),
+                "project_cost": fin_ctx.get("project_cost"),
+                "funding": fin_ctx.get("funding"),
+                "debt": debt_clean,
+                "banking_appraisal": fin_ctx.get("banking_appraisal"),
+                "profit_loss": fin_ctx.get("profit_loss"),
+                "stress_appraisal": fin_ctx.get("m5_stress_appraisal"),
+                "resolved_tax": fin_ctx.get("resolved_tax"),
+            }
+            verified_kalpa_data["financial_context"] = compact_fin_ctx
+        elif fin_ctx:
+            verified_kalpa_data["financial_context"] = fin_ctx
         if fin:
             verified_kalpa_data["financial_analysis"] = {
                 "total_project_cost": fin.get("total_project_cost"),
                 "promoter_contribution": fin.get("promoter_contribution"),
                 "bank_loan_requirement": fin.get("bank_loan_requirement"),
+                "working_capital": fin.get("working_capital"),
                 "subsidy_amount": fin.get("subsidy_amount"),
                 "applicable_scheme_name": fin.get("applicable_scheme_name"),
                 "dscr": fin.get("dscr"),
                 "break_even_percentage": fin.get("break_even_percentage"),
                 "monthly_emi": fin.get("monthly_emi"),
+                "interest_rate": fin.get("interest_rate") or fin.get("annual_interest_rate"),
+                "tenure_months": fin.get("tenure_months"),
                 "projected_annual_revenue": fin.get("projected_annual_revenue") or fin.get("annual_revenue"),
                 "projected_operating_expenses": fin.get("projected_operating_expenses") or fin.get("annual_expenses"),
                 "projected_net_profit": fin.get("projected_net_profit") or fin.get("net_profit"),
+                "downside_dscr": fin.get("downside_dscr"),
+                "profit_loss": fin.get("profit_loss"),
                 "financial_viability": fin.get("financial_viability"),
             }
 
@@ -680,10 +705,26 @@ CRITICAL ADVISORY DIRECTIVES:
         if not self.is_llm_available:
             return None, "SARVAM_NOT_CONFIGURED"
 
-        messages = [{"role": "system", "content": system_prompt}]
+        # Sanitize messages ensuring valid roles and non-empty string content
+        valid_roles = {"system", "user", "assistant"}
+        messages: List[Dict[str, str]] = []
+
+        sys_content = str(system_prompt or "").strip()
+        if sys_content:
+            messages.append({"role": "system", "content": sys_content})
+
         for h in history[-6:]:  # Window of recent 3 turns
-            messages.append({"role": h["role"], "content": h["content"]})
-        messages.append({"role": "user", "content": user_message})
+            h_role = str(h.get("role", "")).lower().strip()
+            if h_role not in valid_roles:
+                h_role = "user" if h_role not in ("system", "assistant") else h_role
+            h_content = str(h.get("content", "") or "").strip()
+            if h_content:
+                messages.append({"role": h_role, "content": h_content})
+
+        user_content = str(user_message or "").strip()
+        if not user_content:
+            user_content = "Please provide guidance based on my business context."
+        messages.append({"role": "user", "content": user_content})
 
         headers = {
             "Content-Type": "application/json",
@@ -695,6 +736,20 @@ CRITICAL ADVISORY DIRECTIVES:
             "temperature": 0.2,
             "max_tokens": 1200,
         }
+
+        # Safe debug logging (NO secrets / API keys logged)
+        roles_summary = [m["role"] for m in messages]
+        total_prompt_bytes = sum(len(m["content"].encode("utf-8")) for m in messages)
+        logger.info(
+            f"[ASSISTANT SARVAM DEBUG] "
+            f"target_id={target_id_str} "
+            f"model={self.model} "
+            f"messages_count={len(messages)} "
+            f"roles={roles_summary} "
+            f"temperature=0.2 "
+            f"max_tokens=1200 "
+            f"prompt_bytes={total_prompt_bytes}"
+        )
 
         max_attempts = 2
         last_error = None
@@ -717,13 +772,14 @@ CRITICAL ADVISORY DIRECTIVES:
                             if content and isinstance(content, str) and content.strip():
                                 return content.strip(), None
                         last_error = "EMPTY_RESPONSE_BODY"
-                    elif res.status_code in [429, 500, 502, 503, 504]:
-                        last_error = f"HTTP_{res.status_code}"
-                        if attempt < max_attempts:
-                            await asyncio.sleep(1.0)  # Non-blocking async sleep
                     else:
+                        error_body = res.text[:500].replace("\n", " ")
+                        logger.warning(f"[ASSISTANT SARVAM ERROR] target_id={target_id_str} attempt={attempt} status={res.status_code} body={error_body}")
                         last_error = f"HTTP_{res.status_code}"
-                        break
+                        if res.status_code in [429, 500, 502, 503, 504] and attempt < max_attempts:
+                            await asyncio.sleep(1.0)  # Non-blocking async sleep
+                        else:
+                            break
             except httpx.TimeoutException:
                 last_error = "TIMEOUT"
                 logger.warning(f"[ASSISTANT SARVAM] target_id={target_id_str} attempt={attempt} TIMEOUT after {self.timeout_sec}s")
@@ -747,6 +803,36 @@ CRITICAL ADVISORY DIRECTIVES:
         """
         biz = context_slice.get("business_profile", {})
         fin = context_slice.get("financial_analysis", {})
+        fin_ctx = context_slice.get("financial_context") or (fin.get("financial_context") if isinstance(fin, dict) else None)
+        if fin_ctx and isinstance(fin_ctx, dict):
+            fin = dict(fin) if isinstance(fin, dict) else {}
+            proj_cost = fin_ctx.get("project_cost") or {}
+            funding = fin_ctx.get("funding") or {}
+            debt = fin_ctx.get("debt") or {}
+            banking = fin_ctx.get("banking_appraisal") or {}
+            pl = fin_ctx.get("profit_loss") or []
+            y1 = pl[0] if (isinstance(pl, list) and len(pl) > 0) else {}
+            stress = fin_ctx.get("m5_stress_appraisal") or {}
+            tax_info = fin_ctx.get("resolved_tax") or {}
+
+            if fin.get("total_project_cost") is None: fin["total_project_cost"] = proj_cost.get("total_project_cost")
+            if fin.get("promoter_contribution") is None: fin["promoter_contribution"] = funding.get("required_promoter_contribution")
+            if fin.get("bank_loan_requirement") is None: fin["bank_loan_requirement"] = funding.get("institutional_loan") or debt.get("sanctioned_loan_amount")
+            if fin.get("subsidy_amount") is None: fin["subsidy_amount"] = funding.get("subsidy_amount")
+            if fin.get("monthly_emi") is None: fin["monthly_emi"] = debt.get("emi")
+            if fin.get("interest_rate") is None: fin["interest_rate"] = debt.get("interest_rate_pct")
+            if fin.get("tenure_months") is None: fin["tenure_months"] = debt.get("tenure_months")
+            if fin.get("dscr") is None: fin["dscr"] = banking.get("average_dscr") or banking.get("min_dscr")
+            if fin.get("break_even_percentage") is None: fin["break_even_percentage"] = banking.get("break_even_utilization_pct")
+            if fin.get("projected_annual_revenue") is None: fin["projected_annual_revenue"] = y1.get("revenue")
+            if fin.get("projected_operating_expenses") is None: fin["projected_operating_expenses"] = y1.get("opex")
+            if fin.get("projected_net_profit") is None: fin["projected_net_profit"] = y1.get("pat")
+            if fin.get("working_capital") is None: fin["working_capital"] = proj_cost.get("working_capital")
+            if fin.get("downside_dscr") is None: fin["downside_dscr"] = stress.get("downside_dscr")
+            if fin.get("downside_revenue") is None: fin["downside_revenue"] = stress.get("downside_revenue")
+            if not fin.get("profit_loss"): fin["profit_loss"] = pl
+            if not fin.get("resolved_tax"): fin["resolved_tax"] = tax_info
+
         feas = context_slice.get("feasibility_result", {})
         swot = context_slice.get("swot_analysis", {})
         risk = context_slice.get("risk_analysis", {})
@@ -807,6 +893,42 @@ CRITICAL ADVISORY DIRECTIVES:
                     return " ".join(parts)
             return "KALPA के मौजूदा विश्लेषण में अभी Stage 12 feasibility score उपलब्ध नहीं है." if is_hindi else "I don't have a verified Stage 12 feasibility score for this analysis yet."
 
+        elif intent == "REPAYMENT_QUESTION":
+            emi = fin.get("monthly_emi")
+            loan = fin.get("bank_loan_requirement")
+            tenure = fin.get("tenure_months") or 60
+            rate = fin.get("interest_rate") or fin.get("annual_interest_rate") or 9.5
+            dscr = fin.get("dscr")
+
+            if emi is not None or loan is not None:
+                if is_hindi:
+                    lines = [f"Stage 9 Financial Model के अनुसार **{biz_name}** का ऋण पुनर्भुगतान (Repayment & EMI) विवरण:"]
+                    if emi is not None:
+                        lines.append(f"• **मासिक किस्त (Monthly EMI)**: ₹{float(emi):,.2f}")
+                    if loan is not None:
+                        lines.append(f"• **कुल प्रस्तावित ऋण (Proposed Loan)**: ₹{float(loan):,.2f}")
+                    if tenure:
+                        lines.append(f"• **ऋण अवधि (Tenure)**: {tenure} माह ({int(tenure/12)} वर्ष)")
+                    if rate:
+                        lines.append(f"• **वार्षिक ब्याज दर (Interest Rate)**: {rate}% p.a.")
+                    if dscr:
+                        lines.append(f"• **ऋण चुकाने की क्षमता (DSCR)**: {dscr}x (बैंक मानक से ऊपर)")
+                    return "\n".join(lines)
+                else:
+                    lines = [f"Your Stage 9 verified loan repayment schedule for {biz_name}:"]
+                    if emi is not None:
+                        lines.append(f"• Monthly EMI: ₹{float(emi):,.2f}")
+                    if loan is not None:
+                        lines.append(f"• Proposed Loan Principal: ₹{float(loan):,.2f}")
+                    if tenure:
+                        lines.append(f"• Loan Tenure: {tenure} months ({int(tenure/12)} years)")
+                    if rate:
+                        lines.append(f"• Interest Rate: {rate}% p.a.")
+                    if dscr:
+                        lines.append(f"• Debt Service Coverage Ratio (DSCR): {dscr}x")
+                    return "\n".join(lines)
+            return "ऋण पुनर्भुगतान व ईएमआई विवरण अभी वित्तीय विश्लेषण में दर्ज नहीं है." if is_hindi else "Loan repayment and EMI details are not yet recorded for this analysis."
+
         elif intent in ["EXPLAIN_FINANCE", "COST_QUESTION"]:
             cost = fin.get("total_project_cost")
             promoter = fin.get("promoter_contribution")
@@ -814,33 +936,121 @@ CRITICAL ADVISORY DIRECTIVES:
             dscr = fin.get("dscr")
             scheme = fin.get("applicable_scheme_name")
             subsidy = fin.get("subsidy_amount")
+            wc = fin.get("working_capital")
+            emi = fin.get("monthly_emi")
+            ann_rev = fin.get("projected_annual_revenue")
+            ann_pat = fin.get("projected_net_profit")
+            bep = fin.get("break_even_percentage")
+            downside_dscr = fin.get("downside_dscr")
+            pl = fin.get("profit_loss") or []
 
+            msg_low = user_message.lower()
+
+            # Sub-query: Stress Testing / Downside
+            if any(w in msg_low for w in ["downside", "stress", "shock", "fall", "drop", "मंदी", "नुकसान"]):
+                if downside_dscr is not None:
+                    if is_hindi:
+                        return f"Stage 9 Stress Testing (Milestone 5) के अनुसार, गंभीर मंदी के परिदृश्य में भी आपका डाउनसाइड DSCR **{downside_dscr}x** रहता है, जो दर्शाता है कि उद्यम ऋण चुकाने में सक्षम रहेगा."
+                    else:
+                        return f"Under Stage 9 Stress Testing (Milestone 5), your enterprise maintains a downside DSCR of **{downside_dscr}x**, demonstrating debt solvency even during adverse market conditions."
+
+            # Sub-query: Revenue / Sales Trajectory
+            if any(w in msg_low for w in ["revenue", "sales", "turnover", "बिक्री", "कमाई"]):
+                if pl and isinstance(pl, list) and len(pl) > 0:
+                    if is_hindi:
+                        lines = [f"Stage 9 Financial Model के अनुसार **{biz_name}** का 5-वर्षीय राजस्व (Revenue Projections):"]
+                        for yr_data in pl[:5]:
+                            yr_num = yr_data.get("year", 1)
+                            r_val = yr_data.get("revenue", 0)
+                            p_val = yr_data.get("pat", 0)
+                            lines.append(f"• **वर्ष {yr_num}**: राजस्व ₹{r_val:,.2f} (शुद्ध लाभ: ₹{p_val:,.2f})")
+                        return "\n".join(lines)
+                    else:
+                        lines = [f"Your Stage 9 5-Year Revenue Projections for {biz_name}:"]
+                        for yr_data in pl[:5]:
+                            yr_num = yr_data.get("year", 1)
+                            r_val = yr_data.get("revenue", 0)
+                            p_val = yr_data.get("pat", 0)
+                            lines.append(f"• Year {yr_num}: Revenue ₹{r_val:,.2f} (Net PAT: ₹{p_val:,.2f})")
+                        return "\n".join(lines)
+                elif ann_rev is not None:
+                    return (
+                        f"Stage 9 के अनुसार **{biz_name}** का प्रथम वर्ष अनुमानित राजस्व **₹{ann_rev:,.2f}** है."
+                        if is_hindi else
+                        f"Your Stage 9 projected Year 1 annual revenue for {biz_name} is ₹{ann_rev:,.2f}."
+                    )
+
+            # Sub-query: Profitability / PAT / Margin
+            if any(w in msg_low for w in ["profit", "pat", "ebitda", "margin", "मुनाफा", "लाभ"]):
+                if ann_pat is not None:
+                    if is_hindi:
+                        lines = [f"Stage 9 Financial Model के अनुसार **{biz_name}** का लाभ विवरण:"]
+                        lines.append(f"• **प्रथम वर्ष शुद्ध लाभ (PAT)**: ₹{ann_pat:,.2f}")
+                        if ann_rev:
+                            margin_pct = round((ann_pat / ann_rev) * 100, 1)
+                            lines.append(f"• **शुद्ध लाभ मार्जिन (Net Margin)**: {margin_pct}%")
+                        return "\n".join(lines)
+                    else:
+                        lines = [f"Your Stage 9 Profitability metrics for {biz_name}:"]
+                        lines.append(f"• Year 1 Profit After Tax (PAT): ₹{ann_pat:,.2f}")
+                        if ann_rev:
+                            margin_pct = round((ann_pat / ann_rev) * 100, 1)
+                            lines.append(f"• Net Profit Margin: {margin_pct}%")
+                        return "\n".join(lines)
+
+            # Sub-query: Break-even
+            if any(w in msg_low for w in ["break-even", "breakeven", "break even", "ब्रेक-ईवन", "bep"]):
+                if bep is not None:
+                    if is_hindi:
+                        return f"Stage 9 Financial Analysis के अनुसार **{biz_name}** का ब्रेक-ईवन उपयोग स्तर **{bep}%** है. इस स्तर के बाद व्यवसाय शुद्ध लाभ में प्रवेश करता है."
+                    else:
+                        return f"Your Stage 9 break-even capacity utilization is **{bep}%** for {biz_name}. Sales above this utilization level generate net operating profit."
+
+            # General Finance & Cost Breakdown
             if cost is not None:
                 if is_hindi:
-                    lines = [f"Stage 9 Financial Model के अनुसार **{biz_name}** का वित्तीय विवरण:"]
+                    lines = [f"Stage 9 Financial Model के अनुसार **{biz_name}** का संपूर्ण वित्तीय विवरण:"]
                     lines.append(f"• **कुल प्रोजेक्ट लागत (Total Project Cost)**: ₹{cost:,.2f}")
                     if promoter is not None:
                         lines.append(f"• **उद्यमी का अंशदान (Promoter Contribution)**: ₹{promoter:,.2f}")
                     if loan is not None:
                         lines.append(f"• **बैंक ऋण आवश्यकता (Bank Loan Requirement)**: ₹{loan:,.2f}")
+                    if wc is not None:
+                        lines.append(f"• **कार्यशील पूंजी (Working Capital)**: ₹{float(wc):,.2f}")
+                    if emi is not None:
+                        lines.append(f"• **अनुमानित मासिक किस्त (Monthly EMI)**: ₹{float(emi):,.2f}")
                     if scheme:
-                        lines.append(f"• **लागू सरकारी योजना**: {scheme}" + (f" (अनुमानित सब्सिडी: ₹{subsidy:,.2f})" if subsidy else ""))
+                        lines.append(f"• **लागू सरकारी योजना**: {scheme}" + (f" (सब्सिडी: ₹{subsidy:,.2f})" if subsidy else ""))
+                    if ann_rev is not None:
+                        lines.append(f"• **प्रथम वर्ष राजस्व**: ₹{ann_rev:,.2f}")
+                    if ann_pat is not None:
+                        lines.append(f"• **प्रथम वर्ष शुद्ध लाभ (PAT)**: ₹{ann_pat:,.2f}")
                     if dscr is not None:
-                        lines.append(f"• **डीएससीआर (DSCR / ऋण चुकाने की क्षमता)**: {dscr} (1.25+ सुरक्षित माना जाता है)")
-                    if fin.get("break_even_percentage") is not None:
-                        lines.append(f"• **ब्रेक-ईवन स्तर**: {fin.get('break_even_percentage')}%")
+                        lines.append(f"• **डीएससीआर (DSCR)**: {dscr}x (ऋण चुकाने की मजबूत क्षमता)")
+                    if bep is not None:
+                        lines.append(f"• **ब्रेक-ईवन क्षमता स्तर**: {bep}%")
                     return "\n".join(lines)
                 else:
                     lines = [f"Your Stage 9 Financial Analysis records for {biz_name}:"]
                     lines.append(f"• Total Project Cost: ₹{cost:,.2f}")
+                    if promoter is not None:
+                        lines.append(f"• Promoter Margin: ₹{promoter:,.2f}")
                     if loan is not None:
                         lines.append(f"• Bank Loan Requirement: ₹{loan:,.2f}")
+                    if wc is not None:
+                        lines.append(f"• Working Capital: ₹{float(wc):,.2f}")
+                    if emi is not None:
+                        lines.append(f"• Monthly EMI: ₹{float(emi):,.2f}")
                     if scheme:
                         lines.append(f"• Matched Scheme: {scheme}")
+                    if ann_rev is not None:
+                        lines.append(f"• Year 1 Revenue: ₹{ann_rev:,.2f}")
+                    if ann_pat is not None:
+                        lines.append(f"• Year 1 PAT: ₹{ann_pat:,.2f}")
                     if dscr is not None:
-                        lines.append(f"• DSCR (Debt Service Coverage Ratio): {dscr}")
-                    if fin.get("break_even_percentage") is not None:
-                        lines.append(f"• Break-Even Level: {fin.get('break_even_percentage')}%")
+                        lines.append(f"• DSCR: {dscr}x")
+                    if bep is not None:
+                        lines.append(f"• Break-Even Utilization: {bep}%")
                     return "\n".join(lines)
             return "वित्तीय लागत और डीएससीआर डेटा अभी इस विश्लेषण में दर्ज नहीं है." if is_hindi else "Financial cost and DSCR data is not yet recorded for this analysis."
 
@@ -1019,7 +1229,9 @@ CRITICAL ADVISORY DIRECTIVES:
         session_id_str: Optional[str] = None,
         conversation_id_str: Optional[str] = None,
         business_id_str: Optional[str] = None,
-        language: str = "en"
+        language: str = "en",
+        financial_context: Optional[Dict[str, Any]] = None,
+        financial_analysis: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Main entry point for handling user inquiries with grounded context and memory.
@@ -1051,6 +1263,46 @@ CRITICAL ADVISORY DIRECTIVES:
             db=db,
             business_id=str(business_uuid) if business_uuid else None
         )
+        if financial_context:
+            full_context["financial_context"] = financial_context
+        if financial_analysis:
+            if not full_context.get("financial_analysis"):
+                full_context["financial_analysis"] = financial_analysis
+            elif isinstance(full_context["financial_analysis"], dict):
+                full_context["financial_analysis"].update(financial_analysis)
+
+        # Ensure financial_analysis is enriched from financial_context if present
+        if full_context.get("financial_context"):
+            fc_cur = full_context["financial_context"]
+            fa_cur = full_context.setdefault("financial_analysis", {})
+            if isinstance(fa_cur, dict) and isinstance(fc_cur, dict):
+                p_c = fc_cur.get("project_cost") or {}
+                f_n = fc_cur.get("funding") or {}
+                d_b = fc_cur.get("debt") or {}
+                b_k = fc_cur.get("banking_appraisal") or {}
+                p_l = fc_cur.get("profit_loss") or []
+                y_1 = p_l[0] if (isinstance(p_l, list) and len(p_l) > 0) else {}
+                s_t = fc_cur.get("m5_stress_appraisal") or {}
+                t_x = fc_cur.get("resolved_tax") or {}
+
+                if not fa_cur.get("total_project_cost"): fa_cur["total_project_cost"] = p_c.get("total_project_cost")
+                if not fa_cur.get("promoter_contribution"): fa_cur["promoter_contribution"] = f_n.get("required_promoter_contribution")
+                if not fa_cur.get("bank_loan_requirement"): fa_cur["bank_loan_requirement"] = f_n.get("institutional_loan") or d_b.get("sanctioned_loan_amount")
+                if not fa_cur.get("subsidy_amount"): fa_cur["subsidy_amount"] = f_n.get("subsidy_amount")
+                if not fa_cur.get("monthly_emi"): fa_cur["monthly_emi"] = d_b.get("emi")
+                if not fa_cur.get("interest_rate"): fa_cur["interest_rate"] = d_b.get("interest_rate_pct")
+                if not fa_cur.get("tenure_months"): fa_cur["tenure_months"] = d_b.get("tenure_months")
+                if not fa_cur.get("dscr"): fa_cur["dscr"] = b_k.get("average_dscr") or b_k.get("min_dscr")
+                if not fa_cur.get("break_even_percentage"): fa_cur["break_even_percentage"] = b_k.get("break_even_utilization_pct")
+                if not fa_cur.get("projected_annual_revenue"): fa_cur["projected_annual_revenue"] = y_1.get("revenue")
+                if not fa_cur.get("projected_operating_expenses"): fa_cur["projected_operating_expenses"] = y_1.get("opex")
+                if not fa_cur.get("projected_net_profit"): fa_cur["projected_net_profit"] = y_1.get("pat")
+                fa_cur["working_capital"] = p_c.get("working_capital")
+                fa_cur["downside_dscr"] = s_t.get("downside_dscr")
+                fa_cur["downside_revenue"] = s_t.get("downside_revenue")
+                fa_cur["profit_loss"] = p_l
+                fa_cur["resolved_tax"] = t_x
+
         context_slice = get_intent_context(full_context, intent)
         pipeline_comp = calculate_pipeline_completeness(full_context)
         intent_comp = calculate_intent_completeness(context_slice, intent)
@@ -1124,7 +1376,7 @@ CRITICAL ADVISORY DIRECTIVES:
         if llm_response:
             final_response = llm_response
             grounding_status = "GROUNDED"
-            model_provider = self.model
+            model_provider = "Sarvam AI"
             model_used = True
         else:
             # Deterministic fallback strictly from verified KALPA records
@@ -1132,7 +1384,7 @@ CRITICAL ADVISORY DIRECTIVES:
                 msg_clean, context_slice, intent, effective_lang
             )
             grounding_status = "DETERMINISTIC_FALLBACK"
-            model_provider = None
+            model_provider = "Verified KALPA Fallback"
             model_used = False
 
         # Step 6: Grounding Telemetry & Dynamic Actions

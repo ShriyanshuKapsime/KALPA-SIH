@@ -9,6 +9,8 @@ const STORAGE_KEYS = {
   ANALYSIS_ID: 'kalpa_analysis_id',
   BUSINESS_ID: 'kalpa_business_id',
   BUSINESS_NAME: 'kalpa_business_name',
+  FINANCIAL_CONTEXT: 'kalpa_financial_context',
+  FINANCIAL_ANALYSIS: 'kalpa_financial_analysis',
 };
 
 export const JOURNEY_PILLARS = [
@@ -74,6 +76,24 @@ export const WorkflowProvider = ({ children }) => {
   const [orchestrationProgress, setOrchestrationProgress] = useState(0);
   const [workflowError, setWorkflowError] = useState(null);
 
+  const [financialContext, setFinancialContext] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_CONTEXT);
+      return raw ? JSON.parse(raw) : (stored?.financial_context || null);
+    } catch (e) {
+      return stored?.financial_context || null;
+    }
+  });
+
+  const [financialAnalysis, setFinancialAnalysis] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_ANALYSIS);
+      return raw ? JSON.parse(raw) : (stored?.financial_analysis || null);
+    } catch (e) {
+      return stored?.financial_analysis || null;
+    }
+  });
+
   // Sync to sessionStorage on state change
   useEffect(() => {
     try {
@@ -81,6 +101,12 @@ export const WorkflowProvider = ({ children }) => {
       if (analysisId) sessionStorage.setItem(STORAGE_KEYS.ANALYSIS_ID, analysisId);
       if (businessId) sessionStorage.setItem(STORAGE_KEYS.BUSINESS_ID, businessId);
       if (businessName) sessionStorage.setItem(STORAGE_KEYS.BUSINESS_NAME, businessName);
+      if (financialContext) {
+        sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_CONTEXT, JSON.stringify(financialContext));
+      }
+      if (financialAnalysis) {
+        sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_ANALYSIS, JSON.stringify(financialAnalysis));
+      }
 
       const stateObj = {
         session_id: sessionId,
@@ -96,13 +122,15 @@ export const WorkflowProvider = ({ children }) => {
         next_stage: nextStage,
         engine_outputs: engineOutputs,
         journey_status: journeyStatus,
+        financial_context: financialContext,
+        financial_analysis: financialAnalysis,
         timestamp: new Date().toISOString()
       };
       sessionStorage.setItem(STORAGE_KEYS.STATE, JSON.stringify(stateObj));
     } catch (e) {
       console.warn('[WORKFLOW CONTEXT] Error persisting workflow state to sessionStorage:', e);
     }
-  }, [sessionId, analysisId, businessId, businessName, currentStage, workflowStatus, completedStages, availableStages, lockedStages, activeAgent, nextStage, engineOutputs, journeyStatus]);
+  }, [sessionId, analysisId, businessId, businessName, currentStage, workflowStatus, completedStages, availableStages, lockedStages, activeAgent, nextStage, engineOutputs, journeyStatus, financialContext, financialAnalysis]);
 
   // Bulk state updater
   const updateWorkflowState = useCallback((patch) => {
@@ -154,6 +182,24 @@ export const WorkflowProvider = ({ children }) => {
     }
     if (patch.journeyStatus || patch.journey_status) {
       setJourneyStatus(prev => ({ ...prev, ...(patch.journeyStatus || patch.journey_status) }));
+    }
+    if (patch.financialContext !== undefined || patch.financial_context !== undefined) {
+      const fc = patch.financialContext !== undefined ? patch.financialContext : patch.financial_context;
+      setFinancialContext(fc);
+      if (fc) {
+        try { sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_CONTEXT, JSON.stringify(fc)); } catch (e) {}
+      } else {
+        try { sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_CONTEXT); } catch (e) {}
+      }
+    }
+    if (patch.financialAnalysis !== undefined || patch.financial_analysis !== undefined) {
+      const fa = patch.financialAnalysis !== undefined ? patch.financialAnalysis : patch.financial_analysis;
+      setFinancialAnalysis(fa);
+      if (fa) {
+        try { sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_ANALYSIS, JSON.stringify(fa)); } catch (e) {}
+      } else {
+        try { sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_ANALYSIS); } catch (e) {}
+      }
     }
   }, []);
 
@@ -431,6 +477,10 @@ export const WorkflowProvider = ({ children }) => {
     isOrchestrating,
     orchestrationProgress,
     workflowError,
+    financialContext,
+    financialAnalysis,
+    setFinancialContext,
+    setFinancialAnalysis,
     setSessionId,
     setAnalysisId,
     setBusinessId,

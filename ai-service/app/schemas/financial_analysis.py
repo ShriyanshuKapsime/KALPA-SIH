@@ -126,6 +126,7 @@ class ProjectFinancing(BaseModel):
     estimated_financeable_loan: float = Field(..., ge=0.0)
     maximum_financeable_project_cost: float = Field(..., ge=0.0)
     excess_margin: float = Field(default=0.0, ge=0.0)
+    total_project_cost: Optional[float] = None
 
 
 class CapitalStructure(BaseModel):
@@ -191,9 +192,24 @@ class ProfitabilityProjection(BaseModel):
     gross_margin_percentage: Optional[float] = None
     monthly_operating_expenses: Optional[float] = None
     annual_operating_expenses: Optional[float] = None
-    monthly_operating_profit: Optional[float] = None
-    annual_operating_profit: Optional[float] = None
+    itemized_opex: Dict[str, float] = Field(default_factory=dict)
+    monthly_operating_profit: Optional[float] = None  # EBITDA
+    annual_operating_profit: Optional[float] = None   # EBITDA
+    monthly_ebitda: Optional[float] = None
+    annual_ebitda: Optional[float] = None
     operating_margin_percentage: Optional[float] = None
+    monthly_depreciation: Optional[float] = None
+    annual_depreciation: Optional[float] = None
+    monthly_interest: Optional[float] = None
+    annual_interest: Optional[float] = None
+    monthly_pbt: Optional[float] = None
+    annual_pbt: Optional[float] = None
+    monthly_pat: Optional[float] = None
+    annual_pat: Optional[float] = None
+    calculated_net_margin_pct: Optional[float] = None
+    benchmark_net_margin_pct: Optional[float] = None
+    tax_status: str = "UNRESOLVED"
+    tax_rate_pct: Optional[float] = None
     monthly_debt_service: Optional[float] = None
     annual_debt_service: Optional[float] = None
     monthly_net_cash_after_debt: Optional[float] = None
@@ -279,6 +295,382 @@ class FinancialAuditMetadata(BaseModel):
     assumptions: List[str] = Field(default_factory=list)
 
 
+class FoundationConfidenceSummary(BaseModel):
+    overall: float = Field(default=0.0, ge=0.0, le=1.0)
+    resolved: int = 0
+    total: int = 0
+    user_required: int = 0
+    unknown: int = 0
+
+
+# -----------------------------------------------------------------------------
+# Milestone 2: Automated Project Cost & Working Capital Engine Schemas
+# -----------------------------------------------------------------------------
+
+class ProjectCostComponent(BaseModel):
+    """Component breakdown of project cost with full auditable provenance."""
+    component_id: str
+    name: str
+    amount: Optional[float] = None
+    unit: str = "INR"
+    source_type: str = "CALCULATED"
+    source_id: Optional[str] = None
+    confidence: float = 0.0
+    calculation_method: Optional[str] = None
+    provenance: Optional[Dict[str, Any]] = None
+    status: str = "RESOLVED"  # RESOLVED, BENCHMARKED, CALCULATED, USER_SPECIFIED, UNKNOWN
+    explanation: str = ""
+
+
+class CapExDecomposition(BaseModel):
+    """Detailed category decomposition of fixed capital / CapEx."""
+    premises_setup: Optional[float] = None
+    machinery_equipment: Optional[float] = None
+    furniture_fixtures: Optional[float] = None
+    tools_workwear: Optional[float] = None
+    technology_pos: Optional[float] = None
+    vehicles: Optional[float] = None
+    other_fixed_assets: Optional[float] = None
+    total_capex: Optional[float] = None
+    source: str = "BENCHMARK_DERIVED"
+    confidence: float = 0.80
+
+
+class ProjectCostReconciliation(BaseModel):
+    """Reconciliation comparing bottom-up cost with scheme financeable cost."""
+    calculated_project_cost: Optional[float] = None
+    scheme_financeable_project_cost: Optional[float] = None
+    user_requested_project_cost: Optional[float] = None
+    variance: Optional[float] = None
+    reconciliation_status: str = "FULLY_RECONCILED"  # FULLY_RECONCILED, FINANCING_CONSTRAINED, PARTIALLY_DERIVED, INSUFFICIENT_DATA
+    reconciliation_explanation: str = ""
+    promoter_margin: Optional[float] = None
+    debt_component: Optional[float] = None
+    unexplained_amount: float = 0.0
+
+
+class WorkingCapitalAnalysis(BaseModel):
+    """Deterministic Working Capital assessment by financial archetype."""
+    status: str = "RESOLVED"
+    inventory_requirement: Optional[float] = None
+    receivable_requirement: Optional[float] = None
+    payable_credit: Optional[float] = None
+    operating_cash_buffer: Optional[float] = None
+    operating_cycle_days: Optional[float] = None
+    total_working_capital: Optional[float] = None
+    operating_working_capital: Optional[float] = None
+    methodology: str = "OPERATING_CYCLE"
+    provenance: List[Dict[str, Any]] = Field(default_factory=list)
+    confidence: float = 0.0
+    notes: Optional[str] = None
+
+
+class ProjectCostAnalysis(BaseModel):
+    """Institutional-grade project cost decomposition and reconciliation."""
+    status: str = "RESOLVED"
+    total_project_cost: Optional[float] = None
+    capex: Optional[float] = None
+    opening_inventory: Optional[float] = None
+    working_capital: Optional[float] = None
+    pre_operating_cost: Optional[float] = None
+    contingency: Optional[float] = None
+    promoter_margin: Optional[float] = None
+    debt_component: Optional[float] = None
+    unexplained_amount: float = 0.0
+    capex_decomposition: Optional[CapExDecomposition] = None
+    reconciliation: Optional[ProjectCostReconciliation] = None
+    components: List[ProjectCostComponent] = Field(default_factory=list)
+    provenance: List[Dict[str, Any]] = Field(default_factory=list)
+    confidence: float = 0.0
+
+
+# -----------------------------------------------------------------------------
+# Milestone 3: Financial Projection & Statement Engine Schemas
+# -----------------------------------------------------------------------------
+
+class ProjectionYear(BaseModel):
+    year: int
+    label: str
+
+
+class RevenueProjectionLine(BaseModel):
+    year: int
+    volume: Optional[float] = None
+    price_per_unit: Optional[float] = None
+    utilization_percentage: Optional[float] = None
+    revenue: Optional[float] = None
+    growth_rate: Optional[float] = None
+    growth_source: Optional[str] = None
+    growth_method: Optional[str] = None
+    status: str = "RESOLVED"
+    confidence: float = 0.0
+
+
+class RevenueProjection(BaseModel):
+    status: str = "RESOLVED"
+    methodology: str = "DRIVER_BASED"
+    base_annual_revenue: Optional[float] = None
+    years: List[RevenueProjectionLine] = Field(default_factory=list)
+    confidence: float = 0.0
+    notes: Optional[str] = None
+
+
+class CostProjectionLine(BaseModel):
+    year: int
+    cogs: Optional[float] = None
+    raw_material: Optional[float] = None
+    direct_labor: Optional[float] = None
+    salaries_wages: Optional[float] = None
+    rent: Optional[float] = None
+    utilities_electricity: Optional[float] = None
+    marketing: Optional[float] = None
+    repairs_maintenance: Optional[float] = None
+    admin_expenses: Optional[float] = None
+    transport: Optional[float] = None
+    technology_software: Optional[float] = None
+    other_operating_expenses: Optional[float] = None
+    total_operating_expenses: Optional[float] = None
+    status: str = "RESOLVED"
+    confidence: float = 0.0
+
+    @property
+    def salaries(self) -> Optional[float]:
+        return self.salaries_wages
+
+    @property
+    def salary(self) -> Optional[float]:
+        return self.salaries_wages
+
+    @property
+    def operating_expenses(self) -> Optional[float]:
+        return self.total_operating_expenses
+
+    @property
+    def opex(self) -> Optional[float]:
+        return self.total_operating_expenses
+
+
+class CostProjection(BaseModel):
+    status: str = "RESOLVED"
+    years: List[CostProjectionLine] = Field(default_factory=list)
+    confidence: float = 0.0
+    notes: Optional[str] = None
+
+
+class ProfitLossYear(BaseModel):
+    year: int
+    revenue: Optional[float] = None
+    cogs: Optional[float] = None
+    gross_profit: Optional[float] = None
+    gross_margin_percentage: Optional[float] = None
+    operating_expenses: Optional[float] = None
+    ebitda: Optional[float] = None
+    ebitda_margin_percentage: Optional[float] = None
+    depreciation: Optional[float] = None
+    ebit: Optional[float] = None
+    interest_expense: Optional[float] = None
+    profit_before_tax: Optional[float] = None
+    tax_expense: Optional[float] = None
+    tax_status: str = "NOT_MODELED"
+    profit_after_tax: Optional[float] = None
+    net_margin_percentage: Optional[float] = None
+    status: str = "RESOLVED"
+
+
+class ProfitLossStatement(BaseModel):
+    status: str = "RESOLVED"
+    years: List[ProfitLossYear] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class CashFlowYear(BaseModel):
+    year: int
+    profit_after_tax: Optional[float] = None
+    depreciation: Optional[float] = None
+    change_in_working_capital: Optional[float] = None
+    cash_from_operations: Optional[float] = None
+    capex_outflow: Optional[float] = None
+    cash_from_investing: Optional[float] = None
+    equity_inflow: Optional[float] = None
+    loan_disbursement: Optional[float] = None
+    principal_repayment: Optional[float] = None
+    cash_from_financing: Optional[float] = None
+    net_change_in_cash: Optional[float] = None
+    opening_cash_balance: Optional[float] = None
+    closing_cash_balance: Optional[float] = None
+    status: str = "RESOLVED"
+
+
+class CashFlowStatement(BaseModel):
+    status: str = "RESOLVED"
+    year_0_deployment: Optional[Dict[str, Any]] = None
+    years: List[CashFlowYear] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class BalanceSheetYear(BaseModel):
+    year: int
+    gross_fixed_assets: Optional[float] = None
+    accumulated_depreciation: Optional[float] = None
+    net_fixed_assets: Optional[float] = None
+    inventory: Optional[float] = None
+    trade_receivables: Optional[float] = None
+    cash_and_bank: Optional[float] = None
+    other_current_assets: Optional[float] = None
+    total_current_assets: Optional[float] = None
+    total_assets: Optional[float] = None
+    term_loan_outstanding: Optional[float] = None
+    trade_payables: Optional[float] = None
+    other_current_liabilities: Optional[float] = None
+    total_liabilities: Optional[float] = None
+    promoter_capital: Optional[float] = None
+    retained_earnings: Optional[float] = None
+    total_equity: Optional[float] = None
+    total_liabilities_and_equity: Optional[float] = None
+    reconciliation_difference: Optional[float] = None
+    is_balanced: bool = False
+    status: str = "RESOLVED"
+
+
+class BalanceSheet(BaseModel):
+    status: str = "BALANCED"
+    years: List[BalanceSheetYear] = Field(default_factory=list)
+    reconciliation_diagnostics: Optional[str] = None
+
+
+class WorkingCapitalYear(BaseModel):
+    year: int
+    inventory: Optional[float] = None
+    receivables: Optional[float] = None
+    payables: Optional[float] = None
+    operating_cash_buffer: Optional[float] = None
+    current_assets: Optional[float] = None
+    current_liabilities: Optional[float] = None
+    net_working_capital: Optional[float] = None
+    change_in_working_capital: Optional[float] = None
+    operating_cycle_days: Optional[float] = None
+    status: str = "RESOLVED"
+
+
+class WorkingCapitalProjection(BaseModel):
+    status: str = "RESOLVED"
+    years: List[WorkingCapitalYear] = Field(default_factory=list)
+    methodology: str = "TURNOVER_DAYS"
+    notes: Optional[str] = None
+
+
+class DepreciationScheduleYear(BaseModel):
+    year: int
+    gross_block: Optional[float] = None
+    depreciation_amount: Optional[float] = None
+    accumulated_depreciation: Optional[float] = None
+    net_block: Optional[float] = None
+    status: str = "RESOLVED"
+    notes: str = ""
+
+
+class FinancialRatioYear(BaseModel):
+    year: int
+    gross_margin: Optional[float] = None
+    ebitda_margin: Optional[float] = None
+    ebit_margin: Optional[float] = None
+    net_profit_margin: Optional[float] = None
+    return_on_assets: Optional[float] = None
+    return_on_equity: Optional[float] = None
+    current_ratio: Optional[float] = None
+    quick_ratio: Optional[float] = None
+    working_capital_ratio: Optional[float] = None
+    debt_to_equity: Optional[float] = None
+    debt_to_assets: Optional[float] = None
+    interest_coverage: Optional[float] = None
+    dscr: Optional[float] = None
+    inventory_days: Optional[float] = None
+    receivable_days: Optional[float] = None
+    payable_days: Optional[float] = None
+    cash_conversion_cycle: Optional[float] = None
+    asset_turnover: Optional[float] = None
+
+
+class FinancialRatioSet(BaseModel):
+    status: str = "RESOLVED"
+    years: List[FinancialRatioYear] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class FundingSourcesUses(BaseModel):
+    status: str = "RECONCILED"
+    capex: Optional[float] = None
+    opening_inventory: Optional[float] = None
+    working_capital_buffer: Optional[float] = None
+    pre_operating_cost: Optional[float] = None
+    contingency: Optional[float] = None
+    total_uses: Optional[float] = None
+    promoter_contribution: Optional[float] = None
+    term_loan: Optional[float] = None
+    other_financing: Optional[float] = None
+    total_sources: Optional[float] = None
+    difference: Optional[float] = None
+    allocation_status: Optional[str] = "FULLY_ALLOCATED"
+    notes: Optional[str] = None
+
+
+class ProjectionValidationCheck(BaseModel):
+    check_id: str
+    status: str
+    expected: Optional[Union[float, str]] = None
+    actual: Optional[Union[float, str]] = None
+    difference: Optional[float] = None
+    tolerance: float = 0.01
+    severity: str = "CRITICAL"
+    message: str
+
+
+class ProjectionValidation(BaseModel):
+    all_passed: bool = True
+    total_checks: int = 0
+    passed_checks: int = 0
+    failed_checks: int = 0
+    unresolved_checks: int = 0
+    checks: List[ProjectionValidationCheck] = Field(default_factory=list)
+
+
+class ProjectionProvenance(BaseModel):
+    metric: str
+    year: int
+    value: Optional[Any] = None
+    source_type: str = "CALCULATED"
+    source_ids: List[str] = Field(default_factory=list)
+    formula: Optional[str] = None
+    driver_ids: List[str] = Field(default_factory=list)
+    confidence: float = 0.90
+    status: str = "RESOLVED"
+
+
+class ProjectionScenario(BaseModel):
+    scenario_name: str
+    revenue_growth_adjustment: float = 0.0
+    cost_adjustment: float = 0.0
+    description: str
+
+
+class FinancialProjection(BaseModel):
+    status: str = "RESOLVED"
+    projection_years: int = 5
+    revenue_projection: RevenueProjection
+    cost_projection: CostProjection
+    profit_loss_statement: ProfitLossStatement
+    cash_flow_statement: CashFlowStatement
+    balance_sheet: BalanceSheet
+    working_capital_projection: WorkingCapitalProjection
+    financial_ratios: FinancialRatioSet
+    funding_sources_uses: FundingSourcesUses
+    validation: ProjectionValidation
+    scenarios: Dict[str, Any] = Field(default_factory=dict)
+    provenance: List[ProjectionProvenance] = Field(default_factory=list)
+    confidence: float = 0.85
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class FinancialAnalysisContainer(BaseModel):
     scheme_result: SchemeResult
     financial_fit: SchemeFinancialFit
@@ -293,6 +685,37 @@ class FinancialAnalysisContainer(BaseModel):
     break_even: BreakEvenAnalysis
     debt_service: DebtServiceAnalysis
     financial_viability: FinancialViabilityResult
+    # Milestone 1: Financial Intelligence Foundation optional fields
+    project_cost_basis: Optional[str] = "MARGIN_DERIVED"
+    financial_archetype: Optional[str] = None
+    assumption_status: Optional[str] = None
+    assumptions: List[Dict[str, Any]] = Field(default_factory=list)
+    required_user_inputs: List[Dict[str, Any]] = Field(default_factory=list)
+    assumption_confidence: Optional[Union[FoundationConfidenceSummary, Dict[str, Any]]] = None
+    provenance: List[Dict[str, Any]] = Field(default_factory=list)
+    model_version: Optional[str] = None
+    # Milestone 2: Project Cost & Working Capital Engine optional fields
+    project_cost_analysis: Optional[ProjectCostAnalysis] = None
+    working_capital_analysis: Optional[WorkingCapitalAnalysis] = None
+    # Milestone 3: Financial Projection & Statement Engine optional fields
+    financial_projection: Optional[FinancialProjection] = None
+    profit_loss_statement: Optional[ProfitLossStatement] = None
+    cash_flow_statement: Optional[CashFlowStatement] = None
+    balance_sheet: Optional[BalanceSheet] = None
+    working_capital_projection: Optional[WorkingCapitalProjection] = None
+    financial_ratios: Optional[FinancialRatioSet] = None
+    funding_sources_uses: Optional[FundingSourcesUses] = None
+    projection_validation: Optional[ProjectionValidation] = None
+    projection_provenance: Optional[List[ProjectionProvenance]] = None
+    projection_scenarios: Optional[Dict[str, Any]] = None
+    # Milestone 4: Banking Appraisal & Viability Engine optional fields
+    banking_appraisal: Optional[Any] = None
+    # Milestone 5: Stress Testing, Scheme Routing & Financing Optimizer optional fields
+    financing_optimizer: Optional[Any] = None
+    # Milestone 6: Bankable DPR Financial Packager optional fields
+    dpr_financial_package: Optional[Any] = None
+    # Canonical Downstream Financial Context
+    financial_context: Optional[Any] = None
 
 
 class Stage9WorkflowState(BaseModel):
@@ -319,7 +742,11 @@ class BusinessProfileInput(BaseModel):
     sector: Optional[str] = None
     category: Optional[str] = None
     subcategory: Optional[str] = None
-    nic_code: Optional[str] = None
+    nic_code: Optional[Union[str, int]] = None
+    business_constitution: Optional[str] = None
+    constitution: Optional[str] = None
+    entity_type: Optional[str] = None
+    registration_type: Optional[str] = None
 
 
 class BeneficiaryProfileInput(BaseModel):
@@ -328,7 +755,7 @@ class BeneficiaryProfileInput(BaseModel):
     annual_family_income: Optional[float] = None
     identity_proof_provided: Optional[bool] = None
     aadhaar_verified: Optional[bool] = None
-    udyam_registration: Optional[str] = None
+    udyam_registration: Optional[Union[str, bool]] = None
     no_prior_defaults: Optional[bool] = None
     is_greenfield: Optional[bool] = True
     is_shg_member: Optional[bool] = False
@@ -337,8 +764,8 @@ class BeneficiaryProfileInput(BaseModel):
 class LocationProfileInput(BaseModel):
     village: Optional[str] = None
     block: Optional[str] = None
-    district: Optional[str] = None
-    state: Optional[str] = None
+    district: Optional[Union[str, Dict[str, Any]]] = None
+    state: Optional[Union[str, Dict[str, Any]]] = None
     area_type: Optional[str] = None  # Rural / Urban
 
 
@@ -358,6 +785,9 @@ class FinancialAnalysisRequest(BaseModel):
     beneficiary_profile: Optional[BeneficiaryProfileInput] = Field(default_factory=BeneficiaryProfileInput)
     location_profile: LocationProfileInput = Field(default_factory=LocationProfileInput)
     project_assumptions: ProjectAssumptionsInput = Field(default_factory=ProjectAssumptionsInput)
+    market_data: Optional[Dict[str, Any]] = None
+    user_driver_inputs: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    language: Optional[str] = "en"
 
 
 class FinancialAnalysisResponse(BaseModel):
@@ -367,6 +797,7 @@ class FinancialAnalysisResponse(BaseModel):
     workflow: Stage9WorkflowState = Field(default_factory=Stage9WorkflowState)
     financial_analysis: FinancialAnalysisContainer
     audit: FinancialAuditMetadata
+    financial_context: Optional[Any] = None
 
 
 # -----------------------------------------------------------------------------

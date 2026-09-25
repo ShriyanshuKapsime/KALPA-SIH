@@ -41,12 +41,12 @@ def build_swot_user_prompt(evidence_context: Dict[str, Any]) -> str:
     fs = evidence_context.get("feasibility", {})
 
     evidence_summary = {
-        "venture": f"{b.get('name')} ({b.get('category')}) at {b.get('location')}",
+        "venture": f"{b.get('name')} ({b.get('category') or b.get('domain')}) at {b.get('location')}",
         "market": f"Demand:{m.get('demand')}, Comp:{m.get('competition')}, Score:{m.get('score')}/100",
         "finance": f"DSCR:{f.get('dscr')}x, Cost:Rs {f.get('project_cost')}, Loan:Rs {f.get('loan_requirement')}, BEP:{f.get('break_even_pct') or f.get('score')}%",
         "entrepreneur": f"Score:{e.get('score')}/100, Skills:{', '.join(e.get('skills', [])[:2]) if e.get('skills') else 'Standard'}, Exp:{', '.join(e.get('experience', [])[:1]) if e.get('experience') else 'Domain exp'}",
-        "risk": f"CompositeRisk:{r.get('composite_risk')}, Vectors:{', '.join(r.get('top_risk_vectors', [])[:2]) if r.get('top_risk_vectors') else 'Operational'}",
-        "feasibility": f"Viability:{fs.get('viability')}, Score:{fs.get('score')}/100"
+        "risk": f"CompositeRisk:{r.get('score') or r.get('composite_risk')}, Critical:{', '.join(r.get('critical_risks', [])[:2]) if r.get('critical_risks') else 'Standard commercial risks'}",
+        "feasibility": f"Viability:{fs.get('decision') or fs.get('viability')}, Score:{fs.get('score')}/100"
     }
 
     summary_json = json.dumps(evidence_summary, separators=(",", ":"))
@@ -71,12 +71,12 @@ def build_compact_retry_user_prompt(evidence_context: Dict[str, Any]) -> str:
     fs = evidence_context.get("feasibility", {})
 
     compact_summary = {
-        "biz": f"{b.get('name')} ({b.get('category')}) at {b.get('location')}",
+        "biz": f"{b.get('name')} ({b.get('category') or b.get('domain')}) at {b.get('location')}",
         "mkt": f"Demand:{m.get('demand')}, Comp:{m.get('competition')}, Score:{m.get('score')}",
         "fin": f"DSCR:{f.get('dscr')}, BEP:{f.get('break_even_pct') or f.get('score')}, Cost:{f.get('project_cost')}",
         "ent": f"Exp:{e.get('experience')}, Skills:{e.get('skills')}",
-        "rsk": f"Risk:{r.get('composite_risk')}, Vectors:{r.get('top_risk_vectors')}",
-        "fea": f"Viability:{fs.get('viability')}, Score:{fs.get('score')}"
+        "rsk": f"Risk:{r.get('score') or r.get('composite_risk')}, Critical:{r.get('critical_risks') or r.get('top_risk_vectors')}",
+        "fea": f"Viability:{fs.get('decision') or fs.get('viability')}, Score:{fs.get('score')}"
     }
 
     summary_json = json.dumps(compact_summary, separators=(",", ":"))

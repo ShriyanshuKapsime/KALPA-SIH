@@ -655,13 +655,13 @@ async def test_swot_test15_full_schema_fields_grounded_validation():
 
 
 # ==============================================================================
-# TEST 16: Verify 90s Timeout Configuration
+# TEST 16: Verify Bounded Interactive Timeout Configuration (<= 30s Budget)
 # ==============================================================================
 def test_swot_test16_timeout_configuration():
     agent = DynamicSWOTAgent()
     assert isinstance(agent.timeout, httpx.Timeout)
-    assert agent.timeout.read == 90.0
-    assert agent.timeout.connect == 10.0
-    assert agent.timeout.write == 30.0
-    assert agent.timeout.pool == 10.0
+    assert agent.timeout.read == 14.0
+    assert agent.timeout.connect == 5.0
+    assert agent.timeout.write == 10.0
+    assert agent.timeout.pool == 5.0
 

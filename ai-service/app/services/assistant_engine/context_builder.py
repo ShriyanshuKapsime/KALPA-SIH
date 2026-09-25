@@ -319,30 +319,83 @@ def build_full_assistant_context(
             fin = fin_query.filter(FinancialProfile.business_id == business_uuid).order_by(FinancialProfile.created_at.desc()).first()
 
         if not fin and session_uuid:
-            fin = fin_query.filter(FinancialProfile.business_id == session_uuid).order_by(FinancialProfile.created_at.desc()).first()
+            fin = fin_query.filter(
+                (FinancialProfile.id == session_uuid) |
+                (FinancialProfile.business_id == session_uuid)
+            ).order_by(FinancialProfile.created_at.desc()).first()
+
+        if not fin and prof:
+            fin = fin_query.filter(FinancialProfile.business_id == prof.id).order_by(FinancialProfile.created_at.desc()).first()
 
         if fin:
+            bk = fin.breakdown_json if isinstance(fin.breakdown_json, dict) else {}
+            context["financial_context"] = bk.get("financial_context")
             context["financial_analysis"] = {
-                "total_project_cost": fin.total_project_cost,
-                "promoter_contribution": fin.promoter_contribution,
-                "bank_loan_requirement": fin.bank_loan_requirement,
-                "subsidy_amount": fin.subsidy_amount,
-                "applicable_scheme_name": fin.applicable_scheme_name,
-                "projected_annual_revenue": fin.projected_annual_revenue,
-                "projected_operating_expenses": fin.projected_operating_expenses,
-                "projected_net_profit": fin.projected_net_profit,
-                "dscr": fin.debt_service_coverage_ratio,
-                "break_even_percentage": fin.break_even_percentage,
-                "monthly_emi": fin.breakdown_json.get("monthly_emi") if isinstance(fin.breakdown_json, dict) else None,
-                "scheme_matches": fin.breakdown_json.get("scheme_matches") if isinstance(fin.breakdown_json, dict) else [],
+                "total_project_cost": fin.total_project_cost or bk.get("total_project_cost"),
+                "promoter_contribution": fin.promoter_contribution or bk.get("promoter_contribution"),
+                "bank_loan_requirement": fin.bank_loan_requirement or bk.get("bank_loan_requirement") or bk.get("term_loan"),
+                "subsidy_amount": fin.subsidy_amount or bk.get("subsidy_amount"),
+                "applicable_scheme_name": fin.applicable_scheme_name or bk.get("applicable_scheme_name") or bk.get("recommended_scheme"),
+                "projected_annual_revenue": fin.projected_annual_revenue or bk.get("projected_annual_revenue") or bk.get("first_year_revenue"),
+                "projected_operating_expenses": fin.projected_operating_expenses or bk.get("projected_operating_expenses") or bk.get("first_year_opex"),
+                "projected_net_profit": fin.projected_net_profit or bk.get("projected_net_profit") or bk.get("first_year_pat"),
+                "dscr": fin.debt_service_coverage_ratio or bk.get("dscr") or bk.get("average_dscr"),
+                "break_even_percentage": fin.break_even_percentage or bk.get("break_even_percentage"),
+                "monthly_emi": bk.get("monthly_emi"),
+                "scheme_matches": bk.get("scheme_matches") or [],
+                "retained_reserve": bk.get("retained_reserve") or bk.get("margin_surplus"),
+                "interest_rate": bk.get("interest_rate"),
+                "tenure_months": bk.get("tenure_months"),
                 "financial_viability": "viable" if (isinstance(fin.debt_service_coverage_ratio, (int, float)) and fin.debt_service_coverage_ratio >= 1.25) else "marginal",
+                "dpr_financial_package": bk.get("dpr_financial_package"),
+                "financial_context": bk.get("financial_context"),
             }
+        elif prof and prof.profile_json and (prof.profile_json.get("financial_analysis") or prof.profile_json.get("financial_profile") or prof.profile_json.get("financial_context")):
+            p_fin = prof.profile_json.get("financial_analysis") or prof.profile_json.get("financial_profile") or {}
+            p_ctx = prof.profile_json.get("financial_context") or (p_fin.get("financial_context") if isinstance(p_fin, dict) else None)
+            context["financial_context"] = p_ctx
+            context["financial_analysis"] = p_fin if isinstance(p_fin, dict) else {}
+            if p_ctx and isinstance(context["financial_analysis"], dict):
+                context["financial_analysis"]["financial_context"] = p_ctx
         elif orch and orch.orchestration_output:
             orch_fin = (orch.orchestration_output.get("agent_results", {}).get("finance_engine")
                         or orch.orchestration_output.get("agent_results", {}).get("financial_analysis")
                         or orch.orchestration_output.get("financial_analysis"))
             if orch_fin and isinstance(orch_fin, dict):
                 context["financial_analysis"] = orch_fin
+                context["financial_context"] = orch_fin.get("financial_context")
+
+        # If financial_context is present, enrich financial_analysis with its canonical fields
+        if context.get("financial_context"):
+            fc = context["financial_context"]
+            fa = context.setdefault("financial_analysis", {})
+            if isinstance(fa, dict) and isinstance(fc, dict):
+                proj_cost = fc.get("project_cost") or {}
+                funding = fc.get("funding") or {}
+                debt = fc.get("debt") or {}
+                banking = fc.get("banking_appraisal") or {}
+                pl = fc.get("profit_loss") or []
+                y1 = pl[0] if (isinstance(pl, list) and len(pl) > 0) else {}
+                stress = fc.get("m5_stress_appraisal") or {}
+                tax_info = fc.get("resolved_tax") or {}
+
+                if not fa.get("total_project_cost"): fa["total_project_cost"] = proj_cost.get("total_project_cost")
+                if not fa.get("promoter_contribution"): fa["promoter_contribution"] = funding.get("required_promoter_contribution")
+                if not fa.get("bank_loan_requirement"): fa["bank_loan_requirement"] = funding.get("institutional_loan") or debt.get("sanctioned_loan_amount")
+                if not fa.get("subsidy_amount"): fa["subsidy_amount"] = funding.get("subsidy_amount")
+                if not fa.get("monthly_emi"): fa["monthly_emi"] = debt.get("emi")
+                if not fa.get("interest_rate"): fa["interest_rate"] = debt.get("interest_rate_pct")
+                if not fa.get("tenure_months"): fa["tenure_months"] = debt.get("tenure_months")
+                if not fa.get("dscr"): fa["dscr"] = banking.get("average_dscr") or banking.get("min_dscr")
+                if not fa.get("break_even_percentage"): fa["break_even_percentage"] = banking.get("break_even_utilization_pct")
+                if not fa.get("projected_annual_revenue"): fa["projected_annual_revenue"] = y1.get("revenue")
+                if not fa.get("projected_operating_expenses"): fa["projected_operating_expenses"] = y1.get("opex")
+                if not fa.get("projected_net_profit"): fa["projected_net_profit"] = y1.get("pat")
+                fa["working_capital"] = proj_cost.get("working_capital")
+                fa["downside_dscr"] = stress.get("downside_dscr")
+                fa["downside_revenue"] = stress.get("downside_revenue")
+                fa["profit_loss"] = pl
+                fa["resolved_tax"] = tax_info
 
         # ─────────────────────────────────────────────────────────────
         # 5. Feasibility Result (Stage 12)

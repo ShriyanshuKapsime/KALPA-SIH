@@ -163,7 +163,9 @@ async def chat_with_assistant(
             session_id_str=request.session_id,
             conversation_id_str=request.conversation_id,
             business_id_str=request.business_id,
-            language=request.language or "en"
+            language=request.language or "en",
+            financial_context=request.financial_context,
+            financial_analysis=request.financial_analysis
         )
         return AssistantChatResponse(**res)
     except ValueError as val_err:

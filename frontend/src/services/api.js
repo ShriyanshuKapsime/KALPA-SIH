@@ -10,14 +10,64 @@ export const apiClient = axios.create({
   timeout: 30000,
 });
 
+// Extract string error message from arbitrary API response shapes
+function extractErrorMessage(data, fallback = 'An unexpected error occurred') {
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+
+  if (typeof data.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof data.detail === 'string' && data.detail.trim()) {
+    return data.detail;
+  }
+  if (data.detail && typeof data.detail === 'object' && !Array.isArray(data.detail)) {
+    if (typeof data.detail.message === 'string' && data.detail.message.trim()) {
+      return data.detail.message;
+    }
+    if (typeof data.detail.provider_error === 'string' && data.detail.provider_error.trim()) {
+      return data.detail.provider_error;
+    }
+    if (typeof data.detail.error === 'string' && data.detail.error.trim()) {
+      return data.detail.error;
+    }
+  }
+  if (Array.isArray(data.detail) && data.detail.length > 0) {
+    const joined = data.detail
+      .map((d) => {
+        if (!d) return '';
+        const loc = Array.isArray(d.loc) ? d.loc.filter((l) => l !== 'body').join('.') : (d.loc || '');
+        const msg = d.msg || (typeof d === 'string' ? d : '');
+        return loc ? `${loc}: ${msg}` : msg;
+      })
+      .filter(Boolean)
+      .join('; ');
+    if (joined.trim()) return joined;
+  }
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error;
+  }
+  if (data.details && typeof data.details === 'object') {
+    if (typeof data.details.message === 'string') return data.details.message;
+    if (typeof data.details.provider_error === 'string') return data.details.provider_error;
+  }
+
+  return fallback;
+}
+
 // Response interceptor for centralized error formatting
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const resData = error.response?.data;
+    const is422 = error.response?.status === 422;
     const customError = {
-      message: error.response?.data?.message || error.response?.data?.detail || error.message || 'An unexpected error occurred',
+      message: extractErrorMessage(resData, error.message || 'An unexpected error occurred'),
       status: error.response?.status || 500,
-      details: error.response?.data?.details || null,
+      code: resData?.error || resData?.detail?.error || (is422 ? 'VALIDATION_ERROR' : 'REQUEST_FAILED'),
+      details: resData?.details || resData?.detail?.details || null,
+      raw: resData || null,
+      validationErrors: is422 && Array.isArray(resData?.detail) ? resData.detail : null,
     };
     return Promise.reject(customError);
   }
@@ -36,7 +86,18 @@ export const apiService = {
   intake: {
     submitVoice: async (formData) => {
       console.log('[FRONTEND → GATEWAY] Submitting voice intake to /intake/voice');
-      return apiClient.post('/intake/voice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const response = await apiClient.post('/intake/voice', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (response && response.success === false) {
+        const customErr = {
+          message: extractErrorMessage(response, 'Voice processing failed'),
+          code: response.error || 'STT_PROCESSING_FAILED',
+          status: 400,
+          details: response.details || null,
+          raw: response
+        };
+        throw customErr;
+      }
+      return response;
     },
     transcribe: async (formData) => {
       console.log('[FRONTEND → GATEWAY] Transcribing audio at /intake/transcribe');
@@ -224,11 +285,16 @@ export const apiService = {
       console.log('[FRONTEND → GATEWAY] Triggering standalone Financial Calculator (Stage 9):', payload);
       return apiClient.post('/financial-analysis/calculator', payload);
     },
+    getDprPackage: async (payload) => {
+      console.log('[FRONTEND → GATEWAY] Fetching Bankable DPR Financial Package (M6):', payload);
+      return apiClient.post('/financial-analysis/dpr-package', payload);
+    },
     getHealth: async () => {
       console.log('[FRONTEND → GATEWAY] Checking Financial Engine health');
       return apiClient.get('/financial-analysis/health');
     },
   },
+
 
   entrepreneurProfile: {
     analyze: async (payload) => {
@@ -333,10 +399,12 @@ export const apiService = {
   },
 
   dpr: {
-    generateReport: async (businessId) => apiClient.post(`/dpr/generate/${businessId}`),
+    generateReport: async (businessId, payload = {}) => apiClient.post(`/dpr/generate/${businessId}`, payload),
     getReport: async (reportId) => apiClient.get(`/dpr/report/${reportId}`),
+    downloadPdfUrl: (reportId) => `${apiClient.defaults?.baseURL || '/api'}/dpr/report/${reportId}/pdf`,
   },
 };
+
 
 
 export default apiService;

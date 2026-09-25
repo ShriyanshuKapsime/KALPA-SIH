@@ -97,6 +97,25 @@ export default function SWOTPage() {
         forceRefresh: isRetry
       });
 
+      let storedFinAnalysis = location.state?.financialAnalysis;
+      if (!storedFinAnalysis) {
+        try {
+          const raw = sessionStorage.getItem('kalpa_financial_analysis');
+          if (raw) storedFinAnalysis = JSON.parse(raw);
+        } catch (e) {}
+      }
+
+      let storedFinContext = location.state?.financialContext;
+      if (!storedFinContext) {
+        try {
+          const raw = sessionStorage.getItem('kalpa_financial_context');
+          if (raw) storedFinContext = JSON.parse(raw);
+        } catch (e) {}
+      }
+      if (!storedFinContext && storedFinAnalysis?.financial_context) {
+        storedFinContext = storedFinAnalysis.financial_context;
+      }
+
       const payload = {
         analysis_id: effectiveAnalysisId || undefined,
         session_id: effectiveSessionId || undefined,
@@ -104,7 +123,8 @@ export default function SWOTPage() {
         location_profile: location.state?.locationProfile || undefined,
         market_analysis: location.state?.marketAnalysis || undefined,
         opportunity_result: location.state?.opportunityResult || undefined,
-        financial_analysis: location.state?.financialAnalysis || undefined,
+        financial_analysis: storedFinAnalysis || undefined,
+        financial_context: storedFinContext || undefined,
         entrepreneur_readiness: location.state?.entrepreneurReadiness || undefined,
         risk_analysis: location.state?.riskAnalysis || undefined,
         feasibility_result: location.state?.feasibilityResult || undefined,
@@ -264,7 +284,11 @@ export default function SWOTPage() {
                 <span>SWOT (13) ●</span>
               </span>
               <span className="text-stone-300">›</span>
-              <Link to="/dpr" className="flex items-center space-x-1 px-2 py-1 rounded-md bg-stone-100 text-stone-600 hover:text-[#EA580C]">
+              <Link
+                to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
+                state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                className="flex items-center space-x-1 px-2 py-1 rounded-md bg-stone-100 text-stone-600 hover:text-[#EA580C]"
+              >
                 <FileText className="w-3 h-3" />
                 <span>DPR (14)</span>
               </Link>
@@ -438,7 +462,10 @@ export default function SWOTPage() {
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Refresh SWOT</span>
                 </button>
-                <Link to="/dpr">
+                <Link
+                  to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
+                  state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                >
                   <button className="px-5 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer">
                     <span>Generate Bank DPR (Stage 14)</span>
                     <ArrowRight className="w-4 h-4" />
@@ -1164,7 +1191,10 @@ export default function SWOTPage() {
                     <span>Talk to AI Business Advisor</span>
                   </button>
                 </Link>
-                <Link to="/dpr">
+                <Link
+                  to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
+                  state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                >
                   <button className="px-5 py-3 bg-stone-800 hover:bg-stone-700 text-white border border-stone-600 rounded-xl text-xs font-semibold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
                     <span>Proceed to DPR</span>
                     <ArrowRight className="w-4 h-4" />

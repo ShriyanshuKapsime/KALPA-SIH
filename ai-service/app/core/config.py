@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     SARVAM_STT_MODEL: str = "saaras:v4"
     SARVAM_TTS_MODEL: str = "bulbul:v3"
     SARVAM_TTS_SPEAKER: str = "shreya"
-    SARVAM_LLM_MODEL: str = "sarvam-105b"
+    SARVAM_LLM_MODEL: str = "sarvam-105b-conversations"
     SARVAM_ASSISTANT_MODEL: str = "sarvam-105b-conversations"
     SARVAM_ASSISTANT_TIMEOUT: float = 90.0
     SARVAM_LLM_ENABLED: bool = True

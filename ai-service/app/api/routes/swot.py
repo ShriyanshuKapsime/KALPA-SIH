@@ -143,22 +143,40 @@ async def analyze_swot(
                     }
                 if not request.entrepreneur_readiness and p_json.get("entrepreneur_readiness"):
                     request.entrepreneur_readiness = p_json.get("entrepreneur_readiness")
+                if not request.financial_context and p_json.get("financial_context"):
+                    request.financial_context = p_json.get("financial_context")
+                if not request.financial_analysis and p_json.get("financial_analysis"):
+                    request.financial_analysis = p_json.get("financial_analysis")
 
             # C. FinancialProfile (Stage 9)
-            if not request.financial_analysis:
+            if not request.financial_analysis or not request.financial_context:
                 fin = db.query(FinancialProfile).filter(
-                    (FinancialProfile.id == target_uuid) | (FinancialProfile.business_id == target_uuid)
+                    (FinancialProfile.id == target_uuid) |
+                    (FinancialProfile.business_id == target_uuid) |
+                    (FinancialProfile.business_id == prof.id if prof else False)
                 ).first()
                 if fin:
-                    request.financial_analysis = {
-                        "dscr": fin.debt_service_coverage_ratio,
-                        "debt_service": {"dscr": fin.debt_service_coverage_ratio},
-                        "break_even": {"break_even_point_percentage": fin.break_even_percentage},
-                        "break_even_point_percentage": fin.break_even_percentage,
-                        "total_project_cost": fin.total_project_cost,
-                        "estimated_financeable_loan": fin.bank_loan_requirement,
-                        "monthly_emi": fin.breakdown_json.get("monthly_emi") if fin.breakdown_json else 8500.0,
-                    }
+                    bk = fin.breakdown_json if isinstance(fin.breakdown_json, dict) else {}
+                    if not request.financial_context and bk.get("financial_context"):
+                        request.financial_context = bk.get("financial_context")
+                    if not request.financial_analysis:
+                        request.financial_analysis = bk or {
+                            "dscr": fin.debt_service_coverage_ratio,
+                            "debt_service": {"dscr": fin.debt_service_coverage_ratio},
+                            "break_even": {"break_even_point_percentage": fin.break_even_percentage},
+                            "break_even_point_percentage": fin.break_even_percentage,
+                            "total_project_cost": fin.total_project_cost,
+                            "estimated_financeable_loan": fin.bank_loan_requirement,
+                            "monthly_emi": bk.get("monthly_emi") or 8500.0,
+                        }
+
+            # Cross-sync financial_context and financial_analysis
+            if not request.financial_context and request.financial_analysis and isinstance(request.financial_analysis, dict):
+                request.financial_context = request.financial_analysis.get("financial_context")
+            if request.financial_context and not request.financial_analysis:
+                request.financial_analysis = {"financial_context": request.financial_context}
+            elif request.financial_context and isinstance(request.financial_analysis, dict) and "financial_context" not in request.financial_analysis:
+                request.financial_analysis["financial_context"] = request.financial_context
 
             # D. OrchestrationRecord (Stages 8, 9, 10, 11)
             orch = db.query(OrchestrationRecord).filter(

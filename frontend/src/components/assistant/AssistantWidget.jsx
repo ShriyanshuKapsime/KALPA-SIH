@@ -192,11 +192,22 @@ export default function AssistantWidget({ isEmbedded = false }) {
     setIsLoading(true);
 
     try {
+      let storedFinContext = null;
+      let storedFinAnalysis = null;
+      try {
+        const rawCtx = sessionStorage.getItem('kalpa_financial_context');
+        if (rawCtx) storedFinContext = JSON.parse(rawCtx);
+        const rawFa = sessionStorage.getItem('kalpa_financial_analysis');
+        if (rawFa) storedFinAnalysis = JSON.parse(rawFa);
+      } catch (e) {}
+
       const response = await apiService.assistant.chat({
         analysis_id: effectiveAnalysisId || null,
         session_id: effectiveSessionId || null,
         message: text.trim(),
         language,
+        financial_context: storedFinContext || undefined,
+        financial_analysis: storedFinAnalysis || undefined,
       });
 
       const assistantTurn = {
@@ -205,6 +216,7 @@ export default function AssistantWidget({ isEmbedded = false }) {
         intent: response.intent,
         groundedSources: response.grounded_sources || [],
         groundingStatus: response.grounding_status || 'GROUNDED',
+        modelProvider: response.model_provider || (response.grounding_status === 'DETERMINISTIC_FALLBACK' ? 'Verified KALPA Fallback' : 'Sarvam AI'),
         completeness: response.pipeline_completeness || contextCompleteness,
         suggestedActions: response.suggested_actions || [],
         timestamp: new Date().toISOString(),
@@ -532,9 +544,14 @@ export default function AssistantWidget({ isEmbedded = false }) {
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700 uppercase">
                           {(m.intent || 'ADVISORY').replace(/_/g, ' ')}
                         </span>
-                        {m.groundingStatus === 'DETERMINISTIC_FALLBACK' && (
+                        {m.groundingStatus === 'DETERMINISTIC_FALLBACK' ? (
                           <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-medium">
                             Verified KALPA Fallback
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            {m.modelProvider || 'Sarvam AI'}
                           </span>
                         )}
                       </div>

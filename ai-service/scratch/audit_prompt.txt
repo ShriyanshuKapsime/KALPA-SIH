@@ -1,0 +1,141 @@
+<USER_REQUEST>
+AUDIT ONLY — DO NOT FIX YET.
+
+We now have the exact verified financial benchmark record for:
+business_node_id = saree_retail
+NIC = 47711
+Traditional Saree, Silk & Women's Ethnic Wear Retail Store.
+
+The benchmark is stored in financial_benchmark.json.
+
+IMPORTANT:
+Do NOT make assumptions about benchmark semantics.
+Do NOT invent formulas.
+Do NOT modify code yet.
+Do NOT change UI yet.
+
+First trace exactly how this benchmark is being consumed by M1 → M2 → M3 → M4 → M5 → M6.
+
+==================================================
+BENCHMARK RECORD TO AUDIT
+==================================================
+
+CAPEX:
+typical = ₹320,000
+range_min = ₹150,000
+range_max = ₹750,000
+fixed_cost_ratio = 0.30
+display_interior_lighting_pct = 55%
+ac_and_cctv_pct = 25%
+pos_and_signage_pct = 20%
+
+WORKING CAPITAL:
+typical_monthly_requirement = ₹180,000
+working_capital_months_recommended = 2.5
+working_capital_ratio = 1.4
+inventory_turnover_days = 45
+
+MARGINS:
+gross_margin_pct_min = 28%
+gross_margin_pct_typical = 36%
+gross_margin_pct_max = 48%
+net_margin_pct_min = 16%
+net_margin_pct_typical = 23%
+net_margin_pct_max = 32%
+operating_cost_ratio = 0.77
+
+COST STRUCTURE:
+weaver_hub_inventory_purchase = 64%
+shop_rent = 12%
+staff_salaries_and_commission = 10%
+electricity_and_lighting = 5%
+packaging_and_branding = 4%
+dead_stock_markdown_allowance = 5%
+
+TIMELINES:
+setup_time_days = 20
+breakeven_months = 3
+payback_period_months = 11
+
+UNIT ECONOMICS:
+daily_sarees_sold = 12
+average_saree_price_inr = ₹1,250
+bridal_saree_ticket_inr = ₹7,500
+fall_pico_value_add_inr = ₹120
+
+PROVENANCE:
+source_id = TEXTILES_MINISTRY_RETAIL_STUDY
+organization = Ministry of Textiles / NIFT Study
+publication_year = 2024
+verification_status = verified
+confidence = 0.91
+
+==================================================
+1. CREATE A FIELD-BY-FIELD USAGE MATRIX
+==================================================
+
+For EVERY benchmark field above, report:
+
+field
+→ co
+<truncated 6259 bytes>
+========================
+
+Return ONLY:
+
+A. Benchmark Field Usage Matrix
+
+B. Exact code path for:
+- project cost
+- CapEx
+- working capital
+- revenue
+- COGS
+- gross profit
+- operating expenses
+- EBITDA
+- DSCR
+- break-even
+
+C. Current benchmark fields actually used
+
+D. Current benchmark fields partially used
+
+E. Current benchmark fields unused
+
+F. Semantic mismatches
+
+G. Data/provenance gaps
+
+H. Exact explanation of:
+WHY M2 WC = ₹0
+WHY PROJECT WC = ₹1.8L
+WHY REVENUE = ₹28,05,105
+WHY COGS = ₹17,95,325
+WHY OPEX = ₹3,64,675
+WHY EBITDA = ₹6,45,105
+
+I. Recommended fixes, but DO NOT implement them yet.
+
+No frontend changes.
+No backend changes.
+No calculation changes.
+
+We need this audit first so that the next implementation prompt is based on the actual benchmark semantics rather than assumptions.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-24T01:32:22+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\shriy\OneDrive\Documents\KALPA SIH\ai-service\app\data\curated\benchmarks\financial_benchmarks.json (LANGUAGE_JSON)
+Cursor is on line: 562
+Other open documents:
+- c:\Users\shriy\OneDrive\Documents\KALPA SIH\ai-service\app\services\financial_engine\optimizer\m5_config.py (LANGUAGE_PYTHON)
+- c:\Users\shriy\OneDrive\Documents\KALPA SIH\ai-service\app\services\financial_engine\appraisal\risk_flags.py (LANGUAGE_PYTHON)
+- c:\Users\shriy\OneDrive\Documents\KALPA SIH\ai-service\app\services\financial_engine\dpr_packager\__init__.py (LANGUAGE_PYTHON)
+- c:\Users\shriy\OneDrive\Documents\KALPA SIH\gateway\src\controllers\dprController.js (LANGUAGE_JAVASCRIPT)
+- c:\Users\shriy\OneDrive\Documents\KALPA SIH\ai-service\app\services\financial_engine\optimizer\scheme_router.py (LANGUAGE_PYTHON)
+Running terminal commands:
+- docker compose logs -f ai-service (in c:\Users\shriy\OneDrive\Documents\KALPA SIH, running for 44m48s)
+- npm run dev (in c:\Users\shriy\OneDrive\Documents\KALPA SIH\frontend, running for 44m38s)
+</ADDITIONAL_METADATA>

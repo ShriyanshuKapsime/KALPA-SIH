@@ -48,6 +48,53 @@ from app.services.financial_engine.engine import (
     financial_engine,
     FinancialEngine
 )
+from app.services.financial_engine.intelligence import (
+    FinancialArchetype,
+    archetype_registry,
+    ArchetypeRegistry,
+    DriverRegistry,
+    DriverDefinition,
+    driver_registry,
+    AssumptionResolver,
+    assumption_resolver,
+    ResolvedAssumption,
+    SourceType,
+    AssumptionStatus,
+    AssumptionType,
+    QuestionEngine,
+    question_engine,
+    RequiredUserInput,
+    ProvenanceTracker,
+    provenance_tracker,
+    Provenance,
+    FoundationStatus,
+    EvidenceResolver,
+    evidence_resolver,
+)
+from app.services.financial_engine.calculation import (
+    CALCULATION_REGISTRY,
+)
+from app.services.financial_engine.compatibility import (
+    legacy_adapter,
+    LegacyAdapter,
+)
+from app.services.financial_engine.project_cost import (
+    DerivationEngine,
+    derivation_engine,
+    CircularDependencyError,
+    WorkingCapitalEngine,
+    working_capital_engine,
+    CapExEngine,
+    capex_engine,
+    ProjectCostReconciler,
+    project_cost_reconciler,
+    ProjectCostEngine,
+    project_cost_engine,
+)
+
+# Aliases for backward compatibility
+FinancialDriver = DriverDefinition
+UserQuestion = RequiredUserInput
 
 __all__ = [
     "financial_engine",
@@ -75,5 +122,67 @@ __all__ = [
     "DSCR_THRESHOLDS",
     "FINANCIAL_HEALTH_WEIGHTS",
     "CALCULATION_VERSION",
-    "ENGINE_NAME"
+    "ENGINE_NAME",
+    # Milestone 1: Financial Intelligence Foundation exports
+    "FinancialArchetype",
+    "archetype_registry",
+    "ArchetypeRegistry",
+    "DriverRegistry",
+    "DriverDefinition",
+    "FinancialDriver",
+    "driver_registry",
+    "AssumptionResolver",
+    "assumption_resolver",
+    "ResolvedAssumption",
+    "SourceType",
+    "AssumptionStatus",
+    "AssumptionType",
+    "QuestionEngine",
+    "question_engine",
+    "RequiredUserInput",
+    "UserQuestion",
+    "ProvenanceTracker",
+    "provenance_tracker",
+    "Provenance",
+    "FoundationStatus",
+    "EvidenceResolver",
+    "evidence_resolver",
+    "CALCULATION_REGISTRY",
+    "legacy_adapter",
+    "LegacyAdapter",
+    # Milestone 2: Automated Project Cost & Working Capital Engine exports
+    "DerivationEngine",
+    "derivation_engine",
+    "CircularDependencyError",
+    "WorkingCapitalEngine",
+    "working_capital_engine",
+    "CapExEngine",
+    "capex_engine",
+    "ProjectCostReconciler",
+    "project_cost_reconciler",
+    "ProjectCostEngine",
+    "project_cost_engine",
+    # Milestone 6: Bankable DPR Financial Packager exports
+    "DPRPackager",
+    "dpr_packager",
+    "DPRFinancialPackage",
+    "DPRSection",
+    "CMAStatementPackage",
+    "DataCompletenessPackage",
+    "format_inr",
+    "format_percentage",
+    "format_ratio",
 ]
+from app.services.financial_engine.dpr_packager import (
+    DPRPackager,
+    dpr_packager,
+    DPRFinancialPackage,
+    DPRSection,
+    CMAStatementPackage,
+    DataCompletenessPackage,
+    format_inr,
+    format_percentage,
+    format_ratio,
+)
+
+

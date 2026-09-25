@@ -13,6 +13,7 @@ import riskAnalysisController from '../controllers/riskAnalysisController.js';
 import feasibilityController from '../controllers/feasibilityController.js';
 import swotController from '../controllers/swotController.js';
 import assistantController from '../controllers/assistantController.js';
+import dprController from '../controllers/dprController.js';
 
 
 const router = Router();
@@ -82,6 +83,7 @@ router.get('/opportunity-evaluation/health', opportunityEvaluationController.get
 // Stage 9 Live Financial Engine Routes
 router.post('/financial-analysis/analyze', financialAnalysisController.analyzeFinancialProfile);
 router.post('/financial-analysis/calculator', financialAnalysisController.calculateFinancials);
+router.post('/financial-analysis/dpr-package', financialAnalysisController.getDprPackage);
 router.get('/financial-analysis/health', financialAnalysisController.getFinancialEngineHealth);
 
 // Stage 10 Live Entrepreneur Profile Engine Routes
@@ -125,12 +127,11 @@ router.all('/market/*', (req, res) => {
   });
 });
 
-router.all('/dpr/*', (req, res) => {
-  res.status(501).json({
-    status: 'scaffold_only',
-    message: 'DPR API endpoint will be activated in future phases.',
-  });
-});
+// Stage 14 Live Bankable DPR Generator Routes
+router.post('/dpr/generate/:id', dprController.generateDpr);
+router.get('/dpr/report/:id/pdf', dprController.downloadDprPdf);
+router.get('/dpr/report/:id', dprController.getDprReport);
 
 export default router;
+
 

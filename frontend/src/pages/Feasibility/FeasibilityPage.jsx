@@ -2110,7 +2110,9 @@ export const FeasibilityPage = () => {
                           businessProfile: feasibilityData?.business_name ? { specific_business: feasibilityData.business_name } : undefined,
                           locationProfile: feasibilityData?.location_summary ? { location_summary: feasibilityData.location_summary } : undefined,
                           entrepreneurReadiness: stage10Data,
-                          riskAnalysis: stage11Data
+                          riskAnalysis: stage11Data,
+                          financialAnalysis: (sessionStorage.getItem('kalpa_financial_analysis') ? JSON.parse(sessionStorage.getItem('kalpa_financial_analysis')) : undefined),
+                          financialContext: (sessionStorage.getItem('kalpa_financial_context') ? JSON.parse(sessionStorage.getItem('kalpa_financial_context')) : undefined)
                         }}
                       >
                         <button className="px-5 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer">

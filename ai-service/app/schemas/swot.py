@@ -136,6 +136,7 @@ class SWOTEvaluationRequest(BaseModel):
     market_analysis: Optional[Dict[str, Any]] = None
     opportunity_result: Optional[Dict[str, Any]] = None
     financial_analysis: Optional[Dict[str, Any]] = None
+    financial_context: Optional[Dict[str, Any]] = None
     entrepreneur_readiness: Optional[Dict[str, Any]] = None
     risk_analysis: Optional[Dict[str, Any]] = None
     feasibility_result: Optional[Dict[str, Any]] = None

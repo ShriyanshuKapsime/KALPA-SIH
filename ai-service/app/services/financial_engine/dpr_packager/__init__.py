@@ -1,0 +1,111 @@
+"""
+Milestone 6: Bankable DPR Financial Packager Package.
+Exports DPRPackager, schemas, formatting, provenance, sections, and validation tools.
+"""
+from app.services.financial_engine.dpr_packager.dpr_schema import (
+    CompletenessStatus,
+    ProvenanceTag,
+    ProjectIdentityPackage,
+    PromoterProfilePackage,
+    ProjectCostItem,
+    ProjectCostPackage,
+    MeansOfFinanceItem,
+    MeansOfFinancePackage,
+    WorkingCapitalYearPackage,
+    WorkingCapitalPackage,
+    MaterialAssumptionItem,
+    RevenueOperatingAssumptionsPackage,
+    ProfitLossYearPackage,
+    CashFlowYearPackage,
+    BalanceSheetYearPackage,
+    DepreciationYearPackage,
+    ProjectedFinancialStatementsPackage,
+    BankingMetricsPackage,
+    RepaymentInstallment,
+    LoanStructurePackage,
+    StressScenarioPackage,
+    M5StressAppraisalPackage,
+    AssumptionsEvidencePackage,
+    ValidationFailureDetail,
+    DataCompletenessPackage,
+    DPRSection,
+    CMAStatementPackage,
+    DPRFinancialPackage,
+)
+from app.services.financial_engine.dpr_packager.dpr_formatting import (
+    format_inr,
+    format_inr_lakhs,
+    format_percentage,
+    format_ratio,
+    format_year_label,
+    format_unit,
+    format_tenure,
+)
+from app.services.financial_engine.dpr_packager.dpr_provenance import (
+    DPRProvenanceManager,
+    dpr_provenance_manager,
+)
+from app.services.financial_engine.dpr_packager.dpr_sections import (
+    DPRSectionsBuilder,
+    dpr_sections_builder,
+)
+from app.services.financial_engine.dpr_packager.dpr_validation import (
+    DPRValidationManager,
+    dpr_validation_manager,
+)
+from app.services.financial_engine.dpr_packager.dpr_adapter import (
+    DPRIngestionAdapter,
+    dpr_ingestion_adapter,
+)
+from app.services.financial_engine.dpr_packager.dpr_packager import (
+    DPRPackager,
+    dpr_packager,
+)
+
+__all__ = [
+    "CompletenessStatus",
+    "ProvenanceTag",
+    "ProjectIdentityPackage",
+    "PromoterProfilePackage",
+    "ProjectCostItem",
+    "ProjectCostPackage",
+    "MeansOfFinanceItem",
+    "MeansOfFinancePackage",
+    "WorkingCapitalYearPackage",
+    "WorkingCapitalPackage",
+    "MaterialAssumptionItem",
+    "RevenueOperatingAssumptionsPackage",
+    "ProfitLossYearPackage",
+    "CashFlowYearPackage",
+    "BalanceSheetYearPackage",
+    "DepreciationYearPackage",
+    "ProjectedFinancialStatementsPackage",
+    "BankingMetricsPackage",
+    "RepaymentInstallment",
+    "LoanStructurePackage",
+    "StressScenarioPackage",
+    "M5StressAppraisalPackage",
+    "AssumptionsEvidencePackage",
+    "ValidationFailureDetail",
+    "DataCompletenessPackage",
+    "DPRSection",
+    "CMAStatementPackage",
+    "DPRFinancialPackage",
+    "format_inr",
+    "format_inr_lakhs",
+    "format_percentage",
+    "format_ratio",
+    "format_year_label",
+    "format_unit",
+    "format_tenure",
+    "DPRProvenanceManager",
+    "dpr_provenance_manager",
+    "DPRSectionsBuilder",
+    "dpr_sections_builder",
+    "DPRValidationManager",
+    "dpr_validation_manager",
+    "DPRIngestionAdapter",
+    "dpr_ingestion_adapter",
+    "DPRPackager",
+    "dpr_packager",
+]

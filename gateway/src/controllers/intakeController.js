@@ -46,7 +46,16 @@ export const submitVoiceIntake = async (req, res, next) => {
       data: error.response?.data 
     });
     const status = error.response?.status || 500;
-    const data = error.response?.data || { success: false, message: 'Failed to process voice intake', details: error.message };
+    let data = error.response?.data || { success: false, error: 'STT_PROCESSING_FAILED', message: 'Failed to process voice intake', details: error.message };
+    if (data.detail && typeof data.detail === 'object' && !Array.isArray(data.detail)) {
+      data = {
+        success: data.detail.success !== undefined ? data.detail.success : false,
+        error: data.detail.error || 'STT_PROCESSING_FAILED',
+        message: data.detail.message || 'Voice processing failed',
+        details: data.detail.details || null,
+        ...data
+      };
+    }
     return res.status(status).json(data);
   }
 };

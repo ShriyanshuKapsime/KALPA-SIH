@@ -26,6 +26,7 @@ class SWOTEvidenceAdapter:
         market_analysis: Optional[Dict[str, Any]] = None,
         opportunity_result: Optional[Dict[str, Any]] = None,
         financial_analysis: Optional[Dict[str, Any]] = None,
+        financial_context: Optional[Dict[str, Any]] = None,
         entrepreneur_readiness: Optional[Dict[str, Any]] = None,
         risk_analysis: Optional[Dict[str, Any]] = None,
         feasibility_result: Optional[Dict[str, Any]] = None,
@@ -99,35 +100,90 @@ class SWOTEvidenceAdapter:
             "evidence": mkt_evidence
         }
 
-        # 3. Stage 9: Financial Model
+        # 3. Stage 9: Financial Model & Canonical Financial Context
         fin_data = financial_analysis or {}
+        fin_ctx = financial_context or fin_data.get("financial_context") or {}
+
+        ctx_proj_cost = fin_ctx.get("project_cost") or {}
+        ctx_funding = fin_ctx.get("funding") or {}
+        ctx_debt = fin_ctx.get("debt") or {}
+        ctx_bank = fin_ctx.get("banking_appraisal") or {}
+        ctx_stress = fin_ctx.get("m5_stress_appraisal") or {}
+        ctx_pl = fin_ctx.get("profit_loss") or []
+        y1_pl = ctx_pl[0] if (isinstance(ctx_pl, list) and len(ctx_pl) > 0) else {}
+
+        # Support nested dpr_financial_package if present
+        dpr_pkg = fin_data.get("dpr_financial_package") or fin_data
+        bm_pkg = fin_data.get("banking_metrics") or (dpr_pkg.get("banking_metrics") if isinstance(dpr_pkg, dict) else {}) or {}
+        pc_pkg = fin_data.get("project_cost") or (dpr_pkg.get("project_cost") if isinstance(dpr_pkg, dict) else {}) or {}
+        mof_pkg = fin_data.get("means_of_finance") or (dpr_pkg.get("means_of_finance") if isinstance(dpr_pkg, dict) else {}) or {}
+        ls_pkg = fin_data.get("loan_structure") or (dpr_pkg.get("loan_structure") if isinstance(dpr_pkg, dict) else {}) or {}
+
         dscr = (
-            fin_data.get("dscr")
+            ctx_bank.get("average_dscr")
+            or ctx_bank.get("min_dscr")
+            or fin_data.get("dscr")
+            or bm_pkg.get("average_dscr")
+            or (fin_data.get("debt_service") or {}).get("average_dscr")
             or (fin_data.get("debt_service") or {}).get("dscr")
             or fin_data.get("debt_service_coverage_ratio")
         )
         bep = (
-            fin_data.get("break_even_point_percentage")
+            ctx_bank.get("break_even_utilization_pct")
+            or fin_data.get("break_even_point_percentage")
+            or bm_pkg.get("break_even_capacity_percentage")
             or (fin_data.get("break_even") or {}).get("break_even_point_percentage")
+            or (fin_data.get("break_even_analysis") or {}).get("break_even_capacity_utilization_percentage")
             or fin_data.get("break_even_percentage")
         )
         total_cost = (
-            fin_data.get("total_project_cost")
+            ctx_proj_cost.get("total_project_cost")
+            or fin_data.get("total_project_cost")
+            or pc_pkg.get("total_project_cost")
+            or (fin_data.get("project_cost_analysis") or {}).get("total_project_cost")
             or (fin_data.get("project_financing") or {}).get("total_project_cost")
         )
         loan_amount = (
-            fin_data.get("estimated_financeable_loan")
+            ctx_funding.get("institutional_loan")
+            or ctx_debt.get("sanctioned_loan_amount")
+            or fin_data.get("estimated_financeable_loan")
+            or ls_pkg.get("sanctioned_loan_amount")
+            or mof_pkg.get("term_loan")
+            or (fin_data.get("loan_management") or {}).get("principal")
             or (fin_data.get("project_financing") or {}).get("estimated_financeable_loan")
             or fin_data.get("bank_loan_requirement")
         )
         promoter_margin = (
-            fin_data.get("promoter_margin")
+            ctx_funding.get("required_promoter_contribution")
+            or fin_data.get("promoter_margin")
+            or fin_data.get("promoter_contribution")
+            or mof_pkg.get("promoter_contribution")
+            or (fin_data.get("capital_structure") or {}).get("promoter_contribution")
             or fin_data.get("promoter_equity")
             or (fin_data.get("project_financing") or {}).get("promoter_margin")
             or (float(total_cost) - float(loan_amount) if total_cost and loan_amount else None)
         )
-        monthly_emi = fin_data.get("monthly_emi") or (fin_data.get("debt_service") or {}).get("monthly_emi")
-        fin_score = fin_data.get("financial_viability_score") or fin_data.get("overall_score") or (80 if dscr and float(dscr) >= 1.3 else 65)
+        monthly_emi = (
+            ctx_debt.get("emi")
+            or fin_data.get("monthly_emi")
+            or ls_pkg.get("monthly_emi")
+            or (fin_data.get("loan_management") or {}).get("monthly_emi")
+            or (fin_data.get("debt_service") or {}).get("monthly_emi")
+        )
+        working_capital = (
+            ctx_proj_cost.get("working_capital")
+            or pc_pkg.get("working_capital")
+            or fin_data.get("working_capital")
+        )
+        downside_dscr = (
+            ctx_stress.get("downside_dscr")
+            or fin_data.get("downside_dscr")
+        )
+        fin_score = (
+            fin_data.get("financial_viability_score")
+            or fin_data.get("overall_score")
+            or (85 if dscr and float(dscr) >= 1.35 else (75 if dscr and float(dscr) >= 1.15 else 65))
+        )
 
         fin_strengths = []
         fin_risks = []
@@ -151,6 +207,16 @@ class SWOTEvidenceAdapter:
             except (ValueError, TypeError):
                 pass
 
+        if downside_dscr is not None:
+            try:
+                dd_val = float(downside_dscr)
+                if dd_val >= 1.1:
+                    fin_strengths.append(f"Resilient under stress: downside DSCR remains solvent at {dd_val:.2f}x")
+                elif dd_val < 1.0:
+                    fin_risks.append(f"Vulnerable to severe revenue shocks: downside DSCR falls to {dd_val:.2f}x")
+            except (ValueError, TypeError):
+                pass
+
         finance_section = {
             "score": round(float(fin_score), 1) if fin_score is not None else "Evidence unavailable",
             "project_cost": float(total_cost) if total_cost is not None else "Evidence unavailable",
@@ -158,6 +224,9 @@ class SWOTEvidenceAdapter:
             "loan_requirement": float(loan_amount) if loan_amount is not None else "Evidence unavailable",
             "emi": float(monthly_emi) if monthly_emi is not None else "Evidence unavailable",
             "dscr": round(float(dscr), 2) if dscr is not None else "Evidence unavailable",
+            "break_even_pct": round(float(bep), 2) if bep is not None else "Evidence unavailable",
+            "working_capital": float(working_capital) if working_capital is not None else None,
+            "downside_dscr": round(float(downside_dscr), 2) if downside_dscr is not None else None,
             "financial_strengths": fin_strengths if fin_strengths else ["Viable project financing structure"],
             "financial_risks": fin_risks if fin_risks else ["Standard working capital discipline required"]
         }

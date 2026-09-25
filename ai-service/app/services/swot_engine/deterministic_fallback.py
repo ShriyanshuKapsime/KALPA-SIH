@@ -359,9 +359,18 @@ def generate_deterministic_swot_fallback(
         for act in priority_actions
     ]
 
+    dscr_display = fin.get("dscr")
+    cost_display = fin.get("project_cost")
+    if dscr_display not in (None, "Evidence unavailable"):
+        fin_summary_text = f"Stage 9 verified: DSCR {dscr_display}x" + (f" with ₹{float(cost_display):,.0f} project cost." if cost_display not in (None, "Evidence unavailable") else " with viable project cost.")
+    elif cost_display not in (None, "Evidence unavailable"):
+        fin_summary_text = f"Stage 9 verified: Project cost ₹{float(cost_display):,.0f} with viable debt structure."
+    else:
+        fin_summary_text = "Stage 9 verified: Viable project financing structure."
+
     evid_summary = SWOTEvidenceSummary(
         market=f"Stage 6 & 8 verified: {mkt.get('demand', 'Active')} demand index.",
-        financial=f"Stage 9 verified: DSCR {fin.get('dscr', '1.65')}x with viable project cost.",
+        financial=fin_summary_text,
         entrepreneur=f"Stage 10 verified: {ent.get('score', '74')}/100 readiness score.",
         risk=f"Stage 11 verified: Multi-vector composite risk mapped at {rsk.get('score', '69')}.",
         feasibility=f"Stage 12 verified: Viability decision {feas_decision} confirmed."

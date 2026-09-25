@@ -12,6 +12,7 @@ from app.api.routes.risk_analysis import router as risk_analysis_router
 from app.api.routes.feasibility import router as feasibility_router
 from app.api.routes.swot import router as swot_router
 from app.api.routes.assistant import router as assistant_router
+from app.api.routes.dpr import router as dpr_router
 
 __all__ = [
     "health_router",
@@ -28,6 +29,8 @@ __all__ = [
     "feasibility_router",
     "swot_router",
     "assistant_router",
+    "dpr_router",
 ]
+
 
 

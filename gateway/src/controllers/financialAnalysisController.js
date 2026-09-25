@@ -78,8 +78,34 @@ export const getFinancialEngineHealth = async (req, res, next) => {
   }
 };
 
+export const getDprPackage = async (req, res, next) => {
+  console.log('[GATEWAY STAGE 9/M6] DPR Package request:', req.body);
+  try {
+    const aiResponse = await axios.post(
+      `${config.aiServiceUrl}/api/v1/financial-analysis/dpr-package`,
+      req.body,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 45000,
+      }
+    );
+    return res.status(aiResponse.status).json(aiResponse.data);
+  } catch (error) {
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    return res.status(502).json({
+      error: 'Bad Gateway',
+      message: 'Failed to communicate with AI Service Financial Packager (M6)',
+      details: error.message,
+    });
+  }
+};
+
 export default {
   analyzeFinancialProfile,
   calculateFinancials,
   getFinancialEngineHealth,
+  getDprPackage,
 };
+

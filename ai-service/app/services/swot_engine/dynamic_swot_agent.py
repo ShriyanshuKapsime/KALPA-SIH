@@ -1,11 +1,12 @@
 """
 Stage 13: Dynamic SWOT Agent.
 Interprets deterministic outputs from Stages 6, 8, 9, 10, 11, and 12 using Sarvam AI (sarvam-105b).
-Enforces compact canonical payloads, anti-reasoning exhaustion controls,
+Enforces compact canonical payloads, bounded 20-30s interactive timeouts, strict 2-attempt retries,
 provenance citations, zero-hallucination policies, and automatic deterministic fallback.
 """
 import time
 import json
+import asyncio
 import httpx
 from typing import Dict, Any, Optional, List, Union
 
@@ -43,10 +44,10 @@ class DynamicSWOTAgent:
     """
 
     def __init__(self):
-        self.model = settings.SARVAM_LLM_MODEL or "sarvam-105b"
+        self.model = settings.SARVAM_LLM_MODEL or "sarvam-105b-conversations"
         self.endpoint = settings.SARVAM_LLM_ENDPOINT or "https://api.sarvam.ai/v1/chat/completions"
-        # 60–90s read timeout for Sarvam 105B with separate connect, write, pool timeouts
-        self.timeout = httpx.Timeout(connect=10.0, read=90.0, write=30.0, pool=10.0)
+        # Bounded interactive timeout: connect 5s, read 14s (2 attempts + 1s backoff <= 30s total budget)
+        self.timeout = httpx.Timeout(connect=5.0, read=14.0, write=10.0, pool=5.0)
 
     @property
     def is_available(self) -> bool:
@@ -60,12 +61,13 @@ class DynamicSWOTAgent:
         Executes Stage 13 SWOT analysis workflow.
         1. Validates Stage 12 Feasibility Decision Gating.
         2. Normalizes compact evidence payload.
-        3. Invokes Sarvam LLM with compact schema (up to 90s timeout, bounded 2-attempt retry).
+        3. Invokes Sarvam LLM with bounded 20s timeout and max 2 attempts.
         4. On success: returns structured response with provenance.
         5. On LLM timeout / token exhaustion / error: returns deterministic fallback.
         """
         analysis_id = request.analysis_id
         session_id = request.session_id
+        overall_start = time.time()
 
         # -------------------------------------------------------------
         # 1. Feasibility Decision Gating (Stage 12 is Authoritative)
@@ -95,6 +97,7 @@ class DynamicSWOTAgent:
             market_analysis=request.market_analysis,
             opportunity_result=request.opportunity_result,
             financial_analysis=request.financial_analysis,
+            financial_context=getattr(request, "financial_context", None),
             entrepreneur_readiness=request.entrepreneur_readiness,
             risk_analysis=request.risk_analysis,
             feasibility_result=request.feasibility_result,
@@ -103,24 +106,82 @@ class DynamicSWOTAgent:
         compact_json_str = json.dumps(evidence_ctx, separators=(",", ":"))
         compact_size = len(compact_json_str)
 
-        logger.info(f"[STAGE 13 SWOT] analysis_id={analysis_id} session_id={session_id}")
-        logger.info(f"[STAGE 13 SWOT INPUT] compact_input_size={compact_size} bytes")
+        # -------------------------------------------------------------
+        # Structured Diagnostic Input Logging
+        # -------------------------------------------------------------
+        fin_info = evidence_ctx.get("finance", {})
+        mkt_info = evidence_ctx.get("market", {})
+        rsk_info = evidence_ctx.get("risk", {})
+        fc_obj = getattr(request, "financial_context", None) or (
+            request.financial_analysis.get("financial_context") if isinstance(request.financial_analysis, dict) else None
+        )
+
+        biz_id_val = (
+            (request.business_profile or {}).get("business_id")
+            or (request.business_profile or {}).get("specific_business")
+            or "unknown"
+        )
+        has_fin_ctx = bool(fc_obj)
+        pkg_version = fc_obj.get("package_version", "1.0.0") if isinstance(fc_obj, dict) else ("1.0.0" if has_fin_ctx else "N/A")
+        has_proj_cost = fin_info.get("project_cost") not in (None, "Evidence unavailable")
+        has_rev_y1 = bool(isinstance(fc_obj, dict) and fc_obj.get("profit_loss")) or fin_info.get("first_year_revenue") not in (None, "Evidence unavailable")
+        has_dscr = fin_info.get("dscr") not in (None, "Evidence unavailable")
+        has_bep = (
+            fin_info.get("break_even_pct") not in (None, "Evidence unavailable")
+            or fin_info.get("break_even_percentage") not in (None, "Evidence unavailable")
+            or (isinstance(fc_obj, dict) and (fc_obj.get("banking_appraisal", {}).get("break_even_utilization") is not None or fc_obj.get("banking_appraisal", {}).get("break_even_utilization_pct") is not None))
+            or bool(isinstance(request.financial_analysis, dict) and (request.financial_analysis.get("break_even_percentage") is not None or request.financial_analysis.get("break_even_point_percentage") is not None))
+        )
+        has_risk_ctx = (
+            bool(rsk_info and (rsk_info.get("score") not in (None, "Evidence unavailable") or rsk_info.get("critical_risks") or rsk_info.get("mitigations")))
+            or bool(request.risk_analysis)
+        )
+        has_mkt_ctx = (
+            bool(mkt_info and (mkt_info.get("score") not in (None, "Evidence unavailable") or mkt_info.get("demand") not in (None, "Evidence unavailable") or mkt_info.get("evidence")))
+            or bool(request.market_analysis or request.opportunity_result)
+        )
+
+        logger.info(
+            f"[STAGE 13 SWOT INPUT] "
+            f"business_id={biz_id_val} "
+            f"finance_context_present={has_fin_ctx} "
+            f"finance_package_version={pkg_version} "
+            f"project_cost_present={has_proj_cost} "
+            f"revenue_y1_present={has_rev_y1} "
+            f"dscr_present={has_dscr} "
+            f"break_even_present={has_bep} "
+            f"risk_context_present={has_risk_ctx} "
+            f"market_context_present={has_mkt_ctx} "
+            f"context_bytes={compact_size}"
+        )
 
         # -------------------------------------------------------------
         # 3. Check Sarvam Configuration -> Deterministic Fallback if Disabled
         # -------------------------------------------------------------
         if not self.is_available:
             logger.info("[STAGE 13 SARVAM FALLBACK] reason=UNAVAILABLE (Sarvam LLM not configured or disabled)")
-            return generate_deterministic_swot_fallback(
+            fallback_res = generate_deterministic_swot_fallback(
                 evidence_ctx=evidence_ctx,
                 analysis_id=analysis_id,
                 session_id=session_id,
                 llm_status="unavailable",
                 error_message="Sarvam AI LLM is not enabled. Generated via deterministic fallback."
             )
+            total_elapsed_ms = (time.time() - overall_start) * 1000.0
+            logger.info(
+                f"[STAGE 13 SWOT OUTPUT] provider=FALLBACK "
+                f"attempts=0 "
+                f"elapsed_ms={total_elapsed_ms:.1f} "
+                f"strengths={len(fallback_res.swot.strengths)} "
+                f"weaknesses={len(fallback_res.swot.weaknesses)} "
+                f"opportunities={len(fallback_res.swot.opportunities)} "
+                f"threats={len(fallback_res.swot.threats)} "
+                f"finance_evidence_used={has_dscr or has_proj_cost}"
+            )
+            return fallback_res
 
         # -------------------------------------------------------------
-        # 4. Invoke Sarvam AI LLM (sarvam-105b) with Bounded Retries
+        # 4. Invoke Sarvam AI LLM (sarvam-105b) with Bounded Retries (Max 2)
         # -------------------------------------------------------------
         system_prompt = build_swot_system_prompt()
         headers = {
@@ -128,12 +189,13 @@ class DynamicSWOTAgent:
             "api-subscription-key": (settings.SARVAM_API_KEY or "").strip()
         }
 
-        start_time = time.time()
         fallback_reason = "UNKNOWN"
         error_detail = None
         max_attempts = 2
+        attempts_made = 0
 
         for attempt_idx in range(max_attempts):
+            attempts_made += 1
             attempt = attempt_idx + 1
             call_start = time.time()
             logger.info(f"[STAGE 13 SARVAM] attempt={attempt} model={self.model}")
@@ -153,7 +215,7 @@ class DynamicSWOTAgent:
                     {"role": "user", "content": active_user_prompt}
                 ],
                 "temperature": 0.1,
-                "max_tokens": 16384,
+                "max_tokens": 4096,
                 "response_format": {"type": "json_object"}
             }
 
@@ -168,7 +230,10 @@ class DynamicSWOTAgent:
                         error_detail = f"Sarvam HTTP {resp.status_code}: {resp.text[:200]}"
                         fallback_reason = f"HTTP_{resp.status_code}"
                         logger.warning(f"[STAGE 13 SARVAM ERROR] type=HTTP status={resp.status_code} elapsed_ms={elapsed_ms:.1f}")
-                        if attempt < max_attempts and resp.status_code >= 500:
+
+                        # Retry only transient 5xx errors
+                        if attempt < max_attempts and resp.status_code in (500, 502, 503, 504):
+                            await asyncio.sleep(1.0)
                             continue
                         break
 
@@ -187,7 +252,8 @@ class DynamicSWOTAgent:
                             fallback_reason = "PARSE_ERROR"
 
                         logger.warning(f"[STAGE 13 SARVAM ERROR] type={fallback_reason} detail={error_detail} elapsed_ms={elapsed_ms:.1f}")
-                        if attempt < max_attempts and (fallback_reason in ("TIMEOUT", "PARSE_ERROR") or resp_type == "EMPTY_CONTENT"):
+                        if attempt < max_attempts and fallback_reason in ("TIMEOUT", "PARSE_ERROR"):
+                            await asyncio.sleep(1.0)
                             continue
                         break
 
@@ -198,7 +264,7 @@ class DynamicSWOTAgent:
                     # -------------------------------------------------------------
                     # 5. Parse and Validate Output Contract
                     # -------------------------------------------------------------
-                    duration_ms = (time.time() - start_time) * 1000.0
+                    duration_ms = (time.time() - overall_start) * 1000.0
 
                     exec_sum = parsed_json.get("executive_summary") or "Strategic SWOT analysis synthesized from verified evidence."
                     strat_dir = parsed_json.get("strategic_direction") or "Enterprise demonstrates sound viability fundamentals."
@@ -213,7 +279,7 @@ class DynamicSWOTAgent:
                             exp = itm.get("explanation") or itm.get("statement") or itm.get("business_impact") or itm.get("action") or ""
                             src = itm.get("source_stage") or "STAGE_12"
                             d_status = itm.get("data_status") or ("DATA_GAP" if "unavailable" in str(exp).lower() else "KNOWN")
-                            
+
                             ev_raw = itm.get("evidence") or []
                             ev_list: List[Union[str, SWOTEvidenceRef]] = []
                             if isinstance(ev_raw, list):
@@ -229,7 +295,7 @@ class DynamicSWOTAgent:
                                         ev_list.append(e.strip())
                             elif isinstance(ev_raw, str) and ev_raw.strip():
                                 ev_list.append(ev_raw.strip())
-                                
+
                             if not ev_list:
                                 ev_list.append(f"{src} verified evidence")
 
@@ -265,10 +331,12 @@ class DynamicSWOTAgent:
                     opportunities = _parse_items(swot_source.get("opportunities", []), "OPPORTUNITY", "OP")
                     threats = _parse_items(swot_source.get("threats", []), "THREAT", "TH")
 
-                    # If LLM returned empty arrays, retry or trigger fallback
-                    if not strengths and not opportunities:
-                        fallback_reason = "EMPTY_SWOT_PAYLOAD"
+                    # Strict quadrant completeness: all 4 quadrants must have at least 1 item
+                    if not strengths or not weaknesses or not opportunities or not threats:
+                        fallback_reason = "INCOMPLETE_SWOT_QUADRANTS"
+                        logger.warning(f"[STAGE 13 SARVAM ERROR] type=INCOMPLETE_SWOT_QUADRANTS strengths={len(strengths)} weaknesses={len(weaknesses)} opportunities={len(opportunities)} threats={len(threats)}")
                         if attempt < max_attempts:
+                            await asyncio.sleep(1.0)
                             continue
                         break
 
@@ -375,6 +443,18 @@ class DynamicSWOTAgent:
 
                     logger.info(f"[STAGE 13 SARVAM SUCCESS] response_valid=true duration_ms={duration_ms:.1f}")
 
+                    total_elapsed_ms = (time.time() - overall_start) * 1000.0
+                    logger.info(
+                        f"[STAGE 13 SWOT OUTPUT] provider=SARVAM "
+                        f"attempts={attempts_made} "
+                        f"elapsed_ms={total_elapsed_ms:.1f} "
+                        f"strengths={len(strengths)} "
+                        f"weaknesses={len(weaknesses)} "
+                        f"opportunities={len(opportunities)} "
+                        f"threats={len(threats)} "
+                        f"finance_evidence_used={has_dscr or has_proj_cost}"
+                    )
+
                     b_name = evidence_ctx.get("business", {}).get("name", "Rural Enterprise")
                     location_str = evidence_ctx.get("business", {}).get("location", "Local Cluster")
 
@@ -414,6 +494,7 @@ class DynamicSWOTAgent:
                 logger.warning(f"[STAGE 13 SARVAM ERROR] type=TIMEOUT elapsed_ms={elapsed_ms:.1f}")
                 if attempt < max_attempts:
                     logger.info("[STAGE 13 SARVAM RETRY] Retrying with compact prompt after timeout...")
+                    await asyncio.sleep(1.0)
                     continue
                 break
             except (httpx.NetworkError, httpx.RequestError) as net_err:
@@ -422,6 +503,7 @@ class DynamicSWOTAgent:
                 error_detail = f"NetworkError: {str(net_err)}"
                 logger.warning(f"[STAGE 13 SARVAM ERROR] type=NETWORK_ERROR elapsed_ms={elapsed_ms:.1f}")
                 if attempt < max_attempts:
+                    await asyncio.sleep(1.0)
                     continue
                 break
             except Exception as ex:
@@ -435,7 +517,7 @@ class DynamicSWOTAgent:
         # 6. Fallback Trigger on LLM Failure (Zero Hallucination / Zero Broken UI)
         # -------------------------------------------------------------
         logger.warning(f"[STAGE 13 SARVAM FALLBACK] reason={fallback_reason} detail={error_detail}")
-        return generate_deterministic_swot_fallback(
+        fallback_res = generate_deterministic_swot_fallback(
             evidence_ctx=evidence_ctx,
             analysis_id=analysis_id,
             session_id=session_id,
@@ -443,6 +525,19 @@ class DynamicSWOTAgent:
             error_message=f"Sarvam LLM {fallback_reason}: {error_detail}"
         )
 
+        total_elapsed_ms = (time.time() - overall_start) * 1000.0
+        logger.info(
+            f"[STAGE 13 SWOT OUTPUT] provider=FALLBACK "
+            f"attempts={attempts_made} "
+            f"elapsed_ms={total_elapsed_ms:.1f} "
+            f"strengths={len(fallback_res.swot.strengths)} "
+            f"weaknesses={len(fallback_res.swot.weaknesses)} "
+            f"opportunities={len(fallback_res.swot.opportunities)} "
+            f"threats={len(fallback_res.swot.threats)} "
+            f"finance_evidence_used={has_dscr or has_proj_cost}"
+        )
+
+        return fallback_res
+
 
 dynamic_swot_agent = DynamicSWOTAgent()
-
