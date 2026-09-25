@@ -12,24 +12,24 @@
 
 ## 1. Project Overview
 
-**KALPA (कल्पा)** is an intelligent, hyper-local business advisory platform engineered specifically for grassroots entrepreneurs, Self-Help Groups (SHGs), and rural micro-enterprises across India. 
+**KALPA (कल्पा)** is an intelligent, hyper-local business advisory platform engineered specifically for grassroots entrepreneurs, Self-Help Groups (SHGs), and rural micro-enterprises across Bharat.
 
-It transforms informal vernacular business ideas spoken or typed in regional languages into viable, credit-linked, and bankable enterprises. KALPA combines multilingual voice intake (powered by Sarvam AI), automated NIC-2008 classification, spatial radius analytics (OpenStreetMap + PostGIS), real-time commodity data (APMC Mandis), multi-agent LangGraph workflows, MSME/PMEGP financial feasibility modeling, and 360° risk evaluations.
+It transforms informal vernacular business ideas spoken or typed in regional languages into viable, credit-linked, and bankable enterprises. KALPA combines multilingual voice intake (powered by Sarvam AI Saaras:v4 STT & Bulbul:v3 TTS), automated NIC-2008 classification, spatial radius analytics (OpenStreetMap + PostGIS), real-time commodity data (APMC Mandis), multi-agent LangGraph workflows, MSME/PMEGP financial feasibility modeling, 360° risk evaluations, 4-pillar feasibility decision gating, dynamic strategic SWOT matrices, bankable DPR generation, and a 24/7 conversational personal AI business advisor.
 
 ---
 
 ## 2. Multi-Stage Advisory Pipeline
 
-KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advisory:
+KALPA executes an end-to-end, 15-stage pipeline designed for grassroots advisory:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                 KALPA MULTI-STAGE ENGINE                               │
 └────────────────────────────────────────────────────────────────────────────────────────┘
-  Stage 1: Multilingual Voice/Text Intake (Sarvam AI STT, Indic Numbers & Currencies)
+  Stage 1: Multilingual Voice/Text Intake (Sarvam AI Saaras:v4 STT, Indic Currency & Numbers)
      │
      ▼
-  Stage 2: Business Classification & NIC 2008 5-Digit Code Mapping
+  Stage 2: Business Classification & NIC-2008 5-Digit Code Mapping
      │
      ▼
   Stage 3: Structured Entrepreneur & Business Profile Canonicalization
@@ -38,28 +38,38 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
   Stage 4: LangGraph Multi-Agent Orchestrator & Manager Agent
      │
      ▼
-  Stage 4.5: Domain Knowledge & Benchmark Hub (Govt Schemes: PMEGP/Mudra, MSME Benchmarks)
+  Stage 4.5: Domain Knowledge & Benchmark Hub (Govt Schemes: PMEGP/Mudra/PMFME, KVIC Benchmarks)
      │
      ▼
-  Stage 5 & 6: Live Market Intelligence Engine (OSM Overpass POIs + APMC Mandi Prices)
+  Stage 5 & 6: Live Market Intelligence Engine (OSM Overpass POIs + APMC Mandi Commodity Rates)
      │
      ▼
-  Stage 8: Opportunity Evaluation Engine (Demand Gap, Saturation, Opportunity Score)
+  Stage 8: Opportunity Evaluation Engine (Demand-Supply Gap, Saturation, Opportunity Index)
      │
      ▼
-  Stage 9: Financial Analysis & Feasibility Engine (Capex/Opex, DSCR, Subsidy, Break-even)
+  Stage 9: Financial Planning Engine (M1-M6: Capex/Opex, 5-Yr Projections, DSCR, Tax AY 2026-27)
      │
      ▼
-  Stage 10: Entrepreneur Fit & Capability Evaluator (Skill, Experience, Risk Appetite)
+  Stage 10: Entrepreneur Fit & Capability Evaluator (Skill Fit, Experience, Risk Readiness)
      │
      ▼
-  Stage 11: 360° Risk Analysis Engine (Supply Chain, Seasonal, Price, Mitigation Matrix)
+  Stage 11: Multi-Vector Risk Engine (Supply Chain, Seasonal, Price, Mitigation Matrix)
      │
      ▼
-  Stage 12 (Upcoming): Instant Bankable DPR (Detailed Project Report) & Credit Appraisal Export
+  Stage 12: 4-Pillar Integrated Feasibility Engine & Decision Synthesis (Viability Gating)
+     │
+     ▼
+  Stage 13: Dynamic Strategic SWOT Matrix & Action Roadmap (Sarvam AI LLM + Provenance)
+     │
+     ▼
+  Stage 14: Bankable DPR (Detailed Project Report) & Credit Appraisal PDF Generator
+     │
+     ▼
+  Stage 15: Personal AI Business Assistant (Sarvam AI Grounded Advisory + Voice STT/TTS)
 ```
 
 ### Key Stage Capabilities:
+
 - **Stage 1 (Multilingual Intake)**: Supports Hindi, English, and Hinglish with Indic currency words (*"50 hazar"*, *"2.5 lakh"*, *"ek crore"*) and land units (*"bigha"*, *"acre"*). Integrates Sarvam AI `saaras:v4` Speech-to-Text with conversational clarification loops.
 - **Stage 2 (Classification & NIC Mapping)**: Maps natural language queries to official 5-digit NIC-2008 codes, sub-classes, and 2-digit industry divisions with ambiguity detection.
 - **Stage 3 (Structured Profile)**: Canonicalizes investment capacity, business intent, scale, and geo-coordinates into strongly typed Pydantic models.
@@ -67,9 +77,19 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 - **Stage 4.5 (Knowledge & Benchmark Hub)**: Houses government schemes (PMEGP, Mudra, StandUp India, PMFME, NRLM), district profiles, and KVIC cost benchmark datasets.
 - **Stage 5 & 6 (Market Intelligence)**: Queries OpenStreetMap Overpass API for POIs within radius buffers (competitors, suppliers, transport hubs) + APMC Mandi commodity rates + Census demographics.
 - **Stage 8 (Opportunity Evaluation)**: Evaluates local demand, supplier proximity, competitor saturation, and outputs a normalized Opportunity Index & Tier rating.
-- **Stage 9 (Financial Engine)**: Computes Capex/Opex breakdowns, working capital cycles, break-even timelines, Debt Service Coverage Ratio (DSCR), scheme subsidies, and Bankability Feasibility Scores.
+- **Stage 9 (Financial Engine - M1 to M6)**:
+  - **M1 Financial Foundation**: Archetype resolution (Manufacturing, Inventory Retail, Service, Agro-processing) and driver evidence resolution.
+  - **M2 Project Cost & Means of Finance**: Capex/Opex breakdowns, required promoter margin, working capital cycles, and subsidy calculations.
+  - **M3 5-Year Financial Projections**: Statutory Indian Income Tax Policy Resolver (AY 2026-27 / FY 2025-26 under Section 115BAC, 44AD, 44ADA, and corporate slabs), depreciation schedules, and P&L statements.
+  - **M4 Banking Appraisal & Credit Health**: Debt Service Coverage Ratio (DSCR), Break-Even Point (BEP), Interest Coverage Ratio, and bankability scoring.
+  - **M5 Financial Optimizer & Stress Engine**: Scenario analysis, downside stress tests, and credit scheme optimization (PMEGP, Mudra, PMFME).
+  - **M6 Authoritative DPR Packager**: Standardized canonical `financial_context` package version 1.0.0 consumed downstream by Stages 12–15.
 - **Stage 10 (Entrepreneur Profile Engine)**: Assesses entrepreneur domain fit, past experience, risk appetite, capital readiness, and operational strength.
-- **Stage 11 (360° Risk Engine)**: Identifies operational, market, price volatility, regulatory, and supply chain risks with an actionable mitigation matrix.
+- **Stage 11 (Multi-Vector Risk Engine)**: Identifies operational, market, price volatility, regulatory, and supply chain risks with an actionable mitigation matrix.
+- **Stage 12 (4-Pillar Feasibility Engine)**: Synthesizes Market, Financial, Entrepreneur, and Risk pillars into an overall Feasibility Score (0–100), Decision Gating (`VIABLE`, `CONDITIONAL`, `NOT_FEASIBLE`), and Launch Conditions.
+- **Stage 13 (Dynamic SWOT Agent)**: Interprets verified upstream context using Sarvam AI (`sarvam-105b-conversations`) with bounded sub-10s interactive execution, provenance citations, zero hallucinations, and deterministic fallback safety net.
+- **Stage 14 (Bankable DPR Generator)**: Generates a complete 10-section bank-grade Detailed Project Report (PDF) with executive summary, promoter background, 5-year financial schedules, amortization tables, and bank appraisal checklists.
+- **Stage 15 (Personal AI Business Assistant)**: Conversational advisory layer grounded strictly in deterministic KALPA database records (Stages 3–14). Features Sarvam AI `sarvam-105b-conversations` LLM, `saaras:v4` voice speech-to-text, `bulbul:v3` voice speech playback, conversation memory, user constraint tracking, and dynamic contextual actions.
 
 ---
 
@@ -80,9 +100,10 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 │                    Frontend Client (React 18 + Vite)                    │
 │                          http://localhost:5173                          │
 │                                                                         │
-│  • Journey Workflow Wizard         • Voice Input & Audio Waveforms      │
-│  • Interactive Leaflet Maps        • Dynamic Radar & Gauge Charts       │
-│  • Financial Feasibility Sliders   • Scheme Eligibility Cards           │
+│  • Journey Workflow Wizard (Stages 1-14)  • Voice Input (Saaras:v4 STT) │
+│  • Interactive Leaflet Maps & Overpass    • Voice Playback (Bulbul TTS) │
+│  • Financial Feasibility & Sliders        • Personal Business Assistant │
+│  • Dynamic SWOT Matrix & DPR Export       • Grounding & Source Badges   │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ HTTP / JSON
                                      ▼
@@ -101,9 +122,10 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 │                          http://localhost:8000                          │
 │                                                                         │
 │  ├── LangGraph Multi-Agent Orchestrator                                 │
-│  ├── 11 Core Advisory Engines (Intake, NIC, Market, Finance, Risk...)   │
-│  ├── Adapters: Groq (Llama-3.3-70b) / Sarvam AI (saaras:v4, 105b)       │
-│  └── External Tool Layer: OpenStreetMap Overpass, APMC Mandi Data       │
+│  ├── 15 Advisory Engines (Intake, NIC, Market, Finance M1-M6, SWOT...) │
+│  ├── Sarvam AI Engine (saaras:v4 STT, bulbul:v3 TTS, 105b-conversations)│
+│  ├── Groq / Llama-3.3-70b Versatile Fallback Adapter                    │
+│  └── External Data Tools: OpenStreetMap Overpass, APMC Mandi Data       │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ SQLAlchemy 2.0 / PostGIS
                                      ▼
@@ -111,8 +133,8 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 │                   PostgreSQL 16 + PostGIS + pgvector                    │
 │                             localhost:5432                              │
 │                                                                         │
-│  • Spatial Geometries & Buffers    • NIC 2008 & Scheme Benchmarks       │
-│  • Session & Analysis Store        • Vector Scaffolding (Future RAG)    │
+│  • Spatial Geometries & Buffers    • NIC-2008 & Scheme Benchmarks       │
+│  • Session & Analysis Store        • Assistant Memory & Conversations   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,9 +146,9 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 | :--- | :--- |
 | **Frontend** | React 18, Vite, Tailwind CSS, Lucide React, React Router 6, Axios |
 | **API Gateway** | Node.js, Express, Helmet, CORS, Morgan, Axios |
-| **AI Backend** | Python 3.11+, FastAPI, Uvicorn, Pydantic v2, LangChain, LangGraph |
-| **LLMs & Speech** | Groq (`llama-3.3-70b-versatile`), Sarvam AI (`saaras:v4` STT, `sarvam-105b` LLM), OpenAI fallback |
-| **Data & Spatial** | PostgreSQL 16, PostGIS 3.4, SQLAlchemy 2.0, Alembic, OpenStreetMap Overpass |
+| **AI Microservice** | Python 3.11+, FastAPI, Uvicorn, Pydantic v2, LangChain, LangGraph, ReportLab |
+| **LLMs & Speech** | Sarvam AI (`sarvam-105b-conversations` LLM, `saaras:v4` STT, `bulbul:v3` TTS), Groq (`llama-3.3-70b-versatile`), OpenAI |
+| **Data & Spatial** | PostgreSQL 16, PostGIS 3.4, SQLAlchemy 2.0, Alembic, OpenStreetMap Overpass API |
 | **DevOps & Testing** | Docker, Docker Compose, Pytest, Pytest-Asyncio |
 
 ---
@@ -137,11 +159,12 @@ KALPA executes an end-to-end, multi-stage pipeline designed for grassroots advis
 KALPA SIH/
 ├── frontend/                     # React 18 + Vite Web Application
 │   ├── src/
-│   │   ├── components/           # Navigation, UI components, Layouts, Charts
+│   │   ├── components/           # UI components, Layouts, AssistantWidget, Charts
 │   │   ├── context/              # Global state management
-│   │   ├── pages/                # Multi-stage pages (Intake, Classification,
-│   │   │                         # MarketIntelligence, FinancialAnalysis,
-│   │   │                         # EntrepreneurProfile, RiskEngine, DPR...)
+│   │   ├── pages/                # Multi-stage pages:
+│   │   │                         # Intake, Classification, MarketIntelligence,
+│   │   │                         # FinancialAnalysis, EntrepreneurProfile,
+│   │   │                         # RiskEngine, Feasibility, SWOT, DPR, Assistant
 │   │   ├── services/             # Axios API service integrations
 │   │   ├── App.jsx               # Route definitions
 │   │   └── main.jsx              # App entry point
@@ -150,7 +173,7 @@ KALPA SIH/
 │
 ├── gateway/                      # Node.js Express API Gateway
 │   ├── src/
-│   │   ├── controllers/          # Proxy & validation controllers for all stages
+│   │   ├── controllers/          # Controllers for all 15 stages & assistant
 │   │   ├── middleware/           # Error handlers, logging, CORS
 │   │   ├── routes/               # Express routing tables (/api/*)
 │   │   └── server.js             # Gateway bootstrapper
@@ -159,15 +182,20 @@ KALPA SIH/
 ├── ai-service/                   # FastAPI AI & Multi-Agent Backend
 │   ├── app/
 │   │   ├── agents/               # LangGraph state graph & adapters
-│   │   ├── api/routes/           # FastAPI router endpoints (Stages 1 - 11)
+│   │   ├── api/routes/           # FastAPI router endpoints (Stages 1–15)
 │   │   ├── core/                 # Settings, Pydantic config, Logging
-│   │   ├── database/             # PostGIS connection, models, migrations
-│   │   ├── data/                 # NIC 2008 codes, schemes & benchmark JSONs
+│   │   ├── database/             # PostGIS connection, SQLAlchemy models
+│   │   ├── data/                 # NIC-2008 codes, schemes & benchmark JSONs
 │   │   ├── engines/              # Core business engines (Intake, NIC, Profile)
 │   │   ├── schemas/              # Pydantic request/response schemas
-│   │   ├── services/             # Market, Financial, Risk, Entrepreneur engines
+│   │   ├── services/             # Core engines:
+│   │   │   ├── financial_engine/ # M1-M6 Modular Financial Engine & Tax AY 2026-27
+│   │   │   ├── swot_engine/      # Stage 13 Dynamic SWOT & Fallback
+│   │   │   ├── dpr_generator/    # Stage 14 Bankable DPR PDF Generation
+│   │   │   ├── assistant_engine/ # Stage 15 Personal AI Business Assistant
+│   │   │   └── sarvam_llm_service.py # Sarvam AI API integration & telemetry
 │   │   └── tools/                # OpenStreetMap, APMC Mandi, Govt tools
-│   ├── tests/                    # Comprehensive Pytest test suites (23+ files)
+│   ├── tests/                    # Comprehensive Pytest test suites (30+ files)
 │   ├── requirements.txt
 │   └── main.py
 │
@@ -225,32 +253,25 @@ PGVECTOR_ENABLED=false
 # ==============================================================================
 # 5. PRIMARY LLM PROVIDER (Groq / OpenAI)
 # ==============================================================================
-# Set provider: "groq" (recommended) or "openai"
 LLM_PROVIDER=groq
-
-# Groq API Configuration (Fast Llama-3.3 inference)
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
 
-# OpenAI Configuration (Fallback/Alternative)
 LLM_API_KEY=your_openai_api_key_here
 LLM_MODEL=gpt-4o
 
 # ==============================================================================
-# 6. SARVAM AI (Indic Multilingual Voice STT & Indic LLM)
+# 6. SARVAM AI (Indic Voice STT/TTS & Indic LLM)
 # ==============================================================================
 SARVAM_API_KEY=your_sarvam_api_key_here
 SARVAM_STT_MODEL=saaras:v4
-SARVAM_LLM_MODEL=sarvam-105b
+SARVAM_TTS_MODEL=bulbul:v3
+SARVAM_TTS_SPEAKER=shreya
+SARVAM_LLM_MODEL=sarvam-105b-conversations
+SARVAM_ASSISTANT_MODEL=sarvam-105b-conversations
+SARVAM_ASSISTANT_TIMEOUT=90.0
 SARVAM_LLM_ENABLED=true
 SARVAM_LLM_ENDPOINT=https://api.sarvam.ai/v1/chat/completions
-
-# ==============================================================================
-# 7. OPTIONAL / FUTURE RAG EMBEDDINGS
-# ==============================================================================
-INDICTRANS_ENABLED=false
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIMENSION=1536
 ```
 
 ---
@@ -286,9 +307,7 @@ docker compose up --build
 Run each service in a separate terminal:
 
 #### Terminal 1: PostgreSQL + PostGIS
-Make sure PostgreSQL with PostGIS extension is running on port 5432:
 ```powershell
-# If using Docker just for Postgres:
 docker run -d --name kalpa-postgres -p 5432:5432 -e POSTGRES_DB=kalpa -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres postgis/postgis:16-3.4
 ```
 
@@ -346,7 +365,7 @@ All endpoints are accessible via the Gateway (`http://localhost:3000/api`) or di
 | **Stage 1: Intake** | `POST` | `/api/intake/text` | Processes vernacular text intake & extracts entities |
 | | `POST` | `/api/intake/voice` | Sarvam AI STT audio transcription & intent parser |
 | | `POST` | `/api/intake/continue` | Multi-turn intake clarification conversation |
-| **Stage 2: Classification** | `POST` | `/api/classification/classify` | Maps input to 5-digit NIC 2008 & Industry Sector |
+| **Stage 2: Classification** | `POST` | `/api/classification/classify` | Maps input to 5-digit NIC-2008 & Industry Sector |
 | | `GET` | `/api/classification/nic/:code` | Retrieves NIC code metadata & division hierarchy |
 | **Stage 3: Profile** | `POST` | `/api/profile/build` | Creates normalized business & entrepreneur profile |
 | | `GET` | `/api/profile/:id` | Fetches saved structured profile by analysis ID |
@@ -359,10 +378,19 @@ All endpoints are accessible via the Gateway (`http://localhost:3000/api`) or di
 | | `POST` | `/api/market-intelligence/analyze`| Runs spatial proximity & market saturation models |
 | | `GET` | `/api/market-intelligence/tools/health`| Live health check for Overpass & Mandi tools |
 | **Stage 8: Opportunity** | `POST` | `/api/opportunity-evaluation/analyze`| Computes local demand score & opportunity index |
-| **Stage 9: Financial** | `POST` | `/api/financial-analysis/analyze`| Computes Capex/Opex, DSCR, and bankability score |
+| **Stage 9: Financial** | `POST` | `/api/financial-analysis/analyze`| Computes Capex/Opex, 5-Yr Projections, DSCR, Tax |
 | | `POST` | `/api/financial-analysis/calculator`| Interactive financial loan & subsidy calculator |
 | **Stage 10: Entrepreneur** | `POST` | `/api/entrepreneur-profile/analyze`| Assesses skill fit, risk appetite, and readiness |
 | **Stage 11: Risk Engine** | `POST` | `/api/risk-analysis/analyze`| 360° risk evaluation & actionable mitigations |
+| **Stage 12: Feasibility** | `POST` | `/api/feasibility/evaluate` | 4-pillar feasibility synthesis & launch decision gating |
+| **Stage 13: Dynamic SWOT** | `POST` | `/api/swot/evaluate` | Structured SWOT matrix & roadmap via Sarvam AI LLM |
+| **Stage 14: Bankable DPR** | `POST` | `/api/dpr/generate` | Generates 10-section bankable DPR JSON & PDF |
+| | `GET` | `/api/dpr/download/:filename` | Downloads generated bank-grade DPR PDF report |
+| **Stage 15: AI Assistant** | `POST` | `/api/assistant/chat` | Conversational query grounded in Stages 3–14 |
+| | `GET` | `/api/assistant/history/:id` | Retrieves scoped conversation history |
+| | `DELETE` | `/api/assistant/history/:id` | Clears scoped assistant memory & history |
+| | `POST` | `/api/assistant/stt` | Sarvam Saaras:v4 voice audio speech-to-text |
+| | `POST` | `/api/assistant/tts` | Sarvam Bulbul:v3 audio voice synthesis |
 
 ---
 
@@ -373,28 +401,34 @@ The repository contains extensive automated test coverage across all pipeline st
 ```powershell
 cd ai-service
 
-# Run all test suites
-pytest -v
+# Run all test suites:
+python -m pytest
 
 # Run tests for specific pipeline stages:
-pytest tests/test_intake_stage1.py -v
-pytest tests/test_multilingual_intake_canonical.py -v
-pytest tests/test_classification_stage2.py -v
-pytest tests/test_profile_stage3.py -v
-pytest tests/test_orchestrator_stage4.py -v
-pytest tests/test_knowledge_hub_stage4_5.py -v
-pytest tests/test_market_intelligence_stage5.py -v
-pytest tests/test_market_intelligence_engine_stage6.py -v
-pytest tests/test_opportunity_evaluation_engine_stage8.py -v
-pytest tests/test_financial_engine_stage9.py -v
-pytest tests/test_entrepreneur_profile_stage10.py -v
-pytest tests/test_risk_engine_stage11.py -v
-pytest tests/test_stage10_11_workflow_integration.py -v
+python -m pytest tests/test_intake_stage1.py -v
+python -m pytest tests/test_multilingual_intake_canonical.py -v
+python -m pytest tests/test_classification_stage2.py -v
+python -m pytest tests/test_profile_stage3.py -v
+python -m pytest tests/test_orchestrator_stage4.py -v
+python -m pytest tests/test_knowledge_hub_stage4_5.py -v
+python -m pytest tests/test_market_intelligence_stage5.py -v
+python -m pytest tests/test_market_intelligence_engine_stage6.py -v
+python -m pytest tests/test_opportunity_evaluation_engine_stage8.py -v
+python -m pytest tests/test_financial_foundation_milestone1.py -v
+python -m pytest tests/test_project_cost_milestone2.py -v
+python -m pytest tests/test_financial_projection_milestone3.py -v
+python -m pytest tests/test_banking_appraisal_milestone4.py -v
+python -m pytest tests/test_financial_optimizer_milestone5.py -v
+python -m pytest tests/test_dpr_packager_milestone6.py -v
+python -m pytest tests/test_finance_to_downstream_integration.py -v
+python -m pytest tests/test_entrepreneur_profile_stage10.py -v
+python -m pytest tests/test_risk_engine_stage11.py -v
+python -m pytest tests/test_stage13_swot_agent.py -v
 ```
 
 ---
 
-## 10. Roadmap & Upcoming Milestones
+## 10. Roadmap & Implemented Milestones
 
 - [x] **Stage 1**: Multilingual Voice/Text Intake with Sarvam AI STT & Indic parsing
 - [x] **Stage 2**: Business Classification & NIC-2008 Mapping Engine
@@ -403,11 +437,14 @@ pytest tests/test_stage10_11_workflow_integration.py -v
 - [x] **Stage 4.5**: Domain Knowledge Hub & Benchmark Datasets (Schemes, KVIC, Mandis)
 - [x] **Stage 5 & 6**: Live Market Intelligence (OpenStreetMap Overpass + APMC Mandis)
 - [x] **Stage 8**: Opportunity Evaluation Engine & Demand Gap Scoring
-- [x] **Stage 9**: Financial Analysis, DSCR, Subsidy & Feasibility Engine
+- [x] **Stage 9**: Financial Planning Engine (M1-M6: Capex/Opex, 5-Yr Projections, AY 2026-27 Tax, DSCR, Stress Testing)
 - [x] **Stage 10**: Entrepreneur Profile & Operational Capability Evaluator
-- [x] **Stage 11**: 360° Risk Analysis Engine & Mitigation Matrix
-- [ ] **Stage 12**: Automated Bankable DPR (Detailed Project Report) PDF & Credit Appraisal Generation
-- [ ] **Stage 13**: Offline-first PWA sync for remote field workers
+- [x] **Stage 11**: Multi-Vector 360° Risk Analysis Engine & Mitigation Matrix
+- [x] **Stage 12**: 4-Pillar Feasibility Synthesis & Decision Gating Engine
+- [x] **Stage 13**: Dynamic Strategic SWOT Matrix & Action Roadmap Agent (Sarvam AI LLM)
+- [x] **Stage 14**: Bankable DPR (Detailed Project Report) & Credit Appraisal PDF Generator
+- [x] **Stage 15**: Personal AI Business Assistant (Voice STT/TTS + Grounded Advisory)
+- [ ] **Stage 16**: Offline-first PWA sync for remote field workers
 
 ---
 
