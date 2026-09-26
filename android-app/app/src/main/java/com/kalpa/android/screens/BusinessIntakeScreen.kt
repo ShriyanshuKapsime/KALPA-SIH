@@ -1,417 +1,503 @@
 package com.kalpa.android.screens
+
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import com.kalpa.android.utils.AudioRecorderHelper
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Sell
-import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// ---------- Palette (kept consistent with the landing page) ----------
-private val BackgroundCream = Color(0xFFF8F4EC)
-private val TopBarBeige = Color(0xFFEFE8DA)
-private val OrangePrimary = Color(0xFFDB8B1F)
-private val OrangeText = Color(0xFFC77E1B)
-private val TextBlack = Color(0xFF1C1B19)
-private val TextGraySubtle = Color(0xFF9C9385)
-private val AvatarBrown = Color(0xFF5B3E22)
-private val BorderGray = Color(0xFFE6E0D4)
-private val CardIconBgOrange = Color(0xFFF6E9D2)
-private val CardIconBgGray = Color(0xFFEFEBE2)
-private val RingOuter = Color(0xFFF1DDB0)
-private val RingInner = Color(0xFFF6EBD3)
+// Colors now live in KalpaScreenColors.kt (same package, no import needed).
+// Do not redeclare a color object in this file — see that file's header comment.
 
+private val availableLanguages = listOf("English", "हिन्दी", "தமிழ்", "తెలుగు", "मराठी")
+
+/* -------------------------------------------------------------------- */
+/*  MAIN SCREEN                                                          */
+/* -------------------------------------------------------------------- */
 @Composable
-fun BusinessIntakeScreen() {
-    Surface(modifier = Modifier.fillMaxSize(), color = BackgroundCream) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            IntakeTopBar()
+fun BusinessIntakeScreen(
+    onBackClick: () -> Unit = {},
+    onConfirmContinue: (String) -> Unit = {},
+    onMicToggle: (isRecording: Boolean) -> Unit = {}
+) {
+    var selectedLanguage by remember { mutableStateOf(availableLanguages.first()) }
+    var languageMenuExpanded by remember { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
+    var businessIdeaText by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val audioRecorder = remember { AudioRecorderHelper(context) }
+
+    val recordAudioLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                isRecording = true
+                audioRecorder.startRecording()
+                onMicToggle(isRecording)
+                Toast.makeText(context, "Recording started...", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Microphone permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val canContinue = businessIdeaText.isNotBlank() || isRecording
+
+    Scaffold(
+        containerColor = KalpaScreenColors.ScreenBackgroundWhite,
+        bottomBar = {
+            ConfirmContinueBar(
+                enabled = canContinue,
+                onClick = { onConfirmContinue(businessIdeaText) }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
+            KalpaTopBar(
+                onBackClick = onBackClick,
+                stepText = "Page 1 of 14",
+                trailingContent = {
+                    LanguageSwitcher(
+                        selectedLanguage = selectedLanguage,
+                        languageMenuExpanded = languageMenuExpanded,
+                        onLanguageClick = { languageMenuExpanded = true },
+                        onLanguageDismiss = { languageMenuExpanded = false },
+                        onLanguageSelected = {
+                            selectedLanguage = it
+                            languageMenuExpanded = false
+                        }
+                    )
+                }
+            )
+
+            ProgressSection(percentComplete = 20)
+
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
                     .padding(horizontal = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
+
                 Text(
-                    text = "Tell KALPA about your business",
-                    color = TextBlack,
+                    text = "Tell us about your business",
+                    color = KalpaScreenColors.TextPrimary,
                     fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     lineHeight = 28.sp
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Speak abour or type your idea below.",
-                    color = TextGraySubtle,
-                    fontSize = 14.sp
+                    text = "Speak or type your idea. Speak simply, like talking to a friend.",
+                    color = KalpaScreenColors.TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
                 )
-                Spacer(modifier = Modifier.height(28.dp))
-                MicSection()
-                Spacer(modifier = Modifier.height(28.dp))
-                Text(
-                    text = "OR TYPE YOUR BUSINESS IDEA",
-                    color = TextGraySubtle,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.8.sp
+
+                Spacer(Modifier.height(20.dp))
+
+                SpeakCard(
+                    isRecording = isRecording,
+                    onMicClick = {
+                        if (isRecording) {
+                            isRecording = false
+                            val filePath = audioRecorder.stopRecording()
+                            onMicToggle(isRecording)
+                            Toast.makeText(context, "Saved to $filePath", Toast.LENGTH_LONG).show()
+                        } else {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                isRecording = true
+                                audioRecorder.startRecording()
+                                onMicToggle(isRecording)
+                                Toast.makeText(context, "Recording started...", Toast.LENGTH_SHORT).show()
+                            } else {
+                                recordAudioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        }
+                    }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                BusinessIdeaInput()
-                Spacer(modifier = Modifier.height(24.dp))
-                WhatIUnderstoodSection()
-                Spacer(modifier = Modifier.height(24.dp))
-                LooksRightButton()
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "I'll ask for anything important that's missing.",
-                    color = TextGraySubtle,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+
+                Spacer(Modifier.height(22.dp))
+
+                OrDivider()
+
+                Spacer(Modifier.height(18.dp))
+
+                TypeIdeaField(
+                    value = businessIdeaText,
+                    onValueChange = { businessIdeaText = it },
+                    onSubmit = { if (canContinue) onConfirmContinue(businessIdeaText) }
                 )
-                Spacer(modifier = Modifier.height(20.dp))
+
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
 }
 
+/* -------------------------------------------------------------------- */
+/*  LANGUAGE SWITCHER                                                    */
+/* -------------------------------------------------------------------- */
 @Composable
-private fun IntakeTopBar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(TopBarBeige)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = TextBlack,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(14.dp))
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderGray)
+private fun LanguageSwitcher(
+    selectedLanguage: String,
+    languageMenuExpanded: Boolean,
+    onLanguageClick: () -> Unit,
+    onLanguageDismiss: () -> Unit,
+    onLanguageSelected: (String) -> Unit
+) {
+    Box {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = KalpaScreenColors.PillGray,
+            modifier = Modifier.clickable { onLanguageClick() }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "STEP 1 OF 5",
-                    color = TextBlack,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    text = selectedLanguage,
+                    color = KalpaScreenColors.TextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = "Change language",
+                    tint = KalpaScreenColors.TextPrimary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
+        DropdownMenu(
+            expanded = languageMenuExpanded,
+            onDismissRequest = onLanguageDismiss
+        ) {
+            availableLanguages.forEach { language ->
+                DropdownMenuItem(
+                    text = { Text(language) },
+                    onClick = { onLanguageSelected(language) }
+                )
+            }
+        }
+    }
+}
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BorderGray),
-                modifier = Modifier.height(34.dp)
+/* -------------------------------------------------------------------- */
+/*  PROGRESS SECTION                                                     */
+/* -------------------------------------------------------------------- */
+@Composable
+private fun ProgressSection(percentComplete: Int) {
+    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "BUSINESS INTAKE",
+                color = KalpaScreenColors.Orange,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            )
+            Text(
+                text = "$percentComplete% Complete",
+                color = KalpaScreenColors.TextMuted,
+                fontSize = 12.sp
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(KalpaScreenColors.Divider)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(percentComplete / 100f)
+                    .fillMaxHeight()
+                    .background(KalpaScreenColors.Orange)
+            )
+        }
+    }
+}
+
+/* -------------------------------------------------------------------- */
+/*  SPEAK CARD (mic button + example quote + supported languages)       */
+/* -------------------------------------------------------------------- */
+@Composable
+private fun SpeakCard(
+    isRecording: Boolean,
+    onMicClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = KalpaScreenColors.ScreenBackgroundWhite,
+        border = androidx.compose.foundation.BorderStroke(1.dp, KalpaScreenColors.Divider),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 26.dp, horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Outer soft ring + inner solid mic button
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(KalpaScreenColors.OrangeSoftMic),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(if (isRecording) KalpaScreenColors.OrangeDark else KalpaScreenColors.Orange)
+                        .clickable { onMicClick() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = "Language",
-                        tint = TextBlack,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "English", color = TextBlack, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.width(2.dp))
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = TextBlack,
-                        modifier = Modifier.size(16.dp)
+                        imageVector = if (isRecording) Icons.Filled.Stop else Icons.Filled.Mic,
+                        contentDescription = if (isRecording) "Stop recording" else "Start recording",
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(10.dp))
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(AvatarBrown),
-                contentAlignment = Alignment.Center
+
+            Spacer(Modifier.height(14.dp))
+
+            Text(
+                text = if (isRecording) "Listening…" else "Speak in your language",
+                color = KalpaScreenColors.TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = KalpaScreenColors.QuoteBg
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
+                Text(
+                    text = "\"I want to start a poultry farm in my village...\"",
+                    color = KalpaScreenColors.TextSecondary,
+                    fontSize = 12.5.sp,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Hindi, Tamil, Telugu, Marathi, English",
+                    color = KalpaScreenColors.LinkBlue,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
     }
 }
 
+/* -------------------------------------------------------------------- */
+/*  "OR" DIVIDER                                                         */
+/* -------------------------------------------------------------------- */
 @Composable
-private fun MicSection() {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Clean concentric rings replace the blurred halo from the original screenshot.
-        Box(contentAlignment = Alignment.Center) {
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clip(CircleShape)
-                    .background(RingOuter)
-            )
-            Box(
-                modifier = Modifier
-                    .size(92.dp)
-                    .clip(CircleShape)
-                    .background(RingInner)
-            )
-            Box(
-                modifier = Modifier
-                    .size(68.dp)
-                    .clip(CircleShape)
-                    .background(OrangePrimary)
-                    .border(width = 3.dp, color = Color.White, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Speak",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(14.dp))
+private fun OrDivider() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = KalpaScreenColors.Divider)
         Text(
-            text = "Tap & speak in any language",
-            color = TextBlack,
-            fontSize = 14.sp,
+            text = "OR TYPE YOUR IDEA",
+            color = KalpaScreenColors.TextMuted,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = "\"I want to open a small poultry business in my village…\"",
-            color = TextGraySubtle,
-            fontSize = 12.sp,
-            fontStyle = FontStyle.Italic,
-            textAlign = TextAlign.Center,
+            letterSpacing = 0.5.sp,
             modifier = Modifier.padding(horizontal = 12.dp)
         )
+        HorizontalDivider(modifier = Modifier.weight(1f), color = KalpaScreenColors.Divider)
     }
 }
 
+/* -------------------------------------------------------------------- */
+/*  TEXT INPUT FIELD WITH SEND BUTTON                                    */
+/* -------------------------------------------------------------------- */
 @Composable
-private fun BusinessIdeaInput() {
-    var text by remember { mutableStateOf("") }
-    OutlinedTextField(
-        value = text,
-        onValueChange = { text = it },
-        placeholder = { Text(text = "Tell us about your business...", color = TextGraySubtle, fontSize = 14.sp) },
-        trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.Mic,
-                contentDescription = "Voice input",
-                tint = TextGraySubtle,
-                modifier = Modifier.size(20.dp)
-            )
-        },
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedBorderColor = OrangePrimary,
-            unfocusedBorderColor = BorderGray
-        ),
-        keyboardOptions = KeyboardOptions.Default,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-    )
-}
+private fun TypeIdeaField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(28.dp),
+        color = KalpaScreenColors.FieldGray
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = "Type your business idea here...",
+                        color = KalpaScreenColors.TextMuted,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+                }
+                BasicTextFieldCompat(
+                    value = value,
+                    onValueChange = onValueChange,
+                    onSubmit = onSubmit
+                )
+            }
 
-@Composable
-private fun WhatIUnderstoodSection() {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(8.dp))
+
+            val sendEnabled = value.isNotBlank()
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(TextBlack)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "WHAT I UNDERSTOOD",
-                color = TextBlack,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.8.sp
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Color.White,
-            border = androidx.compose.foundation.BorderStroke(1.dp, BorderGray),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column {
-                UnderstoodRow("BUSINESS", "Poultry farming", Icons.Default.Storefront, CardIconBgOrange, provided = true, isRupee = false)
-                RowDivider()
-                UnderstoodRow("LOCATION", "Not provided yet", Icons.Outlined.LocationOn, CardIconBgGray, provided = false, isRupee = false)
-                RowDivider()
-                UnderstoodRow("CAPITAL", "₹2,00,000", null, CardIconBgOrange, provided = true, isRupee = true)
-                RowDivider()
-                UnderstoodRow("BUSINESS TYPE", "New business", Icons.Outlined.Sell, CardIconBgOrange, provided = true, isRupee = false)
-                RowDivider()
-                UnderstoodRow("EXPERIENCE", "Not provided yet", Icons.Outlined.Work, CardIconBgGray, provided = false, isRupee = false)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RowDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(BorderGray)
-    )
-}
-
-@Composable
-private fun UnderstoodRow(
-    label: String,
-    value: String,
-    icon: ImageVector?,
-    iconBg: Color,
-    provided: Boolean,
-    isRupee: Boolean
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(iconBg),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isRupee) {
-                Text(text = "₹", color = OrangeText, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            } else if (icon != null) {
+                    .background(if (sendEnabled) KalpaScreenColors.Orange else KalpaScreenColors.Orange.copy(alpha = 0.5f))
+                    .clickable(enabled = sendEnabled) { onSubmit() },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = if (provided) OrangeText else TextGraySubtle,
+                    imageVector = Icons.Filled.ArrowUpward,
+                    contentDescription = "Submit idea",
+                    tint = Color.White,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                color = TextGraySubtle,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.4.sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = value,
-                color = if (provided) TextBlack else TextGraySubtle,
-                fontSize = 14.sp,
-                fontWeight = if (provided) FontWeight.SemiBold else FontWeight.Normal,
-                fontStyle = if (provided) FontStyle.Normal else FontStyle.Italic
-            )
-        }
-        Icon(
-            imageVector = if (provided) Icons.Outlined.Edit else Icons.Outlined.Add,
-            contentDescription = if (provided) "Edit" else "Add",
-            tint = if (provided) TextGraySubtle else OrangeText,
-            modifier = Modifier.size(18.dp)
-        )
     }
 }
 
+/**
+ * Thin wrapper around BasicTextField so callers above don't need to manage
+ * TextFieldValue / cursor position directly. Handles the "done"/"send" IME
+ * action to trigger onSubmit, matching the up-arrow button behavior.
+ */
 @Composable
-private fun LooksRightButton() {
-    Button(
-        onClick = { /* TODO: navigate to step 2 */ },
+private fun BasicTextFieldCompat(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    androidx.compose.foundation.text.BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = false,
+        maxLines = 4,
+        textStyle = androidx.compose.ui.text.TextStyle(
+            color = KalpaScreenColors.TextPrimary,
+            fontSize = 14.sp
+        ),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(KalpaScreenColors.Orange),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onSend = { onSubmit() }
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = OrangePrimary,
-            contentColor = Color.White
-        )
-    ) {
-        Text(text = "Looks right", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Default.ArrowForward,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
+            .padding(vertical = 10.dp)
+    )
+}
+
+/* -------------------------------------------------------------------- */
+/*  BOTTOM "CONFIRM & CONTINUE" BAR                                      */
+/* -------------------------------------------------------------------- */
+@Composable
+private fun ConfirmContinueBar(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(color = KalpaScreenColors.ScreenBackgroundWhite) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Button(
+                onClick = onClick,
+                enabled = enabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = KalpaScreenColors.Orange,
+                    disabledContainerColor = KalpaScreenColors.Orange.copy(alpha = 0.45f)
+                )
+            ) {
+                Text(
+                    text = "Confirm & Continue",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+/* -------------------------------------------------------------------- */
+/*  PREVIEW                                                              */
+/* -------------------------------------------------------------------- */
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, widthDp = 390, heightDp = 844)
 @Composable
-fun BusinessIntakeScreenPreview() {
+private fun BusinessIntakeScreenPreview() {
     MaterialTheme {
         BusinessIntakeScreen()
     }

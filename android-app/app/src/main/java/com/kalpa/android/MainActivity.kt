@@ -4,39 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import com.kalpa.android.screens.BusinessIntakeScreen
-import com.kalpa.android.screens.KalpaLandingScreen
-
-private enum class KalpaScreen {
-    LANDING,
-    BUSINESS_INTAKE
-}
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import com.kalpa.android.navigation.KalpaNavGraph
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContent {
             MaterialTheme {
-                var currentScreen by remember {
-                    mutableStateOf(KalpaScreen.LANDING)
-                }
-
-                when (currentScreen) {
-
-                    KalpaScreen.LANDING -> {
-                        KalpaLandingScreen(
-                            onStartBusiness = {
-                                currentScreen = KalpaScreen.BUSINESS_INTAKE
-                            }
-                        )
-                    }
-
-                    KalpaScreen.BUSINESS_INTAKE -> {
-                        BusinessIntakeScreen()
-                    }
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    KalpaNavGraph()
                 }
             }
         }
