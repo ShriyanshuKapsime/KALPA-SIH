@@ -199,7 +199,9 @@ def test_upstream_values_passed_unchanged(standard_financial_analysis):
 
     # Banking Metrics & DSCR
     bep_sales = container.break_even.annual_break_even_revenue or container.break_even.monthly_break_even_revenue
-    assert pkg.banking_metrics.average_dscr == container.debt_service.dscr
+    expected_dscr = getattr(getattr(container, "banking_appraisal", None), "dscr", None)
+    expected_dscr_val = getattr(expected_dscr, "average_dscr", None) or container.debt_service.dscr
+    assert pkg.banking_metrics.average_dscr == expected_dscr_val
     assert pkg.banking_metrics.break_even_sales_amount == pytest.approx(bep_sales, abs=1.0)
     assert pkg.banking_metrics.break_even_capacity_pct == pytest.approx(container.break_even.break_even_utilization_pct, abs=0.5)
 
@@ -368,14 +370,15 @@ async def test_end_to_end_traceability():
     margin_upstream = fin_container.capital_structure.margin_contribution
     loan_upstream = fin_container.loan_management.principal
     emi_upstream = fin_container.loan_management.monthly_emi
-    dscr_upstream = fin_container.debt_service.dscr
+    dscr_upstream = getattr(getattr(fin_container, "banking_appraisal", None), "dscr", None)
+    dscr_upstream_val = getattr(dscr_upstream, "average_dscr", None) or fin_container.debt_service.dscr
     bep_sales_upstream = fin_container.break_even.annual_break_even_revenue or fin_container.break_even.monthly_break_even_revenue
 
     assert m6_package.project_cost.total_project_cost == cost_upstream
     assert m6_package.means_of_finance.promoter_contribution == margin_upstream
     assert m6_package.loan_structure.sanctioned_loan_amount == loan_upstream
     assert m6_package.loan_structure.monthly_emi == emi_upstream
-    assert m6_package.banking_metrics.average_dscr == dscr_upstream
+    assert m6_package.banking_metrics.average_dscr == dscr_upstream_val
     assert m6_package.banking_metrics.break_even_sales_amount == pytest.approx(bep_sales_upstream, abs=1.0)
 
     # Step 3: Pass into DPR Generation Engine
@@ -393,7 +396,7 @@ async def test_end_to_end_traceability():
     assert highlights["promoter_contribution"] == margin_upstream
     assert highlights["term_loan"] == loan_upstream
     assert highlights["monthly_emi"] == emi_upstream
-    assert highlights["average_dscr"] == dscr_upstream
+    assert highlights["average_dscr"] == dscr_upstream_val
     assert highlights["break_even_sales_amount"] == pytest.approx(bep_sales_upstream, abs=1.0)
 
     # Step 5: Verify PDF Generation input receives complete package and succeeds

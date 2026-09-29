@@ -2,6 +2,36 @@ import React, { useMemo } from 'react';
 import { CheckCircle2, ChevronRight, AlertCircle, Info, Sparkles, Table as TableIcon } from 'lucide-react';
 
 /**
+ * Sanitizes assistant responses to replace internal Stage numbers with clean engine names
+ */
+export function sanitizeAssistantText(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  return text
+    // Clean raw boolean/state variables leaking from backend
+    .replace(/\bdpr_available:\s*(true|false)\b/gi, '')
+    .replace(/\bloan_guidance_available:\s*(true|false)\b/gi, '')
+    .replace(/\bbusiness_launched:\s*(true|false)\b/gi, '')
+    .replace(/\bgrowth_manager_active:\s*(true|false)\b/gi, '')
+    // Clean stage mentions cleanly without forcing trailing colons
+    .replace(/\bStage\s*(6\s*(&|\/)\s*8|6)\s*(Market(\s*Intelligence)?)?:?\s*/gi, (m) => m.includes(':') ? 'Market Intelligence: ' : 'Market Intelligence ')
+    .replace(/\bStage\s*8\s*(Opportunity(\s*Evaluation)?)?:?\s*/gi, (m) => m.includes(':') ? 'Opportunity Evaluation: ' : 'Opportunity Evaluation ')
+    .replace(/\bStage\s*9\s*(Finance|Financial(\s*Model)?)?:?\s*/gi, (m) => m.includes(':') ? 'Financial Model: ' : 'Financial Model ')
+    .replace(/\bStage\s*10\s*(Entrepreneur(\s*Readiness)?|Readiness)?:?\s*/gi, (m) => m.includes(':') ? 'Entrepreneur Readiness: ' : 'Entrepreneur Readiness ')
+    .replace(/\bStage\s*11\s*(Risk(\s*Resilience|\s*Assessment|\s*Engine)?)?:?\s*/gi, (m) => m.includes(':') ? 'Enterprise Risk Engine: ' : 'Enterprise Risk Engine ')
+    .replace(/\bStage\s*12\s*(Feasibility(\s*Engine)?)?:?\s*/gi, (m) => m.includes(':') ? 'Feasibility Engine: ' : 'Feasibility Engine ')
+    .replace(/\bStage\s*13\s*(Dynamic\s*SWOT|SWOT)?:?\s*/gi, (m) => m.includes(':') ? 'SWOT Analysis: ' : 'SWOT Analysis ')
+    .replace(/\bStage\s*14\s*(Bank\s*DPR|DPR)?:?\s*/gi, (m) => m.includes(':') ? 'DPR Generation: ' : 'DPR Generation ')
+    .replace(/\bStage\s*15\s*(Personal\s*AI\s*Business\s*Assistant|Business\s*Advisor|Personal\s*Business\s*Advisor|Advisor)?:?\s*/gi, (m) => m.includes(':') ? 'KALPA AI Advisor: ' : 'KALPA AI Advisor ')
+    .replace(/\bStage\s*3\s*(Business\s*Profile|Profile)?:?\s*/gi, (m) => m.includes(':') ? 'Business Profile: ' : 'Business Profile ')
+    .replace(/\bStages?\s*(6–13|6-13|6–12|6-12|6–15|6-15)\b/gi, 'Analytical Engines')
+    .replace(/\bStage\s*\d+(\s*(&|\/)\s*\d+)?\b/gi, '')
+    // Clean punctuation artifacts
+    .replace(/:\s*,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Safely parses inline markdown formatting (*italic*, **bold**, `code`) into React elements.
  */
 function renderInlineText(text) {
@@ -14,14 +44,14 @@ function renderInlineText(text) {
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return (
-        <strong key={index} className="font-bold text-stone-900">
+        <strong key={index} className="font-bold text-[#1C1917]">
           {part.slice(2, -2)}
         </strong>
       );
     }
     if (part.startsWith('*') && part.endsWith('*')) {
       return (
-        <em key={index} className="italic text-stone-800">
+        <em key={index} className="italic text-[#28231F]">
           {part.slice(1, -1)}
         </em>
       );
@@ -30,7 +60,7 @@ function renderInlineText(text) {
       return (
         <code
           key={index}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-stone-100 text-amber-900 border border-stone-200 font-mono text-xs"
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/20 font-mono text-xs"
         >
           {part.slice(1, -1)}
         </code>
@@ -46,7 +76,8 @@ function renderInlineText(text) {
 function parseMarkdownBlocks(rawText) {
   if (!rawText) return [];
 
-  const lines = rawText.split('\n');
+  const cleanText = sanitizeAssistantText(rawText);
+  const lines = cleanText.split('\n');
   const blocks = [];
   let currentList = null; // { type: 'bullet' | 'numbered', items: [] }
   let currentTable = null; // { headers: [], rows: [] }
@@ -102,7 +133,6 @@ function parseMarkdownBlocks(rawText) {
       const isDivider = cells.every((c) => /^:?-+:?$/.test(c));
 
       if (isDivider) {
-        // Just divider, ignore
         continue;
       }
 
@@ -116,18 +146,18 @@ function parseMarkdownBlocks(rawText) {
       flushTable();
     }
 
-    // Headings: #, ##, ###, #### or standalone uppercase header like "WHY THIS MATTERS" or "**What you should do**"
-    const headingMatch = line.match(/^(#{1,4})\s+(.+)$/);
+    // Headings: #, ##, ###, #### (with or without strict spacing)
+    const headingMatch = line.match(/^(#{1,4})\s*(.+)$/);
     if (headingMatch) {
       flushParagraph();
       flushList();
       const level = headingMatch[1].length;
-      const headingText = headingMatch[2].trim();
+      const headingText = headingMatch[2].replace(/^#+\s*/, '').trim();
       blocks.push({ type: 'heading', level, text: headingText });
       continue;
     }
 
-    // Standalone bold header pattern: e.g. "**Why this matters**" or "**1. Direct Answer**"
+    // Standalone bold header pattern
     const standaloneBoldHeader = line.match(/^\*\*([^*]+)\*\*$/);
     if (standaloneBoldHeader && line.length < 80) {
       flushParagraph();
@@ -179,8 +209,7 @@ function parseMarkdownBlocks(rawText) {
 
 /**
  * AssistantMessageRenderer
- * Renders structured, beautiful advisory content with visual hierarchy,
- * badges, cards, tables, and typography tailored for rural Bharat entrepreneurship.
+ * Renders structured, clean advisory content in KALPA design language.
  */
 export default function AssistantMessageRenderer({ content, className = '' }) {
   const blocks = useMemo(() => parseMarkdownBlocks(content), [content]);
@@ -190,7 +219,7 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
   }
 
   return (
-    <div className={`space-y-3.5 text-stone-800 leading-relaxed font-['Inter',sans-serif] ${className}`}>
+    <div className={`space-y-3.5 text-[#28231F] leading-relaxed font-sans ${className}`}>
       {blocks.map((block, idx) => {
         switch (block.type) {
           case 'heading': {
@@ -198,14 +227,14 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
             return (
               <div
                 key={idx}
-                className={`pt-2.5 pb-1 flex items-center gap-2 border-b border-stone-200/80 ${
-                  isTopLevel ? 'text-amber-950 font-bold' : 'text-stone-900 font-semibold'
+                className={`pt-2 pb-1 flex items-center gap-2 border-b border-[#79563F]/15 ${
+                  isTopLevel ? 'text-[#1C1917] font-bold' : 'text-[#1C1917] font-semibold'
                 }`}
               >
-                <div className="w-1.5 h-4 rounded-full bg-amber-600 shrink-0" />
+                <div className="w-1.5 h-3.5 rounded-full bg-[#79563F] shrink-0" />
                 <h3
                   className={`tracking-tight font-['Outfit',sans-serif] ${
-                    isTopLevel ? 'text-base sm:text-lg font-bold' : 'text-sm sm:text-base font-semibold'
+                    isTopLevel ? 'text-base font-bold' : 'text-sm font-semibold'
                   }`}
                 >
                   {renderInlineText(block.text)}
@@ -216,7 +245,7 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
 
           case 'paragraph': {
             return (
-              <p key={idx} className="text-sm leading-6 text-stone-800">
+              <p key={idx} className="text-xs sm:text-[13px] leading-relaxed text-[#28231F]">
                 {renderInlineText(block.text)}
               </p>
             );
@@ -224,16 +253,16 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
 
           case 'numbered': {
             return (
-              <div key={idx} className="space-y-2.5 my-2">
+              <div key={idx} className="space-y-2 my-2">
                 {block.items.map((item, itemIdx) => (
                   <div
                     key={itemIdx}
-                    className="flex items-start gap-3 p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/50 hover:bg-amber-50 transition-colors"
+                    className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[#FAF2E3]/60 border border-[#79563F]/15 hover:bg-[#FAF2E3] transition-colors"
                   >
-                    <div className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <div className="w-5 h-5 rounded-full bg-[#79563F] text-white font-bold text-[10px] flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
                       {item.num || itemIdx + 1}
                     </div>
-                    <div className="text-sm text-stone-800 leading-snug pt-0.5">
+                    <div className="text-xs sm:text-[13px] text-[#28231F] leading-snug pt-0.5">
                       {renderInlineText(item.text)}
                     </div>
                   </div>
@@ -246,8 +275,8 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
             return (
               <ul key={idx} className="space-y-1.5 my-1.5 pl-1">
                 {block.items.map((item, itemIdx) => (
-                  <li key={itemIdx} className="flex items-start gap-2.5 text-sm text-stone-800 leading-snug">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-700 shrink-0 mt-2" />
+                  <li key={itemIdx} className="flex items-start gap-2 text-xs sm:text-[13px] text-[#28231F] leading-snug">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#79563F] shrink-0 mt-1.5" />
                     <div className="flex-1">{renderInlineText(item.text)}</div>
                   </li>
                 ))}
@@ -257,24 +286,24 @@ export default function AssistantMessageRenderer({ content, className = '' }) {
 
           case 'table': {
             return (
-              <div key={idx} className="my-3 overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
-                <table className="min-w-full divide-y divide-stone-200 text-xs text-left">
-                  <thead className="bg-stone-100 text-stone-700 font-semibold uppercase tracking-wider">
+              <div key={idx} className="my-3 overflow-x-auto rounded-xl border border-[#79563F]/20 shadow-2xs">
+                <table className="min-w-full divide-y divide-[#79563F]/15 text-xs text-left">
+                  <thead className="bg-[#FAF2E3] text-[#1C1917] font-bold uppercase tracking-wider">
                     <tr>
                       {block.headers.map((header, hIdx) => (
-                        <th key={hIdx} className="px-3 py-2 border-r border-stone-200 last:border-r-0">
+                        <th key={hIdx} className="px-3 py-2 border-r border-[#79563F]/15 last:border-r-0">
                           {renderInlineText(header)}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100 bg-white">
+                  <tbody className="divide-y divide-[#79563F]/10 bg-white">
                     {block.rows.map((row, rIdx) => (
-                      <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-stone-50/60'}>
+                      <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F2]'}>
                         {row.map((cell, cIdx) => (
                           <td
                             key={cIdx}
-                            className="px-3 py-2 text-stone-800 border-r border-stone-100 last:border-r-0 whitespace-nowrap"
+                            className="px-3 py-2 text-[#28231F] border-r border-[#79563F]/10 last:border-r-0 whitespace-nowrap"
                           >
                             {renderInlineText(cell)}
                           </td>

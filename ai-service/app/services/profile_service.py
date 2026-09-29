@@ -351,6 +351,13 @@ async def build_canonical_profile_for_session(session_id: str, db: Session) -> D
             "updated_at": now_iso
         },
         "business_profile": {
+            "business_id": analysis_id,
+            "business_node_id": stage2_data.get("business_id") or analysis_id,
+            "business_activity": specific_business or original_concept,
+            "nic_code": nic_code,
+            "nic_description": nic_title,
+            "constitution": structured_intake.get("constitution") or structured_intake.get("legal_constitution") or "PROPRIETORSHIP",
+            "legal_constitution": structured_intake.get("constitution") or structured_intake.get("legal_constitution") or "PROPRIETORSHIP",
             "original_concept": original_concept,
             "normalized_concept": specific_business.lower(),
             "sector": sector,

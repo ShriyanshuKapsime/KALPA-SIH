@@ -51,16 +51,29 @@ class BenchmarksRepository:
             self._market_benchmarks = []
 
     def _matches_identifier(self, item: Dict[str, Any], query_id: str) -> bool:
+        if not query_id:
+            return False
         q = query_id.strip().lower()
         node_id = str(item.get("business_node_id", "")).strip().lower()
-        if node_id == q:
-            return True
-        if node_id.replace("ont_", "") == q.replace("ont_", ""):
+        if node_id == q or node_id.replace("ont_", "") == q.replace("ont_", ""):
             return True
         aliases = [str(a).strip().lower() for a in item.get("aliases", [])]
-        if q in aliases:
+        if q in aliases or q.replace("ont_", "") in [a.replace("ont_", "") for a in aliases]:
             return True
-        if q.replace("ont_", "") in [a.replace("ont_", "") for a in aliases]:
+        # Partial / Category / Sector matching
+        if q in node_id or any(q in a for a in aliases):
+            return True
+        title = str(item.get("business_title", "")).strip().lower()
+        if q in title:
+            return True
+        # Archetype keywords
+        if q in ("manufacturing", "production", "industry") and ("mill" in node_id or "processing" in node_id or "carpentry" in node_id):
+            return True
+        if q in ("retail", "trading", "shop", "store") and ("retail" in node_id or "store" in node_id):
+            return True
+        if q in ("services", "service") and ("salon" in node_id or "repair" in node_id or "tailoring" in node_id):
+            return True
+        if q in ("agro", "agriculture", "farming") and ("farm" in node_id or "mill" in node_id):
             return True
         return False
 

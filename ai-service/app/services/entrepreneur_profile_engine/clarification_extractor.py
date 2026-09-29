@@ -50,8 +50,13 @@ class ClarificationExtractor:
 
     # Business domain skill mapping
     DOMAIN_SKILLS_ONTOLOGY = {
+        "general_enterprise": {
+            "keywords": ["business", "enterprise", "व्यापार", "दुकान", "retail", "selling", "service", "customer"],
+            "default_skills": ["business_management", "customer_handling", "daily_operations"],
+            "experience_domain": "general_business"
+        },
         "saree_retail": {
-            "keywords": ["saree", "saari", "साड़ी", "कपड़ा", "cloth", "garment", "fabric", "textile", "दुकान", "retail", "selling", "बेच", "बिक्री", "ग्राहक", "customer", "silk", "सिल्क"],
+            "keywords": ["saree", "saari", "साड़ी", "handloom saree", "silk saree", "बनारसी साड़ी"],
             "default_skills": ["retail_sales", "saree_retail", "customer_handling", "inventory_management"],
             "experience_domain": "saree_retail"
         },
@@ -130,7 +135,7 @@ class ClarificationExtractor:
     def _resolve_target_domain(self, business_context: Optional[Dict[str, Any]] = None) -> str:
         """Determines best matching domain key from business context."""
         if not business_context:
-            return "saree_retail"
+            return "general_enterprise"
 
         b_id = str(
             business_context.get("business_id") or
@@ -167,7 +172,7 @@ class ClarificationExtractor:
         elif "oil" in b_id:
             return "oil_expeller"
 
-        return "saree_retail"
+        return "general_enterprise"
 
     def extract_from_text(
         self,
@@ -190,7 +195,7 @@ class ClarificationExtractor:
         source_tag = "USER_VOICE" if is_voice else "USER_CLARIFICATION"
 
         domain_key = self._resolve_target_domain(business_context)
-        domain_info = self.DOMAIN_SKILLS_ONTOLOGY.get(domain_key, self.DOMAIN_SKILLS_ONTOLOGY["saree_retail"])
+        domain_info = self.DOMAIN_SKILLS_ONTOLOGY.get(domain_key, self.DOMAIN_SKILLS_ONTOLOGY["general_enterprise"])
         field_norm = (target_field or "").lower().strip()
 
         # =====================================================================
@@ -301,7 +306,7 @@ class ClarificationExtractor:
                 skills_found.append("machinery_operations")
 
         # Fabric / Saree tokens
-        if any(w in lower_text for w in ["saree", "saari", "साड़ी", "कपड़ा", "silk", "handloom"]):
+        if any(w in lower_text for w in ["saree", "saari", "साड़ी"]):
             if "saree_retail" not in skills_found:
                 skills_found.append("saree_retail")
 

@@ -91,19 +91,19 @@ class FinancialBenchmarkAdapter:
         """
         raw_benchmark = None
 
-        # 1. Search by business_id
-        if business_id:
-            raw_benchmark = self.benchmarks_repo.get_financial_benchmark(business_id)
+        # 1. Search by NIC code (authoritative national industry classification)
+        if nic_code:
+            raw_benchmark = self.benchmarks_repo.get_financial_benchmark_by_nic(nic_code)
 
         # 2. Search by specific_business name / alias
         if not raw_benchmark and specific_business:
             raw_benchmark = self.benchmarks_repo.get_financial_benchmark(specific_business)
 
-        # 3. Search by NIC code
-        if not raw_benchmark and nic_code:
-            raw_benchmark = self.benchmarks_repo.get_financial_benchmark_by_nic(nic_code)
+        # 3. Search by business_id
+        if not raw_benchmark and business_id:
+            raw_benchmark = self.benchmarks_repo.get_financial_benchmark(business_id)
 
-        # 4. Search by category
+        # 4. Search by category / archetype
         if not raw_benchmark and category:
             raw_benchmark = self.benchmarks_repo.get_financial_benchmark(category)
 

@@ -353,10 +353,14 @@ class SarvamSTTService:
         if not filename or filename == "blob":
             filename = "recording.webm" if "webm" in clean_content_type else "recording.wav"
 
-        # 3. Structured Debug Logging (no secret exposure)
-        logger.info(f"[VOICE DEBUG] frontend_language='{language_code}'")
-        logger.info(f"[VOICE DEBUG] normalized_language='{normalized_lang}'")
-        logger.info(f"[SARVAM STT] audio_mime_type='{clean_content_type}', size={len(audio_bytes)} bytes, model='{self.model}'")
+        # Structured Safe Logging (no secret exposure)
+        logger.info(
+            f"STT request received: filename='{filename}', content_type='{clean_content_type}', byte_size={len(audio_bytes)}"
+        )
+        logger.info(
+            f"STT provider: provider='sarvam', model='{self.model}'"
+        )
+        logger.info(f"[VOICE DEBUG] frontend_language='{language_code}', normalized_language='{normalized_lang}'")
 
         headers = {
             "api-subscription-key": self.api_key.strip(),
@@ -389,10 +393,22 @@ class SarvamSTTService:
                     raise RuntimeError(f"Sarvam STT rejected request ({response.status_code}): {err_msg}")
 
                 result = response.json()
-                transcript = result.get("transcript", "").strip()
-                detected_lang = result.get("language_code", normalized_lang)
-                
-                simple_code = detected_lang.split("-")[0].lower() if (detected_lang and detected_lang != "unknown") else (language_code or "en")
+                response_shape = list(result.keys()) if isinstance(result, dict) else type(result).__name__
+                raw_transcript = result.get("transcript") if isinstance(result, dict) else None
+                transcript_present = bool(isinstance(raw_transcript, str) and raw_transcript.strip())
+
+                logger.info(
+                    f"STT response: HTTP status={response.status_code}, response shape={response_shape}, transcript_present={transcript_present}"
+                )
+
+                # Safe normalization: never call .strip() without verifying string type
+                if raw_transcript is None or not isinstance(raw_transcript, str):
+                    transcript = ""
+                else:
+                    transcript = raw_transcript.strip()
+
+                detected_lang = result.get("language_code", normalized_lang) if isinstance(result, dict) else normalized_lang
+                simple_code = detected_lang.split("-")[0].lower() if (isinstance(detected_lang, str) and detected_lang != "unknown") else (language_code or "en")
 
                 logger.info(f"[SARVAM STT SUCCESS] detected_lang='{detected_lang}', simple_code='{simple_code}', transcript_length={len(transcript)}")
                 return transcript, simple_code

@@ -5,7 +5,9 @@ database caching/idempotency, persistence, and LLM readiness checks.
 """
 from typing import Dict, Any, Optional
 import uuid
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -31,6 +33,174 @@ from app.schemas.swot import (
 from app.services.swot_engine import dynamic_swot_agent
 
 router = APIRouter(prefix="/swot", tags=["Stage 13 — Dynamic SWOT Agent"])
+
+
+def hydrate_swot_request(request: SWOTEvaluationRequest, db: Session, target_uuid: Optional[uuid.UUID]):
+    """Hydrates missing upstream analytical contexts from PostgreSQL tables."""
+    if not target_uuid:
+        return
+
+    # A. FeasibilityResult (Stage 12)
+    if not request.feasibility_result:
+        feas = db.query(FeasibilityResult).filter(
+            (FeasibilityResult.id == target_uuid) | (FeasibilityResult.session_id == target_uuid)
+        ).first()
+        if feas:
+            request.feasibility_result = {
+                "overall_feasibility_score": feas.overall_feasibility_score,
+                "decision": feas.viability_status,
+                "viability_status": feas.viability_status,
+                "recommendation": feas.recommendation,
+                "pillar_scores": feas.pillar_scores or {},
+                "critical_gates": feas.critical_gates or [],
+                "positive_drivers": feas.positive_drivers or [],
+                "key_constraints": feas.key_constraints or [],
+                "conditions": feas.conditions or [],
+            }
+
+    # B. StructuredBusinessProfile (Stage 3 & 10)
+    prof = db.query(StructuredBusinessProfile).filter(
+        (StructuredBusinessProfile.id == target_uuid) | (StructuredBusinessProfile.session_id == target_uuid)
+    ).order_by(StructuredBusinessProfile.created_at.desc()).first()
+
+    if prof and prof.profile_json:
+        p_json = prof.profile_json
+        if not request.business_profile:
+            request.business_profile = p_json.get("business_profile") or {
+                "specific_business": prof.specific_business,
+                "business_name": prof.specific_business,
+                "business_id": prof.specific_business,
+                "category": p_json.get("category"),
+                "sector": p_json.get("sector")
+            }
+        if not request.location_profile:
+            request.location_profile = p_json.get("location_profile") or {
+                "village": prof.district,
+                "district": prof.district,
+                "state": prof.state
+            }
+        if not request.entrepreneur_readiness and p_json.get("entrepreneur_readiness"):
+            request.entrepreneur_readiness = p_json.get("entrepreneur_readiness")
+        if not request.financial_context and p_json.get("financial_context"):
+            request.financial_context = p_json.get("financial_context")
+        if not request.financial_analysis and p_json.get("financial_analysis"):
+            request.financial_analysis = p_json.get("financial_analysis")
+
+    # C. FinancialProfile (Stage 9)
+    if not request.financial_analysis or not request.financial_context:
+        fin = db.query(FinancialProfile).filter(
+            (FinancialProfile.id == target_uuid) |
+            (FinancialProfile.business_id == target_uuid) |
+            (FinancialProfile.business_id == prof.id if prof else False)
+        ).first()
+        if fin:
+            bk = fin.breakdown_json if isinstance(fin.breakdown_json, dict) else {}
+            if not request.financial_context and bk.get("financial_context"):
+                request.financial_context = bk.get("financial_context")
+            if not request.financial_analysis:
+                request.financial_analysis = bk or {
+                    "dscr": fin.debt_service_coverage_ratio,
+                    "debt_service": {"dscr": fin.debt_service_coverage_ratio},
+                    "break_even": {"break_even_point_percentage": fin.break_even_percentage},
+                    "break_even_point_percentage": fin.break_even_percentage,
+                    "total_project_cost": fin.total_project_cost,
+                    "estimated_financeable_loan": fin.bank_loan_requirement,
+                    "monthly_emi": bk.get("monthly_emi") or 8500.0,
+                }
+
+    # Cross-sync financial_context and financial_analysis
+    if not request.financial_context and request.financial_analysis and isinstance(request.financial_analysis, dict):
+        request.financial_context = request.financial_analysis.get("financial_context")
+    if request.financial_context and not request.financial_analysis:
+        request.financial_analysis = {"financial_context": request.financial_context}
+    elif request.financial_context and isinstance(request.financial_analysis, dict) and "financial_context" not in request.financial_analysis:
+        request.financial_analysis["financial_context"] = request.financial_context
+
+    # D. OrchestrationRecord (Stages 8, 9, 10, 11)
+    orch = db.query(OrchestrationRecord).filter(
+        (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
+    ).order_by(OrchestrationRecord.created_at.desc()).first()
+    if orch and orch.orchestration_output:
+        out = orch.orchestration_output
+        res = out.get("agent_results", {}) if isinstance(out, dict) else {}
+        if not request.opportunity_result:
+            request.opportunity_result = (
+                res.get("opportunity_evaluation_engine")
+                or res.get("opportunity_evaluation")
+                or out.get("opportunity_evaluation")
+                or out.get("opportunity_result")
+            )
+        if not request.financial_analysis:
+            request.financial_analysis = (
+                res.get("finance_engine")
+                or res.get("financial_analysis")
+                or out.get("financial_analysis")
+            )
+        if not request.entrepreneur_readiness:
+            request.entrepreneur_readiness = (
+                res.get("entrepreneur_profile_engine")
+                or res.get("entrepreneur_profile")
+                or out.get("entrepreneur_profile")
+            )
+        if not request.risk_analysis:
+            request.risk_analysis = (
+                res.get("risk_engine")
+                or res.get("risk_analysis")
+                or out.get("risk_analysis")
+            )
+
+    # E. MarketEvidenceRecord (Stage 6)
+    if not request.market_analysis:
+        mkt_rec = db.query(MarketEvidenceRecord).filter(
+            (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
+        ).order_by(MarketEvidenceRecord.created_at.desc()).first()
+        if mkt_rec:
+            request.market_analysis = mkt_rec.market_evidence or mkt_rec.full_profile or {}
+
+
+def persist_swot_result(db: Session, target_uuid: uuid.UUID, session_id: Optional[str], out_json: Dict[str, Any]):
+    """Persists SWOT result to PostgreSQL swot_results table."""
+    try:
+        existing = db.query(SwotResult).filter(
+            (SwotResult.id == target_uuid) | (SwotResult.session_id == target_uuid)
+        ).first()
+
+        if existing:
+            existing.status = out_json.get("status", "COMPLETED")
+            existing.confidence_score = out_json.get("confidence", 0.88)
+            existing.swot_json = out_json.get("swot") or {}
+            existing.strategic_summary_json = out_json.get("strategic_summary") or {}
+            existing.recommendations_json = out_json.get("recommendations") or []
+            existing.immediate_actions_json = out_json.get("immediate_actions") or []
+            existing.evidence_summary_json = out_json.get("evidence_summary") or {}
+            existing.model_metadata_json = {
+                **(out_json.get("model_metadata") or {}),
+                "generation": out_json.get("generation")
+            }
+            existing.error_json = {"error_code": out_json.get("error_code"), "message": out_json.get("message")} if out_json.get("error_code") else None
+            db.commit()
+        else:
+            rec = SwotResult(
+                id=target_uuid,
+                session_id=uuid.UUID(session_id) if session_id else target_uuid,
+                status=out_json.get("status", "COMPLETED"),
+                confidence_score=out_json.get("confidence", 0.88),
+                swot_json=out_json.get("swot") or {},
+                strategic_summary_json=out_json.get("strategic_summary") or {},
+                recommendations_json=out_json.get("recommendations") or [],
+                immediate_actions_json=out_json.get("immediate_actions") or [],
+                evidence_summary_json=out_json.get("evidence_summary") or {},
+                model_metadata_json={
+                    **(out_json.get("model_metadata") or {}),
+                    "generation": out_json.get("generation")
+                },
+                error_json={"error_code": out_json.get("error_code"), "message": out_json.get("message")} if out_json.get("error_code") else None
+            )
+            db.add(rec)
+            db.commit()
+    except Exception as db_err:
+        logger.warning(f"[STAGE 13 SWOT DB PERSIST WARNING] {db_err}")
+        db.rollback()
 
 
 @router.post(
@@ -61,9 +231,7 @@ async def analyze_swot(
             except Exception:
                 pass
 
-        # -------------------------------------------------------------
         # 1. Idempotency & Caching Check (Skip LLM if already persisted)
-        # -------------------------------------------------------------
         if target_uuid and not request.force_refresh:
             cached_rec = db.query(SwotResult).filter(
                 (SwotResult.id == target_uuid) | (SwotResult.session_id == target_uuid)
@@ -98,179 +266,15 @@ async def analyze_swot(
                     model_metadata=cached_rec.model_metadata_json if cached_rec.model_metadata_json else None
                 )
 
-        # -------------------------------------------------------------
         # 2. Hydrate Missing Upstream Context from PostgreSQL
-        # -------------------------------------------------------------
-        if target_uuid:
-            # A. FeasibilityResult (Stage 12)
-            if not request.feasibility_result:
-                feas = db.query(FeasibilityResult).filter(
-                    (FeasibilityResult.id == target_uuid) | (FeasibilityResult.session_id == target_uuid)
-                ).first()
-                if feas:
-                    request.feasibility_result = {
-                        "overall_feasibility_score": feas.overall_feasibility_score,
-                        "decision": feas.viability_status,
-                        "viability_status": feas.viability_status,
-                        "recommendation": feas.recommendation,
-                        "pillar_scores": feas.pillar_scores or {},
-                        "critical_gates": feas.critical_gates or [],
-                        "positive_drivers": feas.positive_drivers or [],
-                        "key_constraints": feas.key_constraints or [],
-                        "conditions": feas.conditions or [],
-                    }
+        hydrate_swot_request(request, db, target_uuid)
 
-            # B. StructuredBusinessProfile (Stage 3 & 10)
-            prof = db.query(StructuredBusinessProfile).filter(
-                (StructuredBusinessProfile.id == target_uuid) | (StructuredBusinessProfile.session_id == target_uuid)
-            ).order_by(StructuredBusinessProfile.created_at.desc()).first()
-
-            if prof and prof.profile_json:
-                p_json = prof.profile_json
-                if not request.business_profile:
-                    request.business_profile = p_json.get("business_profile") or {
-                        "specific_business": prof.specific_business,
-                        "business_name": prof.specific_business,
-                        "business_id": prof.specific_business,
-                        "category": p_json.get("category"),
-                        "sector": p_json.get("sector")
-                    }
-                if not request.location_profile:
-                    request.location_profile = p_json.get("location_profile") or {
-                        "village": prof.district,
-                        "district": prof.district,
-                        "state": prof.state
-                    }
-                if not request.entrepreneur_readiness and p_json.get("entrepreneur_readiness"):
-                    request.entrepreneur_readiness = p_json.get("entrepreneur_readiness")
-                if not request.financial_context and p_json.get("financial_context"):
-                    request.financial_context = p_json.get("financial_context")
-                if not request.financial_analysis and p_json.get("financial_analysis"):
-                    request.financial_analysis = p_json.get("financial_analysis")
-
-            # C. FinancialProfile (Stage 9)
-            if not request.financial_analysis or not request.financial_context:
-                fin = db.query(FinancialProfile).filter(
-                    (FinancialProfile.id == target_uuid) |
-                    (FinancialProfile.business_id == target_uuid) |
-                    (FinancialProfile.business_id == prof.id if prof else False)
-                ).first()
-                if fin:
-                    bk = fin.breakdown_json if isinstance(fin.breakdown_json, dict) else {}
-                    if not request.financial_context and bk.get("financial_context"):
-                        request.financial_context = bk.get("financial_context")
-                    if not request.financial_analysis:
-                        request.financial_analysis = bk or {
-                            "dscr": fin.debt_service_coverage_ratio,
-                            "debt_service": {"dscr": fin.debt_service_coverage_ratio},
-                            "break_even": {"break_even_point_percentage": fin.break_even_percentage},
-                            "break_even_point_percentage": fin.break_even_percentage,
-                            "total_project_cost": fin.total_project_cost,
-                            "estimated_financeable_loan": fin.bank_loan_requirement,
-                            "monthly_emi": bk.get("monthly_emi") or 8500.0,
-                        }
-
-            # Cross-sync financial_context and financial_analysis
-            if not request.financial_context and request.financial_analysis and isinstance(request.financial_analysis, dict):
-                request.financial_context = request.financial_analysis.get("financial_context")
-            if request.financial_context and not request.financial_analysis:
-                request.financial_analysis = {"financial_context": request.financial_context}
-            elif request.financial_context and isinstance(request.financial_analysis, dict) and "financial_context" not in request.financial_analysis:
-                request.financial_analysis["financial_context"] = request.financial_context
-
-            # D. OrchestrationRecord (Stages 8, 9, 10, 11)
-            orch = db.query(OrchestrationRecord).filter(
-                (OrchestrationRecord.id == target_uuid) | (OrchestrationRecord.session_id == target_uuid)
-            ).order_by(OrchestrationRecord.created_at.desc()).first()
-            if orch and orch.orchestration_output:
-                out = orch.orchestration_output
-                res = out.get("agent_results", {}) if isinstance(out, dict) else {}
-                if not request.opportunity_result:
-                    request.opportunity_result = (
-                        res.get("opportunity_evaluation_engine")
-                        or res.get("opportunity_evaluation")
-                        or out.get("opportunity_evaluation")
-                        or out.get("opportunity_result")
-                    )
-                if not request.financial_analysis:
-                    request.financial_analysis = (
-                        res.get("finance_engine")
-                        or res.get("financial_analysis")
-                        or out.get("financial_analysis")
-                    )
-                if not request.entrepreneur_readiness:
-                    request.entrepreneur_readiness = (
-                        res.get("entrepreneur_profile_engine")
-                        or res.get("entrepreneur_profile")
-                        or out.get("entrepreneur_profile")
-                    )
-                if not request.risk_analysis:
-                    request.risk_analysis = (
-                        res.get("risk_engine")
-                        or res.get("risk_analysis")
-                        or out.get("risk_analysis")
-                    )
-
-            # E. MarketEvidenceRecord (Stage 6)
-            if not request.market_analysis:
-                mkt_rec = db.query(MarketEvidenceRecord).filter(
-                    (MarketEvidenceRecord.id == target_uuid) | (MarketEvidenceRecord.session_id == target_uuid)
-                ).order_by(MarketEvidenceRecord.created_at.desc()).first()
-                if mkt_rec:
-                    request.market_analysis = mkt_rec.market_evidence or mkt_rec.full_profile or {}
-
-        # -------------------------------------------------------------
         # 3. Execute Stage 13 Dynamic SWOT Agent
-        # -------------------------------------------------------------
         response = await dynamic_swot_agent.generate_swot_analysis(request)
 
-        # -------------------------------------------------------------
         # 4. Persist to PostgreSQL swot_results Table
-        # -------------------------------------------------------------
         if target_uuid:
-            try:
-                existing = db.query(SwotResult).filter(
-                    (SwotResult.id == target_uuid) | (SwotResult.session_id == target_uuid)
-                ).first()
-
-                out_json = response.model_dump()
-
-                if existing:
-                    existing.status = response.status
-                    existing.confidence_score = response.confidence
-                    existing.swot_json = out_json.get("swot") or {}
-                    existing.strategic_summary_json = out_json.get("strategic_summary") or {}
-                    existing.recommendations_json = out_json.get("recommendations") or []
-                    existing.immediate_actions_json = out_json.get("immediate_actions") or []
-                    existing.evidence_summary_json = out_json.get("evidence_summary") or {}
-                    existing.model_metadata_json = {
-                        **(out_json.get("model_metadata") or {}),
-                        "generation": out_json.get("generation")
-                    }
-                    existing.error_json = {"error_code": response.error_code, "message": response.message} if response.error_code else None
-                    db.commit()
-                else:
-                    rec = SwotResult(
-                        id=target_uuid,
-                        session_id=uuid.UUID(session_id) if session_id else target_uuid,
-                        status=response.status,
-                        confidence_score=response.confidence,
-                        swot_json=out_json.get("swot") or {},
-                        strategic_summary_json=out_json.get("strategic_summary") or {},
-                        recommendations_json=out_json.get("recommendations") or [],
-                        immediate_actions_json=out_json.get("immediate_actions") or [],
-                        evidence_summary_json=out_json.get("evidence_summary") or {},
-                        model_metadata_json={
-                            **(out_json.get("model_metadata") or {}),
-                            "generation": out_json.get("generation")
-                        },
-                        error_json={"error_code": response.error_code, "message": response.message} if response.error_code else None
-                    )
-                    db.add(rec)
-                    db.commit()
-            except Exception as db_err:
-                logger.warning(f"[STAGE 13 SWOT DB PERSIST WARNING] {db_err}")
-                db.rollback()
+            persist_swot_result(db, target_uuid, session_id, response.model_dump())
 
         return response
 
@@ -280,6 +284,58 @@ async def analyze_swot(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Stage 13 Dynamic SWOT Agent failed: {str(e)}"
         )
+
+
+@router.post(
+    "/stream",
+    summary="Stream Stage 13 Strategic SWOT Agent Execution",
+    description="Streams real sequential reasoning events across 6 distinct stages (01 Evidence validation -> 06 SWOT synthesis) via Server-Sent Events."
+)
+async def stream_swot(
+    request: SWOTEvaluationRequest,
+    db: Session = Depends(get_db)
+):
+    logger.info(f"[STAGE 13 SWOT STREAM API] Starting stream for analysis_id={request.analysis_id}, session_id={request.session_id}, force_refresh={request.force_refresh}")
+
+    target_uuid = None
+    if request.analysis_id:
+        try:
+            target_uuid = uuid.UUID(request.analysis_id)
+        except Exception:
+            pass
+    if not target_uuid and request.session_id:
+        try:
+            target_uuid = uuid.UUID(request.session_id)
+        except Exception:
+            pass
+
+    hydrate_swot_request(request, db, target_uuid)
+
+    async def event_generator():
+        try:
+            async for event in dynamic_swot_agent.generate_swot_analysis_stream(request, db):
+                if event.get("step") == "complete" and event.get("result") and target_uuid:
+                    persist_swot_result(db, target_uuid, request.session_id, event["result"])
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as err:
+            logger.error(f"[STAGE 13 SWOT STREAM ERROR] {err}", exc_info=True)
+            error_event = {
+                "step": "error",
+                "status": "failed",
+                "error_code": "SWOT_STREAM_ERROR",
+                "message": f"Stage 13 Dynamic SWOT Agent failed: {str(err)}"
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.get(

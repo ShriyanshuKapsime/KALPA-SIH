@@ -1,64 +1,486 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Paper Palette */
+  --kalpa-paper: #F3E8D2;
+  --kalpa-paper-light: #F8F0E1;
+  --kalpa-paper-deep: #E8D6B7;
+  --kalpa-cream: #F3E8D2;
+  --kalpa-ivory: #F8F0E1;
+
+  /* Brown Palette */
+  --kalpa-brown: #79563F;
+  --kalpa-brown-dark: #4A3427;
+  --kalpa-brown-muted: #92745A;
+  --kalpa-brown-light: #BFA47D;
+
+  /* Ink / Typography */
+  --kalpa-ink: #28231F;
+  --kalpa-ink-muted: #62584F;
+  --kalpa-text: #28231F;
+  --kalpa-text-muted: #62584F;
+
+  /* Terracotta Action Palette (Muted, Non-Neon) */
+  --kalpa-orange: #C96A3A;
+  --kalpa-orange-dark: #A9552F;
+  --kalpa-orange-soft: #E8B79A;
+
+  /* Forest / KALPA Green */
+  --kalpa-green: #006F5F;
+  --kalpa-green-dark: #075648;
+
+  /* Subtle Borders & Shadows */
+  --kalpa-border: rgba(104, 76, 53, 0.18);
+  --kalpa-shadow: 0 8px 30px rgba(90, 60, 35, 0.06);
+  --kalpa-pointer-x: 78vw;
+  --kalpa-pointer-y: 28vh;
+}
+
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    background: var(--kalpa-cream);
+  }
+
   body {
-    @apply bg-[#FAF7F2] text-[#1C1917] font-sans min-h-screen antialiased selection:bg-orange-500/20 selection:text-orange-950;
-    background-color: #FAF7F2;
+    @apply font-sans min-h-screen antialiased;
+    background: var(--kalpa-cream);
+    color: var(--kalpa-text);
+    font-family: 'Manrope', Inter, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+
+  input, select, textarea {
+    background: rgba(255, 252, 246, 0.94);
+    border-color: var(--kalpa-border);
+    color: var(--kalpa-text);
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--kalpa-green);
+    box-shadow: 0 0 0 3px rgba(0, 111, 95, 0.12);
+  }
+
+  ::selection {
+    background: rgba(201, 106, 58, 0.22);
+    color: var(--kalpa-text);
   }
 }
 
-/* Warm Ivory & Royal Saffron Card & Panel Styles */
+.kalpa-app-shell {
+  color: var(--kalpa-text);
+}
+
+.kalpa-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--kalpa-cream);
+}
+
+.kalpa-background-art {
+  position: absolute;
+  inset: 0;
+  background-image: url('/assets/kalpa-botanical-paper.png');
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.82;
+}
+
+.kalpa-background-ink {
+  position: absolute;
+  inset: 0;
+  background-image: url('/assets/kalpa-botanical-paper.png');
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.42;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(280px circle at var(--kalpa-pointer-x) var(--kalpa-pointer-y), #000 0%, transparent 72%);
+  mask-image: radial-gradient(280px circle at var(--kalpa-pointer-x) var(--kalpa-pointer-y), #000 0%, transparent 72%);
+  transition: opacity 420ms ease-out;
+}
+
+.kalpa-background-shine {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(300px circle at var(--kalpa-pointer-x) var(--kalpa-pointer-y), rgba(255, 255, 255, 0.58), transparent 68%);
+  mix-blend-mode: screen;
+  opacity: 0.22;
+  transition: opacity 320ms ease-out;
+}
+
+.kalpa-content {
+  min-height: 100vh;
+}
+
+.kalpa-landing { padding-bottom: 5rem; }
+.kalpa-hero {
+  align-items: center;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin: 0 auto;
+  min-height: 84vh;
+  padding: clamp(2.4rem, 6vh, 4.25rem) 1.25rem clamp(1.6rem, 4vh, 2.6rem);
+}
+.kalpa-hero-logo {
+  background: transparent;
+  display: block;
+  filter: drop-shadow(0 8px 20px rgba(80, 60, 40, 0.10));
+  height: auto;
+  margin: 0 auto;
+  max-width: 850px;
+  object-fit: contain;
+  width: min(68vw, 850px);
+}
+.kalpa-eyebrow { color: var(--kalpa-brown); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.16em; line-height: 1; }
+.kalpa-hero-caption {
+  font-size: clamp(1.2rem, 2.05vw, 2.05rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.28;
+  margin: 1.45rem auto 0;
+  max-width: 36rem;
+}
+.kalpa-hero-caption span { display: block; }
+.kalpa-hero-caption-lead { color: var(--kalpa-green-dark); }
+.kalpa-hero-caption-accent { color: var(--kalpa-orange); }
+.kalpa-hero-caption-end { color: var(--kalpa-text); }
+.kalpa-hero-cta { align-items: center; border-radius: 7px; display: inline-flex; font-size: 0.85rem; font-weight: 800; gap: 0.65rem; margin-top: 1.9rem; padding: 0.95rem 1.5rem; }
+.kalpa-language-row { align-items: center; color: var(--kalpa-text-muted); display: flex; flex-wrap: wrap; font-size: 0.75rem; gap: 0.5rem; justify-content: center; margin: 1.25rem auto 0; }
+.kalpa-language-label { font-weight: 700; }
+.kalpa-language-pill { background: rgba(251, 247, 239, 0.70); border: 1px solid rgba(191, 164, 125, 0.30); border-radius: 5px; color: var(--kalpa-brown); font-weight: 600; padding: 0.28rem 0.55rem; }
+.kalpa-journey-section, .kalpa-benefits-section { margin-top: clamp(4.5rem, 9vw, 7.5rem); }
+.kalpa-section-heading { margin: 0 auto 2rem; max-width: 40rem; text-align: center; }
+.kalpa-section-heading h2 { font-size: clamp(2rem, 3vw, 3rem); line-height: 1.15; margin-top: 0.8rem; }
+/* KALPA Journey 3D Paper Stack Carousel */
+.kalpa-journey-stack-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 0.75rem 0 0.5rem;
+  outline: none;
+  user-select: none;
+}
+
+.kalpa-journey-stack-wrapper:focus-visible {
+  outline: 2px solid rgba(0, 138, 114, 0.35);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.kalpa-paper-stage {
+  position: relative;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  perspective-origin: center 46%;
+  transform-style: preserve-3d;
+}
+
+.kalpa-paper-slide {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: -158px;
+  margin-left: -105px;
+  width: 210px;
+  height: 315px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: transparent;
+  transform-origin: center center;
+  will-change: transform, opacity, box-shadow;
+  backface-visibility: hidden;
+  touch-action: pan-y;
+  cursor: pointer;
+}
+
+.kalpa-paper-slide--active {
+  cursor: default;
+}
+
+.kalpa-paper-slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.kalpa-journey-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  color: var(--kalpa-brown);
+}
+
+.kalpa-journey-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--kalpa-green-dark);
+  padding: 0.4rem;
+  cursor: pointer;
+  transition: color 220ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 4px;
+}
+
+.kalpa-journey-arrow:hover {
+  color: var(--kalpa-orange);
+  transform: scale(1.12);
+}
+
+.kalpa-journey-arrow:active {
+  transform: scale(0.94);
+}
+
+.kalpa-journey-arrow svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.kalpa-journey-hint {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--kalpa-brown);
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+@media (max-width: 1179px) and (min-width: 768px) {
+  .kalpa-paper-stage {
+    height: 330px;
+    perspective: 1050px;
+  }
+  .kalpa-paper-slide {
+    width: 180px;
+    height: 270px;
+    margin-top: -135px;
+    margin-left: -90px;
+  }
+}
+
+@media (max-width: 767px) {
+  .kalpa-paper-stage {
+    height: 310px;
+    perspective: 800px;
+  }
+  .kalpa-paper-slide {
+    width: min(180px, 52vw);
+    height: min(270px, 78vw);
+    margin-top: calc(-1 * min(135px, 39vw));
+    margin-left: calc(-1 * min(90px, 26vw));
+  }
+  .kalpa-journey-hint {
+    font-size: 0.72rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kalpa-paper-slide {
+    transition: transform 200ms ease, opacity 200ms ease, box-shadow 200ms ease;
+  }
+  .kalpa-journey-arrow:hover {
+    transform: none;
+  }
+}
+/* ============================================================
+   KALPA JOURNEY — COVERFLOW 3D PERSPECTIVE CAROUSEL
+   ============================================================ */
+.kalpa-coverflow-container {
+  cursor: grab;
+}
+
+.kalpa-coverflow-container:active {
+  cursor: grabbing;
+}
+
+.kalpa-coverflow-card {
+  transform-origin: center center;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.kalpa-coverflow-card--active {
+  cursor: default;
+}
+
+/* ============================================================
+   KALPA BENEFITS — MINIMAL ARCHITECTURAL WINDOW
+   ============================================================ */
+.kalpa-minimal-benefits-track {
+  position: relative;
+  min-height: 280vh;
+}
+
+.kalpa-minimal-window {
+  box-shadow: 0 16px 36px rgba(80, 60, 40, 0.08), 0 2px 8px rgba(80, 60, 40, 0.04);
+}
+
 .royal-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(229, 220, 204, 0.8);
-  box-shadow: 0 4px 20px -2px rgba(28, 25, 23, 0.04);
+  background: #F1E4CC;
+  border: 1px solid rgba(104, 76, 53, 0.18);
+  box-shadow: 0 8px 30px rgba(90, 60, 35, 0.06);
 }
 
 .royal-card {
-  background: #FFFFFF;
-  border: 1px solid #EAE3D5;
-  box-shadow: 0 2px 12px -2px rgba(28, 25, 23, 0.05);
-  transition: all 0.2s ease-in-out;
+  background: #F1E4CC;
+  border: 1px solid rgba(104, 76, 53, 0.18);
+  box-shadow: 0 8px 30px rgba(90, 60, 35, 0.06);
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 
 .royal-card:hover {
-  border-color: #D97706;
-  box-shadow: 0 8px 24px -4px rgba(217, 83, 30, 0.08);
+  border-color: rgba(104, 76, 53, 0.30);
+  box-shadow: 0 10px 32px rgba(90, 60, 35, 0.08);
 }
 
 .saffron-gradient-btn {
-  background: linear-gradient(135deg, #EA580C 0%, #D9531E 100%);
+  background: var(--kalpa-orange);
   color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 14px 0 rgba(234, 88, 12, 0.25);
-  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  box-shadow: 0 4px 14px rgba(201, 106, 58, 0.22);
+  transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
 }
 
 .saffron-gradient-btn:hover {
-  background: linear-gradient(135deg, #C2410C 0%, #B45309 100%);
-  box-shadow: 0 6px 20px 0 rgba(234, 88, 12, 0.35);
+  background: var(--kalpa-orange-dark);
+  box-shadow: 0 8px 18px rgba(169, 85, 47, 0.28);
   transform: translateY(-1px);
 }
 
-/* Subtle Topographic Lines Animation */
-@keyframes topo-float {
-  0% {
-    transform: translateY(0px) rotate(0deg);
+.kalpa-editorial-title {
+  color: var(--kalpa-ink);
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+@media (max-width: 1024px) {
+  .kalpa-background-art {
+    background-size: auto 100%;
+    background-position: 70% center;
+    opacity: 0.60;
   }
-  50% {
-    transform: translateY(-8px) rotate(0.5deg);
-  }
-  100% {
-    transform: translateY(0px) rotate(0deg);
+
+  .kalpa-hero-logo {
+    max-width: 650px;
+    width: min(78vw, 650px);
   }
 }
 
-.animate-topo {
-  animation: topo-float 24s ease-in-out infinite;
+@media (max-width: 640px) {
+  .kalpa-background-art {
+    background-size: auto 72%;
+    background-position: 125% 12%;
+    opacity: 0.34;
+  }
+
+  .kalpa-background-shine {
+    display: none;
+  }
+
+  .kalpa-background-ink { display: none; }
+  .kalpa-hero {
+    min-height: 0;
+    padding: 2.4rem 0.85rem 1.5rem;
+  }
+  .kalpa-hero-logo {
+    max-width: none;
+    width: min(88vw, 100%);
+  }
+  .kalpa-hero-caption {
+    font-size: clamp(1.125rem, 5.2vw, 1.375rem);
+    margin-top: 1.15rem;
+    max-width: 20rem;
+  }
+  .kalpa-hero-cta {
+    margin-top: 1.5rem;
+    padding: 0.9rem 1.25rem;
+    width: auto;
+    max-width: calc(100vw - 2rem);
+  }
+  .kalpa-language-row {
+    margin-top: 1.1rem;
+  }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   KALPA MARKET INTELLIGENCE — COHESIVE EDITORIAL MASONRY
+   ============================================================ */
+.market-analysis-masonry {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .market-analysis-masonry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+.market-analysis-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .market-analysis-column {
+    gap: 1.5rem;
+  }
+}
+
+/* Hide floating elements during Growth Manager transition */
+body.kalpa-growth-transitioning .kalpa-assistant-floating-btn,
+body.kalpa-growth-transitioning button[aria-label="Ask KALPA"],
+body.kalpa-growth-transitioning .saffron-gradient-btn.fixed {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+

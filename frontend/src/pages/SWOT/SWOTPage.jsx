@@ -30,6 +30,62 @@ import {
 } from 'lucide-react';
 import apiService from '../../services/api';
 import { useWorkflow } from '../../context/WorkflowContext';
+import { useLanguage, TranslatedText } from '../../context/LanguageContext';
+import WorkflowTimeline from '../../components/workflow/WorkflowTimeline';
+import SwotQuadrantCard, { cleanEvidenceString } from '../../components/ui/SwotQuadrantCard';
+import FloatingAssistantWidget from '../../components/assistant/FloatingAssistantWidget';
+
+// Progressive 6-Stage Execution Definitions
+export const SWOT_EXECUTION_STAGES = [
+  {
+    key: 'evidence-validation',
+    index: 0,
+    number: '01',
+    title: 'Evidence validation',
+    subtitle: 'Checking verified market, finance, readiness and risk evidence',
+    defaultActivity: 'Validating upstream evidence across 5 analytical pillars…',
+  },
+  {
+    key: 'strength-extraction',
+    index: 1,
+    number: '02',
+    title: 'Strength extraction',
+    subtitle: 'Identifying verified internal capabilities',
+    defaultActivity: 'Analyzing promoter readiness, cash flow safety & competitive advantages…',
+  },
+  {
+    key: 'weakness-analysis',
+    index: 2,
+    number: '03',
+    title: 'Weakness analysis',
+    subtitle: 'Evaluating capability and operating constraints',
+    defaultActivity: 'Evaluating working capital buffer & operational dependencies…',
+  },
+  {
+    key: 'opportunity-mapping',
+    index: 3,
+    number: '04',
+    title: 'Opportunity mapping',
+    subtitle: 'Mapping verified market and growth opportunities',
+    defaultActivity: 'Mapping unmet catchment demand & institutional expansion linkages…',
+  },
+  {
+    key: 'threat-assessment',
+    index: 4,
+    number: '05',
+    title: 'Threat assessment',
+    subtitle: 'Evaluating external risks and business constraints',
+    defaultActivity: 'Assessing seasonal volatility, competitor pricing & compliance risks…',
+  },
+  {
+    key: 'swot-synthesis',
+    index: 5,
+    number: '06',
+    title: 'SWOT synthesis',
+    subtitle: 'Combining verified findings into strategic actions',
+    defaultActivity: 'Formulating executive strategic direction, priority action plan & phased roadmap…',
+  },
+];
 
 // Helper to format evidence values
 const formatVal = (v) => {
@@ -44,22 +100,41 @@ const formatVal = (v) => {
   }
 };
 
-// Stage Name Formatter for Provenance
+// Engine Name Formatter for Provenance (No stage numbers)
 const formatStageName = (stageCode) => {
-  const code = (stageCode || '').toUpperCase();
-  if (code.includes('STAGE_6') || code.includes('STAGE6')) return 'Stage 6 • Market Intelligence';
-  if (code.includes('STAGE_8') || code.includes('STAGE8')) return 'Stage 8 • Opportunity Evaluation';
-  if (code.includes('STAGE_9') || code.includes('STAGE9')) return 'Stage 9 • Financial Model';
-  if (code.includes('STAGE_10') || code.includes('STAGE10')) return 'Stage 10 • Entrepreneur Readiness';
-  if (code.includes('STAGE_11') || code.includes('STAGE11')) return 'Stage 11 • Multi-Vector Risk';
-  if (code.includes('STAGE_12') || code.includes('STAGE12')) return 'Stage 12 • Feasibility Engine';
-  if (code.includes('STAGE_3') || code.includes('STAGE3')) return 'Stage 3 • Business Profile';
-  return stageCode || 'Stage 12 • Feasibility';
+  if (!stageCode) return 'Feasibility';
+  const code = String(stageCode).toUpperCase();
+  if (code.includes('STAGE_6') || code.includes('STAGE6') || code.includes('MARKET')) return 'Market Intel';
+  if (code.includes('STAGE_8') || code.includes('STAGE8') || code.includes('OPPORTUNITY')) return 'Opportunity';
+  if (code.includes('STAGE_9') || code.includes('STAGE9') || code.includes('FINANCE') || code.includes('FINANCIAL')) return 'Finance';
+  if (code.includes('STAGE_10') || code.includes('STAGE10') || code.includes('READINESS') || code.includes('ENTREPRENEUR')) return 'Readiness';
+  if (code.includes('STAGE_11') || code.includes('STAGE11') || code.includes('RISK')) return 'Risk';
+  if (code.includes('STAGE_12') || code.includes('STAGE12') || code.includes('FEASIBILITY')) return 'Feasibility';
+  if (code.includes('STAGE_3') || code.includes('STAGE3') || code.includes('PROFILE')) return 'Profile';
+  return String(stageCode).replace(/STAGE_?\d+/gi, '').replace(/^[•\s\-_]+/, '').trim() || 'Analytical Engine';
 };
+
+// Deterministic unique key helper for SWOT items ensuring zero cross-category collision
+export const getDeterministicSwotKey = (category, item, idx, seenKeys = null) => {
+  const catPrefix = (category || 'item').toLowerCase().replace(/s$/, '');
+  const rawId = item?.id || item?.code;
+  let key = rawId ? `${catPrefix}-${rawId}` : `${catPrefix}-${item?.title ? String(item.title).trim().slice(0, 20).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase() : 'item'}-${idx}`;
+  if (seenKeys && seenKeys.has(key)) {
+    key = `${key}-${idx}`;
+  }
+  if (seenKeys) {
+    seenKeys.add(key);
+  }
+  return key;
+};
+
+const MIN_STEP_TIME_MS = 750;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function SWOTPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, language } = useLanguage();
   const {
     sessionId,
     analysisId,
@@ -70,123 +145,220 @@ export default function SWOTPage() {
   } = useWorkflow();
 
   const [loading, setLoading] = useState(true);
-  const [loadingStep, setLoadingStep] = useState('REQUESTING'); // REQUESTING -> ANALYZING -> GENERATING_SWOT -> COMPLETE
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const [completedStagesSet, setCompletedStagesSet] = useState(new Set());
+  const [stageActivities, setStageActivities] = useState({});
+  const [stageSummaries, setStageSummaries] = useState({});
+  const [failedStageIndex, setFailedStageIndex] = useState(null);
+  const [isPreparingResult, setIsPreparingResult] = useState(false);
   const [swotData, setSwotData] = useState(null);
   const [error, setError] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'strengths', 'weaknesses', 'opportunities', 'threats'
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   const effectiveAnalysisId = location.state?.analysisId || analysisId || sessionStorage.getItem('kalpa_analysis_id');
   const effectiveSessionId = location.state?.sessionId || sessionId || sessionStorage.getItem('kalpa_session_id');
 
   const hasFetchedRef = useRef(false);
+  const isExecutingRef = useRef(false);
 
-  const fetchSWOTAnalysis = useCallback(async (isRetry = false) => {
+  const executeSWOTSequential = useCallback(async (isRetry = false) => {
+    if (isExecutingRef.current) return;
+    isExecutingRef.current = true;
+
     setLoading(true);
     setError(null);
-    setLoadingStep('REQUESTING');
+    setFailedStageIndex(null);
+    setIsPreparingResult(false);
+    setCurrentStageIndex(0);
+    setCompletedStagesSet(new Set());
+    setStageActivities({});
+    setStageSummaries({});
+    setSwotData(null);
 
-    // Simulate progress steps for smooth UX
-    const stepTimer1 = setTimeout(() => setLoadingStep('ANALYZING'), 600);
-    const stepTimer2 = setTimeout(() => setLoadingStep('GENERATING_SWOT'), 1500);
+    let storedFinAnalysis = location.state?.financialAnalysis;
+    if (!storedFinAnalysis) {
+      try {
+        const raw = sessionStorage.getItem('kalpa_financial_analysis');
+        if (raw) storedFinAnalysis = JSON.parse(raw);
+      } catch (e) {}
+    }
 
-    try {
-      console.log('[STAGE 13 SWOT] Requesting analysis for:', {
-        analysisId: effectiveAnalysisId,
-        sessionId: effectiveSessionId,
-        forceRefresh: isRetry
-      });
+    let storedFinContext = location.state?.financialContext;
+    if (!storedFinContext) {
+      try {
+        const raw = sessionStorage.getItem('kalpa_financial_context');
+        if (raw) storedFinContext = JSON.parse(raw);
+      } catch (e) {}
+    }
+    if (!storedFinContext && storedFinAnalysis?.financial_context) {
+      storedFinContext = storedFinAnalysis.financial_context;
+    }
 
-      let storedFinAnalysis = location.state?.financialAnalysis;
-      if (!storedFinAnalysis) {
-        try {
-          const raw = sessionStorage.getItem('kalpa_financial_analysis');
-          if (raw) storedFinAnalysis = JSON.parse(raw);
-        } catch (e) {}
-      }
+    const payload = {
+      analysis_id: effectiveAnalysisId || undefined,
+      session_id: effectiveSessionId || undefined,
+      business_profile: location.state?.businessProfile || undefined,
+      location_profile: location.state?.locationProfile || undefined,
+      market_analysis: location.state?.marketAnalysis || undefined,
+      opportunity_result: location.state?.opportunityResult || undefined,
+      financial_analysis: storedFinAnalysis || undefined,
+      financial_context: storedFinContext || undefined,
+      entrepreneur_readiness: location.state?.entrepreneurReadiness || undefined,
+      risk_analysis: location.state?.riskAnalysis || undefined,
+      feasibility_result: location.state?.feasibilityResult || undefined,
+      language: language || 'en',
+      language_code: language || 'en',
+      force_refresh: isRetry
+    };
 
-      let storedFinContext = location.state?.financialContext;
-      if (!storedFinContext) {
-        try {
-          const raw = sessionStorage.getItem('kalpa_financial_context');
-          if (raw) storedFinContext = JSON.parse(raw);
-        } catch (e) {}
-      }
-      if (!storedFinContext && storedFinAnalysis?.financial_context) {
-        storedFinContext = storedFinAnalysis.financial_context;
-      }
+    const eventQueue = [];
+    let streamFinished = false;
+    let streamError = null;
 
-      const payload = {
-        analysis_id: effectiveAnalysisId || undefined,
-        session_id: effectiveSessionId || undefined,
-        business_profile: location.state?.businessProfile || undefined,
-        location_profile: location.state?.locationProfile || undefined,
-        market_analysis: location.state?.marketAnalysis || undefined,
-        opportunity_result: location.state?.opportunityResult || undefined,
-        financial_analysis: storedFinAnalysis || undefined,
-        financial_context: storedFinContext || undefined,
-        entrepreneur_readiness: location.state?.entrepreneurReadiness || undefined,
-        risk_analysis: location.state?.riskAnalysis || undefined,
-        feasibility_result: location.state?.feasibilityResult || undefined,
-        force_refresh: isRetry
-      };
-
-      const response = await apiService.swot.analyze(payload);
-      console.log('[STAGE 13 SWOT] Analysis response received:', response);
-
-      if (response.status === 'FAILED') {
-        setError({
-          errorCode: response.error_code || 'SWOT_LLM_UNAVAILABLE',
-          message: response.message || 'Business analysis is ready, but the strategic SWOT could not be generated right now.',
-          retryable: response.retryable ?? true
+    // Launch SSE Stream or fallback
+    (async () => {
+      try {
+        console.log('[SWOT STREAM] Launching stage 13 agent stream:', payload);
+        await apiService.swot.stream(payload, (evt) => {
+          eventQueue.push(evt);
         });
-      } else {
-        setSwotData(response);
-
-        // Auto-expand all items by default
-        const initialExpanded = {};
-        ['strengths', 'weaknesses', 'opportunities', 'threats'].forEach(cat => {
-          (response.swot?.[cat] || []).forEach(item => {
-            if (item && item.id) {
-              initialExpanded[item.id] = true;
-            }
+      } catch (err) {
+        console.warn('[SWOT STREAM] Direct stream encountered error, attempting fallback:', err);
+        try {
+          const syncResp = await apiService.swot.analyze(payload);
+          SWOT_EXECUTION_STAGES.forEach((stg, i) => {
+            eventQueue.push({ step: stg.key, step_index: i, status: 'running', activity: stg.defaultActivity });
+            eventQueue.push({ step: stg.key, step_index: i, status: 'completed', summary: stg.subtitle });
           });
-        });
-        setExpandedItems(initialExpanded);
+          eventQueue.push({ step: 'complete', step_index: 6, status: 'completed', result: syncResp });
+        } catch (syncErr) {
+          streamError = syncErr;
+        }
+      } finally {
+        streamFinished = true;
+      }
+    })();
 
-        // Mark Stage 13 completed in workflow context
-        if (response.status === 'COMPLETED' || response.status === 'complete') {
-          if (!completedStages?.includes(13)) {
-            updateWorkflowState({
-              completedStages: Array.from(new Set([...(completedStages || []), 13])),
-              currentStage: 13,
-              availableStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14],
-            });
+    // Sequentially process events with perceptible pacing
+    try {
+      let finalResultData = null;
+      let lastCompletedIdx = -1;
+
+      while (true) {
+        if (eventQueue.length > 0) {
+          const evt = eventQueue.shift();
+
+          if (evt.status === 'blocked') {
+            setSwotData({ status: 'BLOCKED_NOT_FEASIBLE', message: evt.message });
+            setLoading(false);
+            isExecutingRef.current = false;
+            return;
           }
+
+          if (evt.status === 'failed' || evt.step === 'error') {
+            const failIdx = evt.step_index ?? currentStageIndex;
+            setFailedStageIndex(failIdx);
+            setError({
+              errorCode: evt.error_code || 'SWOT_STAGE_FAILED',
+              message: evt.message || 'Stage execution failed.',
+              retryable: true
+            });
+            setLoading(false);
+            isExecutingRef.current = false;
+            return;
+          }
+
+          if (evt.step === 'complete' && evt.result) {
+            finalResultData = evt.result;
+          } else if (typeof evt.step_index === 'number') {
+            const idx = evt.step_index;
+            if (evt.status === 'running') {
+              setCurrentStageIndex(idx);
+              if (evt.activity) {
+                setStageActivities(prev => ({ ...prev, [idx]: evt.activity }));
+              }
+              await sleep(MIN_STEP_TIME_MS);
+            } else if (evt.status === 'completed') {
+              setCompletedStagesSet(prev => new Set(prev).add(idx));
+              if (evt.summary) {
+                setStageSummaries(prev => ({ ...prev, [idx]: evt.summary }));
+              }
+              lastCompletedIdx = Math.max(lastCompletedIdx, idx);
+            }
+          }
+        } else if (streamFinished) {
+          if (streamError) {
+            setError({
+              errorCode: 'SWOT_API_ERROR',
+              message: streamError.message || 'Failed to communicate with Dynamic SWOT Agent. Please retry.',
+              retryable: true
+            });
+            setLoading(false);
+            isExecutingRef.current = false;
+            return;
+          }
+
+          if (finalResultData) {
+            // Mark all 6 stages completed
+            setCompletedStagesSet(new Set([0, 1, 2, 3, 4, 5]));
+            setIsPreparingResult(true);
+            setSwotData(finalResultData);
+
+            // Auto-expand all items
+            const initialExpanded = {};
+            ['strengths', 'weaknesses', 'opportunities', 'threats'].forEach(cat => {
+              const catPrefix = cat.replace(/s$/, '');
+              const seen = new Set();
+              (finalResultData.swot?.[cat] || []).forEach((item, idx) => {
+                const key = getDeterministicSwotKey(catPrefix, item, idx, seen);
+                initialExpanded[key] = true;
+                if (item?.id) initialExpanded[item.id] = true;
+              });
+            });
+            setExpandedItems(initialExpanded);
+
+            // Mark SWOT completed in workflow context
+            if (finalResultData.status === 'COMPLETED' || finalResultData.status === 'complete') {
+              if (!completedStages?.includes(13)) {
+                updateWorkflowState({
+                  completedStages: Array.from(new Set([...(completedStages || []), 13])),
+                  currentStage: 13,
+                  availableStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14],
+                });
+              }
+            }
+
+            await sleep(450); // Clean visual conclusion transition
+            setLoading(false);
+            isExecutingRef.current = false;
+            return;
+          }
+          await sleep(60);
+        } else {
+          await sleep(60);
         }
       }
-    } catch (err) {
-      console.error('[STAGE 13 SWOT] Error fetching SWOT:', err);
+    } catch (loopErr) {
+      console.error('[SWOT QUEUE ERROR]', loopErr);
       setError({
-        errorCode: 'SWOT_API_ERROR',
-        message: err.message || 'Failed to communicate with Dynamic SWOT service. Please check connection and retry.',
+        errorCode: 'SWOT_PROCESSING_ERROR',
+        message: loopErr.message || 'Execution error during SWOT analysis.',
         retryable: true
       });
-    } finally {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
       setLoading(false);
-      setLoadingStep('COMPLETE');
+      isExecutingRef.current = false;
     }
-  }, [effectiveAnalysisId, effectiveSessionId, location.state]);
+  }, [effectiveAnalysisId, effectiveSessionId, location.state, language, completedStages, updateWorkflowState, currentStageIndex]);
 
   // Initial load once on mount
   useEffect(() => {
     if (!hasFetchedRef.current) {
       hasFetchedRef.current = true;
-      fetchSWOTAnalysis();
+      executeSWOTSequential(false);
     }
-  }, [fetchSWOTAnalysis]);
+  }, [executeSWOTSequential]);
 
   const toggleItem = (id) => {
     setExpandedItems(prev => ({
@@ -198,158 +370,161 @@ export default function SWOTPage() {
   const getPriorityBadgeClass = (priority) => {
     switch ((priority || '').toUpperCase()) {
       case 'HIGH':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
+        return 'bg-[#FAF2E3] text-[#A05A35] border-[#A05A35]/30 font-bold';
       case 'MEDIUM':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25';
       case 'LOW':
-        return 'bg-stone-50 text-stone-600 border-stone-200';
+        return 'bg-[#FAF7F2] text-[#79563F]/80 border-[#79563F]/20';
       default:
-        return 'bg-orange-50 text-orange-700 border-orange-200';
+        return 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25';
     }
   };
-
-  const getStatusBadgeClass = (status) => {
-    switch ((status || '').toUpperCase()) {
-      case 'KNOWN':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'INFERRED':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'DATA_GAP':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      default:
-        return 'bg-stone-50 text-stone-700 border-stone-200';
-    }
-  };
-
-  const isFallbackMode = swotData?.generation?.mode === 'DETERMINISTIC_FALLBACK';
-  const isSarvamMode = swotData?.generation?.mode === 'SARVAM_LLM' || (!swotData?.generation && swotData?.model_metadata?.provider === 'sarvam');
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-stone-900 font-sans pb-24">
-      {/* Top Breadcrumb & Workflow Stepper */}
-      <div className="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <Link
-                to="/feasibility"
-                className="p-1.5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-600 transition flex items-center cursor-pointer"
-                title="Back to Feasibility"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </Link>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-[#EA580C]/10 text-[#EA580C]">
-                    STAGE 13
-                  </span>
-                  <span className="text-xs font-semibold text-stone-500">
-                    Strategic Interpretation & Advisory
-                  </span>
-                </div>
-                <h1 className="text-lg font-bold text-stone-900 font-['Outfit']">
-                  Business SWOT & Strategic Roadmap
-                </h1>
-              </div>
-            </div>
-
-            {/* Workflow Stage Progress Indicator */}
-            <div className="flex items-center space-x-1.5 overflow-x-auto py-1 text-xs">
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Market (6/8)</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Finance (9)</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Entrepreneur (10)</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Risk (11)</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Feasibility (12)</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <span className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-[#EA580C] text-white font-bold shadow-xs">
-                <span>SWOT (13) ●</span>
-              </span>
-              <span className="text-stone-300">›</span>
-              <Link
-                to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
-                state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
-                className="flex items-center space-x-1 px-2 py-1 rounded-md bg-stone-100 text-stone-600 hover:text-[#EA580C]"
-              >
-                <FileText className="w-3 h-3" />
-                <span>DPR (14)</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
+    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8 space-y-8 relative text-[#28231F]">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Loading State with Stage Feedback */}
+        {/* 1. Canonical KALPA Workflow Timeline Header */}
+        <WorkflowTimeline />
+
+        {/* 2. True Sequential SWOT Agent Loader */}
         {loading && (
-          <div className="bg-white rounded-3xl p-12 border border-stone-200 shadow-sm text-center space-y-5">
-            <div className="w-12 h-12 border-3 border-[#EA580C] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="royal-card bg-[#FAF7F2] rounded-3xl p-8 sm:p-12 border border-[#79563F]/20 shadow-xs max-w-2xl mx-auto space-y-8 text-center animate-fadeIn">
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-stone-900 font-['Outfit']">
-                {loadingStep === 'REQUESTING' && 'Connecting to Stage 13 Dynamic SWOT Agent...'}
-                {loadingStep === 'ANALYZING' && 'Ingesting Verified Facts from Stages 6, 8, 9, 10, 11 & 12...'}
-                {loadingStep === 'GENERATING_SWOT' && 'Synthesizing Strategic SWOT & Cross-Engine Relationships...'}
-                {loadingStep === 'COMPLETE' && 'Finalizing Strategic Roadmap...'}
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25 shadow-2xs">
+                <Compass className="w-3.5 h-3.5 text-[#79563F]" />
+                <span>STAGE 13 · DYNAMIC SWOT AGENT</span>
+              </div>
+              <h3 className="text-2xl font-bold text-[#1C1917] font-['Outfit']">
+                Strategic Synthesis Pipeline
               </h3>
-              <p className="text-xs text-stone-500 max-w-md mx-auto leading-relaxed">
-                Correlating market demand, financial DSCR, promoter skill readiness, and multi-vector risk mitigations without data fabrication.
+              <p className="text-xs text-[#79563F] max-w-md mx-auto leading-relaxed">
+                Autonomous sequential reasoning synthesizing verified upstream evidence across 5 analytical pillars.
               </p>
             </div>
 
-            <div className="flex justify-center items-center space-x-2 text-[11px] text-stone-400 pt-2">
-              <span className={`px-2 py-0.5 rounded ${loadingStep === 'REQUESTING' ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-stone-100'}`}>1. Ingest</span>
-              <span>→</span>
-              <span className={`px-2 py-0.5 rounded ${loadingStep === 'ANALYZING' ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-stone-100'}`}>2. Normalize</span>
-              <span>→</span>
-              <span className={`px-2 py-0.5 rounded ${loadingStep === 'GENERATING_SWOT' ? 'bg-orange-100 text-orange-800 font-bold' : 'bg-stone-100'}`}>3. Synthesize</span>
+            {/* Progressive 6-Stage Processing Timeline */}
+            <div className="text-left space-y-4 max-w-xl mx-auto pt-2">
+              {SWOT_EXECUTION_STAGES.map((stg, idx) => {
+                const isCompleted = completedStagesSet.has(idx);
+                const isActive = currentStageIndex === idx && !isCompleted;
+                const isFailed = failedStageIndex === idx;
+
+                return (
+                  <div key={stg.key} className="relative flex items-start gap-4">
+                    {/* Step Icon / Circle Badge */}
+                    <div className="flex flex-col items-center flex-shrink-0 pt-0.5">
+                      {isCompleted ? (
+                        <div className="w-7 h-7 rounded-full bg-[#1B4D3E] text-white flex items-center justify-center shadow-xs transition-transform duration-300 scale-100">
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </div>
+                      ) : isFailed ? (
+                        <div className="w-7 h-7 rounded-full bg-[#9B2C2C] text-white flex items-center justify-center shadow-xs">
+                          <AlertOctagon className="w-4 h-4" />
+                        </div>
+                      ) : isActive ? (
+                        <div className="w-7 h-7 rounded-full bg-[#EAF5EE] border-2 border-[#1B4D3E] flex items-center justify-center relative shadow-xs">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#1B4D3E] animate-ping absolute opacity-75" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#1B4D3E] relative" />
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 rounded-full border border-[#79563F]/25 bg-[#FAF2E3] flex items-center justify-center text-[11px] font-mono text-[#79563F]/50">
+                          {stg.number}
+                        </div>
+                      )}
+
+                      {/* Connecting Line */}
+                      {idx < SWOT_EXECUTION_STAGES.length - 1 && (
+                        <div
+                          className={`w-0.5 h-8 mt-1 transition-colors duration-300 ${
+                            isCompleted ? 'bg-[#1B4D3E]' : 'bg-[#79563F]/15'
+                          }`}
+                        />
+                      )}
+                    </div>
+
+                    {/* Step Text Info */}
+                    <div className="space-y-1 pb-2 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4
+                          className={`text-xs font-bold leading-tight transition-colors duration-200 ${
+                            isCompleted
+                              ? 'text-[#1C1917]'
+                              : isActive
+                              ? 'text-[#1B4D3E]'
+                              : 'text-[#79563F]/60'
+                          }`}
+                        >
+                          <span className="font-mono text-[11px] mr-1.5 opacity-80">{stg.number} ·</span>
+                          {stg.title}
+                        </h4>
+
+                        {isActive && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1B4D3E] uppercase tracking-wider bg-[#EAF5EE] px-2 py-0.5 rounded-full border border-[#1B4D3E]/30 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1B4D3E]" />
+                            RUNNING
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="text-[10px] font-bold text-[#1B4D3E] uppercase tracking-wider">
+                            COMPLETED
+                          </span>
+                        )}
+                      </div>
+
+                      {isActive ? (
+                        <p className="text-[11px] text-[#79563F] font-medium leading-relaxed animate-pulse">
+                          {stageActivities[idx] || stg.defaultActivity}
+                        </p>
+                      ) : isCompleted ? (
+                        <p className="text-[11px] text-[#79563F]/80 leading-relaxed">
+                          {stageSummaries[idx] || stg.subtitle}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-[#79563F]/45 leading-relaxed">
+                          {stg.subtitle}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Preparing Final Result Banner */}
+            {isPreparingResult && (
+              <div className="p-3.5 bg-[#EAF5EE] rounded-2xl border border-[#1B4D3E]/30 text-xs font-bold text-[#1B4D3E] flex items-center justify-center gap-2 animate-fadeIn shadow-2xs">
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>SWOT synthesis complete · Preparing your strategic analysis…</span>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Error / LLM Unavailable State */}
+        {/* 3. Error / LLM Unavailable State */}
         {!loading && error && (
-          <div className="bg-amber-50/80 border-2 border-amber-300 rounded-3xl p-8 space-y-6 shadow-sm">
+          <div className="royal-card bg-[#FAF7F2] border border-[#A05A35]/30 rounded-3xl p-8 space-y-6 shadow-xs text-[#1C1917]">
             <div className="flex items-start space-x-4">
-              <div className="p-3 bg-amber-100 rounded-2xl text-amber-800 flex-shrink-0">
-                <AlertOctagon className="w-8 h-8" />
+              <div className="p-3 bg-[#FAF2E3] rounded-2xl text-[#A05A35] border border-[#A05A35]/30 flex-shrink-0">
+                <AlertOctagon className="w-7 h-7" />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">
-                    {error.errorCode || 'SERVICE UNAVAILABLE'}
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF2E3] text-[#A05A35] border border-[#A05A35]/30">
+                    {error.errorCode || 'SERVICE NOTICE'}
                   </span>
-                  <span className="text-xs text-amber-800 font-medium">Stage 13 Strategic Agent</span>
+                  <span className="text-xs text-[#79563F] font-medium">Strategic SWOT Engine</span>
                 </div>
-                <h3 className="text-xl font-bold text-amber-950 font-['Outfit']">
-                  Dynamic SWOT Analysis Notice
+                <h3 className="text-lg font-bold text-[#1C1917] font-['Outfit']">
+                  SWOT Analysis Notice
                 </h3>
-                <p className="text-xs text-amber-900/90 max-w-2xl leading-relaxed">
+                <p className="text-xs text-[#79563F] max-w-2xl leading-relaxed">
                   {error.message}
                 </p>
-                <div className="p-3.5 bg-white/80 rounded-xl border border-amber-200 text-xs text-stone-700 space-y-1">
-                  <div className="font-semibold text-stone-900">Deterministic Engine Status:</div>
-                  <div>✓ All upstream calculations (Stages 6–12) remain intact and persisted in the database.</div>
-                  <div>✓ You can retry SWOT analysis or trigger a deterministic fallback synthesis.</div>
+                <div className="p-3.5 bg-[#FAF2E3] rounded-xl border border-[#79563F]/18 text-xs text-[#28231F] space-y-1">
+                  <div className="font-semibold text-[#1C1917]">Deterministic Status:</div>
+                  <div>✓ All upstream calculations remain intact and persisted.</div>
+                  <div>✓ You can retry the SWOT analysis or proceed with existing findings.</div>
                 </div>
               </div>
             </div>
@@ -357,15 +532,16 @@ export default function SWOTPage() {
             {error.retryable && (
               <div className="flex items-center space-x-3 pt-2">
                 <button
-                  onClick={() => fetchSWOTAnalysis(true)}
-                  className="px-5 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer"
+                  type="button"
+                  onClick={() => executeSWOTSequential(true)}
+                  className="saffron-gradient-btn px-5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02]"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span>Retry SWOT Analysis</span>
                 </button>
                 <Link
                   to="/feasibility"
-                  className="px-4 py-2.5 bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 rounded-xl text-xs font-bold transition"
+                  className="px-4 py-2.5 bg-[#FAF2E3] border border-[#79563F]/25 hover:bg-[#FAF7F2] text-[#79563F] rounded-xl text-xs font-bold transition"
                 >
                   Return to Feasibility
                 </Link>
@@ -374,171 +550,151 @@ export default function SWOTPage() {
           </div>
         )}
 
-        {/* Blocked / Not Feasible State */}
+        {/* 4. Blocked / Not Feasible State */}
         {!loading && swotData?.status === 'BLOCKED_NOT_FEASIBLE' && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-3xl p-8 space-y-6 shadow-sm">
+          <div className="royal-card bg-[#FAF7F2] border border-[#A05A35]/30 rounded-3xl p-8 space-y-6 shadow-xs text-[#1C1917]">
             <div className="flex items-start space-x-4">
-              <div className="p-3 bg-red-100 rounded-2xl text-red-800 flex-shrink-0">
-                <AlertTriangle className="w-8 h-8" />
+              <div className="p-3 bg-[#FAF2E3] rounded-2xl text-[#A05A35] border border-[#A05A35]/30 flex-shrink-0">
+                <AlertTriangle className="w-7 h-7" />
               </div>
               <div className="space-y-2">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-200 text-red-900">
-                  STAGE 12: YES-PATHWAY GATED
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF2E3] text-[#A05A35] border border-[#A05A35]/30">
+                  FEASIBILITY GATE
                 </span>
-                <h3 className="text-xl font-bold text-red-950 font-['Outfit']">
+                <h3 className="text-lg font-bold text-[#1C1917] font-['Outfit']">
                   SWOT Gated for Non-Viable Venture
                 </h3>
-                <p className="text-xs text-red-800 max-w-2xl leading-relaxed">
-                  {swotData.message || 'Stage 13 Dynamic SWOT is reserved for viable ventures. Since Stage 12 concluded as NOT_FEASIBLE, please review the recommended business pivots.'}
+                <p className="text-xs text-[#79563F] max-w-2xl leading-relaxed">
+                  {swotData.message || 'Dynamic SWOT is reserved for viable ventures. Please review recommended business pivots in Feasibility.'}
                 </p>
               </div>
             </div>
-            <Link to="/feasibility">
-              <button className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer">
-                <span>View Feasibility & Pivot Advisor</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <Link
+              to="/feasibility"
+              className="saffron-gradient-btn px-5 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-xs transition-all hover:scale-[1.02]"
+            >
+              <span>View Feasibility & Pivot Advisor</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         )}
 
-        {/* Completed Strategic SWOT Report */}
+        {/* 5. Completed Strategic SWOT Report */}
         {!loading && swotData && (swotData.status === 'COMPLETED' || swotData.status === 'complete') && (
           <div className="space-y-8 animate-fadeIn">
             
-            {/* Top Enterprise Advisory Banner */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-stone-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center space-x-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>STAGE 12: VIABLE VENTURE</span>
-                  </span>
-
-                  {isSarvamMode && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EA580C]/10 text-[#EA580C] border border-[#EA580C]/20 flex items-center space-x-1">
-                      <Cpu className="w-3 h-3 text-[#EA580C]" />
-                      <span>SARVAM 105B AI SYNTHESIS</span>
+            {/* SWOT Hero Banner */}
+            <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#79563F]/18 shadow-xs relative overflow-hidden bg-[#FAF2E3]">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/25 uppercase tracking-wider">
+                      {t('swot_title', 'SWOT Analysis')}
                     </span>
-                  )}
+                    {swotData.confidence > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/25">
+                        {t('confidence', 'Confidence')} {(swotData.confidence * 100).toFixed(0)}%
+                      </span>
+                    )}
+                  </div>
 
-                  {isFallbackMode && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 flex items-center space-x-1">
-                      <Database className="w-3 h-3 text-blue-600" />
-                      <span>DETERMINISTIC EVIDENCE SYNTHESIS</span>
-                    </span>
-                  )}
+                  <h2 className="text-2xl font-bold text-[#1C1917] font-['Outfit']">
+                    <TranslatedText text={swotData.business_name || businessName || 'Commercial Dairy Farm'} />
+                  </h2>
 
-                  {swotData.confidence > 0 && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
-                      SWOT Confidence: {(swotData.confidence * 100).toFixed(0)}%
+                  <p className="text-xs text-[#79563F] max-w-2xl leading-relaxed">
+                    {t('swot_subtitle', 'Strategic view of internal capabilities and external business factors.')}
+                  </p>
+
+                  <div className="flex items-center space-x-4 text-xs text-[#79563F] pt-1">
+                    <span className="flex items-center space-x-1">
+                      <MapPin className="w-3.5 h-3.5 text-[#79563F]/70" />
+                      <span><TranslatedText text={swotData.location || 'Local Cluster'} /></span>
                     </span>
-                  )}
+                    <span className="text-[#79563F]/40">•</span>
+                    <span className="flex items-center space-x-1">
+                      <Layers className="w-3.5 h-3.5 text-[#79563F]/70" />
+                      <span>{t('multi_pillar_evidence', 'Multi-Pillar Evidence Verified')}</span>
+                    </span>
+                  </div>
                 </div>
 
-                <h2 className="text-2xl font-bold text-stone-900 font-['Outfit']">
-                  {swotData.business_name || businessName || 'Rural Micro-Enterprise'}
-                </h2>
-
-                <div className="flex items-center space-x-4 text-xs text-stone-600">
-                  <span className="flex items-center space-x-1">
-                    <MapPin className="w-3.5 h-3.5 text-stone-400" />
-                    <span>{swotData.location || 'Local Cluster'}</span>
-                  </span>
-                  <span className="text-stone-300">•</span>
-                  <span className="flex items-center space-x-1">
-                    <Layers className="w-3.5 h-3.5 text-stone-400" />
-                    <span>Grounded in Stages 6–12 Evidence</span>
-                  </span>
+                <div className="flex items-center space-x-3">
+                  <Link
+                    to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}&business_id=${businessId || effectiveSessionId || ''}`}
+                    state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                    className="saffron-gradient-btn px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02] shrink-0 self-end sm:self-auto"
+                  >
+                    <span>{t('proceed_to_dpr', 'Proceed to DPR')}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => fetchSWOTAnalysis(true)}
-                  className="px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
-                  title="Regenerate Strategic SWOT"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Refresh SWOT</span>
-                </button>
-                <Link
-                  to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
-                  state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
-                >
-                  <button className="px-5 py-2.5 bg-[#EA580C] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer">
-                    <span>Generate Bank DPR (Stage 14)</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </Link>
               </div>
             </div>
 
             {/* Strategic Summary & Executive Synthesis */}
             {(swotData.strategic_summary || swotData.swot?.executive_summary) && (
-              <div className="bg-gradient-to-br from-stone-900 via-stone-800 to-stone-900 text-white rounded-3xl p-6 sm:p-8 shadow-lg space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-orange-400 flex items-center space-x-1">
-                      <Compass className="w-3.5 h-3.5" />
-                      <span>EXECUTIVE STRATEGIC DIRECTION</span>
-                    </span>
-                    <h3 className="text-xl font-bold font-['Outfit']">
-                      What This Means for Your Business
-                    </h3>
-                  </div>
+              <div className="royal-card bg-[#FAF2E3] rounded-3xl p-6 sm:p-8 border border-[#79563F]/20 shadow-xs space-y-6 text-[#1C1917]">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F] flex items-center space-x-1.5">
+                    <Compass className="w-3.5 h-3.5 text-[#79563F]" />
+                    <span>{t('swot_executive_direction', 'EXECUTIVE STRATEGIC DIRECTION')}</span>
+                  </span>
+                  <h3 className="text-xl font-bold text-[#1C1917] font-['Outfit']">
+                    {t('swot_what_means', 'What This Means for Your Business')}
+                  </h3>
                 </div>
 
-                <p className="text-sm text-stone-300 leading-relaxed max-w-4xl">
-                  {swotData.swot?.executive_summary || swotData.strategic_summary?.business_position}
+                <p className="text-sm text-[#28231F] leading-relaxed max-w-4xl">
+                  <TranslatedText text={cleanEvidenceString(swotData.swot?.executive_summary || swotData.strategic_summary?.business_position)} />
                 </p>
 
                 {swotData.swot?.strategic_direction && swotData.swot.strategic_direction !== swotData.swot.executive_summary && (
-                  <div className="p-3.5 bg-white/5 rounded-xl border border-white/10 text-xs text-stone-300">
-                    <strong className="text-orange-300">Strategic Direction: </strong>
-                    {swotData.swot.strategic_direction}
+                  <div className="p-3.5 bg-[#FAF7F2] rounded-xl border border-[#79563F]/18 text-xs text-[#28231F]">
+                    <strong className="text-[#79563F]">{t('strategic_direction', 'Strategic Direction')}: </strong>
+                    <TranslatedText text={cleanEvidenceString(swotData.swot.strategic_direction)} />
                   </div>
                 )}
 
                 {swotData.strategic_summary && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-stone-700/60">
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-1.5">
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide flex items-center space-x-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>Key Advantage</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2 border-t border-[#79563F]/15">
+                    <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-[#79563F]/15 space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#1B4D3E] uppercase tracking-wide flex items-center space-x-1">
+                        <CheckCircle2 className="w-3 h-3 text-[#1B4D3E]" />
+                        <span>{t('key_advantage', 'Key Advantage')}</span>
                       </span>
-                      <p className="text-xs text-stone-200 leading-snug">
-                        {swotData.strategic_summary.key_advantage}
+                      <p className="text-xs text-[#28231F] leading-snug">
+                        <TranslatedText text={cleanEvidenceString(swotData.strategic_summary.key_advantage)} />
                       </p>
                     </div>
 
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-1.5">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide flex items-center space-x-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        <span>Main Constraint</span>
+                    <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-[#79563F]/15 space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#A05A35] uppercase tracking-wide flex items-center space-x-1">
+                        <AlertTriangle className="w-3 h-3 text-[#A05A35]" />
+                        <span>{t('main_constraint', 'Main Constraint')}</span>
                       </span>
-                      <p className="text-xs text-stone-200 leading-snug">
-                        {swotData.strategic_summary.main_constraint}
+                      <p className="text-xs text-[#28231F] leading-snug">
+                        <TranslatedText text={cleanEvidenceString(swotData.strategic_summary.main_constraint)} />
                       </p>
                     </div>
 
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-1.5">
-                      <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wide flex items-center space-x-1">
-                        <Lightbulb className="w-3 h-3" />
-                        <span>Top Growth Opportunity</span>
+                    <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-[#79563F]/15 space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#2C5282] uppercase tracking-wide flex items-center space-x-1">
+                        <Lightbulb className="w-3 h-3 text-[#2C5282]" />
+                        <span>{t('top_growth_opportunity', 'Top Growth Opportunity')}</span>
                       </span>
-                      <p className="text-xs text-stone-200 leading-snug">
-                        {swotData.strategic_summary.biggest_opportunity}
+                      <p className="text-xs text-[#28231F] leading-snug">
+                        <TranslatedText text={cleanEvidenceString(swotData.strategic_summary.biggest_opportunity)} />
                       </p>
                     </div>
 
-                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 space-y-1.5">
-                      <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wide flex items-center space-x-1">
-                        <ShieldAlert className="w-3 h-3" />
-                        <span>Critical Threat</span>
+                    <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-[#79563F]/15 space-y-1.5">
+                      <span className="text-[10px] font-bold text-[#9B2C2C] uppercase tracking-wide flex items-center space-x-1">
+                        <ShieldAlert className="w-3 h-3 text-[#9B2C2C]" />
+                        <span>{t('critical_threat', 'Critical Threat')}</span>
                       </span>
-                      <p className="text-xs text-stone-200 leading-snug">
-                        {swotData.strategic_summary.biggest_threat}
+                      <p className="text-xs text-[#28231F] leading-snug">
+                        <TranslatedText text={cleanEvidenceString(swotData.strategic_summary.biggest_threat)} />
                       </p>
                     </div>
                   </div>
@@ -547,494 +703,122 @@ export default function SWOTPage() {
             )}
 
             {/* SWOT 4-Quadrant Filter Navigation */}
-            <div className="flex items-center space-x-2 border-b border-stone-200 pb-2 overflow-x-auto">
+            <div className="flex items-center space-x-2 pb-1 overflow-x-auto">
               {[
-                { id: 'all', label: 'All 4 Quadrants' },
-                { id: 'strengths', label: `Strengths (${swotData.swot?.strengths?.length || 0})`, color: 'text-emerald-700' },
-                { id: 'weaknesses', label: `Weaknesses (${swotData.swot?.weaknesses?.length || 0})`, color: 'text-amber-700' },
-                { id: 'opportunities', label: `Opportunities (${swotData.swot?.opportunities?.length || 0})`, color: 'text-blue-700' },
-                { id: 'threats', label: `Threats (${swotData.swot?.threats?.length || 0})`, color: 'text-rose-700' },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-stone-900 text-white shadow-xs'
-                      : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
-                  }`}
-                >
-                  <span className={tab.color}>{tab.label}</span>
-                </button>
-              ))}
+                { id: 'all', label: t('swot_all_quadrants', 'All 4 Quadrants'), count: null, dotColor: 'bg-[#79563F]' },
+                { id: 'strengths', label: t('swot_strengths', 'Strengths'), count: swotData.swot?.strengths?.length || 0, dotColor: 'bg-[#1B4D3E]' },
+                { id: 'weaknesses', label: t('swot_weaknesses', 'Weaknesses'), count: swotData.swot?.weaknesses?.length || 0, dotColor: 'bg-[#A05A35]' },
+                { id: 'opportunities', label: t('swot_opportunities', 'Opportunities'), count: swotData.swot?.opportunities?.length || 0, dotColor: 'bg-[#2C5282]' },
+                { id: 'threats', label: t('swot_threats', 'Threats'), count: swotData.swot?.threats?.length || 0, dotColor: 'bg-[#9B2C2C]' },
+              ].map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#79563F] text-white shadow-2xs'
+                        : 'bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/20 hover:bg-[#F2E8D5]'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${tab.dotColor} ${isActive ? 'ring-1 ring-white' : ''}`} />
+                    <span>{tab.label}</span>
+                    {tab.count !== null && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-[#FAF7F2] text-[#79563F]'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* SWOT Quadrants Grid */}
+            {/* SWOT Quadrants 2x2 Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* STRENGTHS */}
               {(activeTab === 'all' || activeTab === 'strengths') && (
-                <div className="bg-white rounded-3xl p-6 border-2 border-emerald-200 shadow-xs space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-emerald-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2.5 bg-emerald-100 rounded-2xl text-emerald-800">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-bold text-emerald-950 font-['Outfit']">
-                          STRENGTHS
-                        </h4>
-                        <p className="text-[11px] text-emerald-700">
-                          What is already working in your favor (Internal Positive)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                      {swotData.swot?.strengths?.length || 0} Identified
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {swotData.swot?.strengths?.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-100 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-[10px] font-mono font-bold text-emerald-800">
-                                {item.id || `ST-${String(idx + 1).padStart(3, '0')}`}
-                              </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPriorityBadgeClass(item.priority)}`}>
-                                {item.priority || 'HIGH'} IMPACT
-                              </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-emerald-100/80 text-emerald-900 border-emerald-200">
-                                {formatStageName(item.source_stage)}
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-stone-900">
-                              {item.title}
-                            </h5>
-                          </div>
-                          <button
-                            onClick={() => toggleItem(item.id || `ST-${idx}`)}
-                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-emerald-100/60 transition cursor-pointer"
-                            title="Toggle details"
-                          >
-                            {expandedItems[item.id || `ST-${idx}`] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-stone-700 leading-relaxed">
-                          {item.explanation || item.statement}
-                        </p>
-
-                        {expandedItems[item.id || `ST-${idx}`] && (
-                          <div className="pt-2 border-t border-emerald-100 space-y-2 text-xs animate-fadeIn">
-                            {item.why_it_matters && item.why_it_matters !== item.explanation && (
-                              <div className="bg-white/80 rounded-xl p-3 border border-emerald-100 space-y-1">
-                                <span className="text-[10px] font-bold text-emerald-900 uppercase">
-                                  Why This Matters:
-                                </span>
-                                <p className="text-[11px] text-stone-600 leading-relaxed">
-                                  {item.why_it_matters}
-                                </p>
-                              </div>
-                            )}
-
-                            {item.evidence && item.evidence.length > 0 && (
-                              <div className="bg-emerald-100/40 rounded-xl p-3 border border-emerald-200/60 space-y-1.5">
-                                <span className="text-[10px] font-bold text-emerald-950 uppercase flex items-center space-x-1">
-                                  <Layers className="w-3 h-3" />
-                                  <span>Upstream Grounded Evidence:</span>
-                                </span>
-                                {item.evidence.map((ev, eIdx) => (
-                                  <div key={eIdx} className="text-[11px] text-emerald-900 flex flex-wrap items-center gap-1.5">
-                                    {typeof ev === 'string' ? (
-                                      <span className="font-semibold text-stone-800">
-                                        • {ev}
-                                      </span>
-                                    ) : (
-                                      <>
-                                        <span className="font-bold px-1.5 py-0.5 rounded bg-white text-emerald-800 text-[10px]">
-                                          {ev.source_stage}
-                                        </span>
-                                        <span className="text-stone-500">→</span>
-                                        <span className="font-mono text-[10px] text-stone-700">
-                                          {ev.source_field}
-                                        </span>
-                                        {ev.value !== undefined && ev.value !== null && (
-                                          <span className="font-semibold text-stone-900">
-                                            = {formatVal(ev.value)}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SwotQuadrantCard
+                  category="strengths"
+                  title="STRENGTHS"
+                  subtitle="What is already working in your favor (Internal Positive)"
+                  items={swotData.swot?.strengths || []}
+                  expandedItems={expandedItems}
+                  onToggleItem={toggleItem}
+                  formatStageName={formatStageName}
+                  formatVal={formatVal}
+                  getDeterministicKey={getDeterministicSwotKey}
+                />
               )}
 
               {/* WEAKNESSES */}
               {(activeTab === 'all' || activeTab === 'weaknesses') && (
-                <div className="bg-white rounded-3xl p-6 border-2 border-amber-200 shadow-xs space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-amber-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2.5 bg-amber-100 rounded-2xl text-amber-800">
-                        <AlertTriangle className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-bold text-amber-950 font-['Outfit']">
-                          WEAKNESSES
-                        </h4>
-                        <p className="text-[11px] text-amber-700">
-                          What currently limits the business (Internal Negative)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                      {swotData.swot?.weaknesses?.length || 0} Identified
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {swotData.swot?.weaknesses?.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-[10px] font-mono font-bold text-amber-800">
-                                {item.id || `WK-${String(idx + 1).padStart(3, '0')}`}
-                              </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPriorityBadgeClass(item.priority)}`}>
-                                {item.priority || 'HIGH'} IMPACT
-                              </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-amber-100/80 text-amber-900 border-amber-200">
-                                {formatStageName(item.source_stage)}
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-stone-900">
-                              {item.title}
-                            </h5>
-                          </div>
-                          <button
-                            onClick={() => toggleItem(item.id || `WK-${idx}`)}
-                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-amber-100/60 transition cursor-pointer"
-                            title="Toggle details"
-                          >
-                            {expandedItems[item.id || `WK-${idx}`] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-stone-700 leading-relaxed">
-                          {item.explanation || item.statement}
-                        </p>
-
-                        {expandedItems[item.id || `WK-${idx}`] && (
-                          <div className="pt-2 border-t border-amber-100 space-y-2 text-xs animate-fadeIn">
-                            {item.why_it_matters && item.why_it_matters !== item.explanation && (
-                              <div className="bg-white/80 rounded-xl p-3 border border-amber-100 space-y-1">
-                                <span className="text-[10px] font-bold text-amber-900 uppercase">
-                                  Why This Matters:
-                                </span>
-                                <p className="text-[11px] text-stone-600 leading-relaxed">
-                                  {item.why_it_matters}
-                                </p>
-                              </div>
-                            )}
-
-                            {item.evidence && item.evidence.length > 0 && (
-                              <div className="bg-amber-100/40 rounded-xl p-3 border border-amber-200/60 space-y-1.5">
-                                <span className="text-[10px] font-bold text-amber-950 uppercase flex items-center space-x-1">
-                                  <Layers className="w-3 h-3" />
-                                  <span>Upstream Grounded Evidence:</span>
-                                </span>
-                                {item.evidence.map((ev, eIdx) => (
-                                  <div key={eIdx} className="text-[11px] text-amber-900 flex flex-wrap items-center gap-1.5">
-                                    {typeof ev === 'string' ? (
-                                      <span className="font-semibold text-stone-800">
-                                        • {ev}
-                                      </span>
-                                    ) : (
-                                      <>
-                                        <span className="font-bold px-1.5 py-0.5 rounded bg-white text-amber-800 text-[10px]">
-                                          {ev.source_stage}
-                                        </span>
-                                        <span className="text-stone-500">→</span>
-                                        <span className="font-mono text-[10px] text-stone-700">
-                                          {ev.source_field}
-                                        </span>
-                                        {ev.value !== undefined && ev.value !== null && (
-                                          <span className="font-semibold text-stone-900">
-                                            = {formatVal(ev.value)}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SwotQuadrantCard
+                  category="weaknesses"
+                  title="WEAKNESSES"
+                  subtitle="What currently limits the business (Internal Negative)"
+                  items={swotData.swot?.weaknesses || []}
+                  expandedItems={expandedItems}
+                  onToggleItem={toggleItem}
+                  formatStageName={formatStageName}
+                  formatVal={formatVal}
+                  getDeterministicKey={getDeterministicSwotKey}
+                />
               )}
 
               {/* OPPORTUNITIES */}
               {(activeTab === 'all' || activeTab === 'opportunities') && (
-                <div className="bg-white rounded-3xl p-6 border-2 border-blue-200 shadow-xs space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-blue-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2.5 bg-blue-100 rounded-2xl text-blue-800">
-                        <Lightbulb className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-bold text-blue-950 font-['Outfit']">
-                          OPPORTUNITIES
-                        </h4>
-                        <p className="text-[11px] text-blue-700">
-                          Where the entrepreneur can capture value (External Positive)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                      {swotData.swot?.opportunities?.length || 0} Identified
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {swotData.swot?.opportunities?.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="bg-blue-50/40 rounded-2xl p-4 border border-blue-100 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-[10px] font-mono font-bold text-blue-800">
-                                {item.id || `OP-${String(idx + 1).padStart(3, '0')}`}
-                              </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPriorityBadgeClass(item.priority)}`}>
-                                {item.priority || 'HIGH'} IMPACT
-                              </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-blue-100/80 text-blue-900 border-blue-200">
-                                {formatStageName(item.source_stage)}
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-stone-900">
-                              {item.title}
-                            </h5>
-                          </div>
-                          <button
-                            onClick={() => toggleItem(item.id || `OP-${idx}`)}
-                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-blue-100/60 transition cursor-pointer"
-                            title="Toggle details"
-                          >
-                            {expandedItems[item.id || `OP-${idx}`] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-stone-700 leading-relaxed">
-                          {item.explanation || item.statement}
-                        </p>
-
-                        {expandedItems[item.id || `OP-${idx}`] && (
-                          <div className="pt-2 border-t border-blue-100 space-y-2 text-xs animate-fadeIn">
-                            {item.why_it_matters && item.why_it_matters !== item.explanation && (
-                              <div className="bg-white/80 rounded-xl p-3 border border-blue-100 space-y-1">
-                                <span className="text-[10px] font-bold text-blue-900 uppercase">
-                                  Why This Matters:
-                                </span>
-                                <p className="text-[11px] text-stone-600 leading-relaxed">
-                                  {item.why_it_matters}
-                                </p>
-                              </div>
-                            )}
-
-                            {item.evidence && item.evidence.length > 0 && (
-                              <div className="bg-blue-100/40 rounded-xl p-3 border border-blue-200/60 space-y-1.5">
-                                <span className="text-[10px] font-bold text-blue-950 uppercase flex items-center space-x-1">
-                                  <Layers className="w-3 h-3" />
-                                  <span>Upstream Grounded Evidence:</span>
-                                </span>
-                                {item.evidence.map((ev, eIdx) => (
-                                  <div key={eIdx} className="text-[11px] text-blue-900 flex flex-wrap items-center gap-1.5">
-                                    {typeof ev === 'string' ? (
-                                      <span className="font-semibold text-stone-800">
-                                        • {ev}
-                                      </span>
-                                    ) : (
-                                      <>
-                                        <span className="font-bold px-1.5 py-0.5 rounded bg-white text-blue-800 text-[10px]">
-                                          {ev.source_stage}
-                                        </span>
-                                        <span className="text-stone-500">→</span>
-                                        <span className="font-mono text-[10px] text-stone-700">
-                                          {ev.source_field}
-                                        </span>
-                                        {ev.value !== undefined && ev.value !== null && (
-                                          <span className="font-semibold text-stone-900">
-                                            = {formatVal(ev.value)}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SwotQuadrantCard
+                  category="opportunities"
+                  title="OPPORTUNITIES"
+                  subtitle="Where the entrepreneur can capture value (External Positive)"
+                  items={swotData.swot?.opportunities || []}
+                  expandedItems={expandedItems}
+                  onToggleItem={toggleItem}
+                  formatStageName={formatStageName}
+                  formatVal={formatVal}
+                  getDeterministicKey={getDeterministicSwotKey}
+                />
               )}
 
               {/* THREATS */}
               {(activeTab === 'all' || activeTab === 'threats') && (
-                <div className="bg-white rounded-3xl p-6 border-2 border-rose-200 shadow-xs space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-rose-100">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2.5 bg-rose-100 rounded-2xl text-rose-800">
-                        <ShieldAlert className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-base font-bold text-rose-950 font-['Outfit']">
-                          THREATS
-                        </h4>
-                        <p className="text-[11px] text-rose-700">
-                          What could negatively affect the business (External Negative)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800">
-                      {swotData.swot?.threats?.length || 0} Identified
-                    </span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {swotData.swot?.threats?.map((item, idx) => (
-                      <div
-                        key={item.id || idx}
-                        className="bg-rose-50/40 rounded-2xl p-4 border border-rose-100 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-[10px] font-mono font-bold text-rose-800">
-                                {item.id || `TH-${String(idx + 1).padStart(3, '0')}`}
-                              </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getPriorityBadgeClass(item.priority)}`}>
-                                {item.priority || 'HIGH'} IMPACT
-                              </span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-rose-100/80 text-rose-900 border-rose-200">
-                                {formatStageName(item.source_stage)}
-                              </span>
-                            </div>
-                            <h5 className="text-sm font-bold text-stone-900">
-                              {item.title}
-                            </h5>
-                          </div>
-                          <button
-                            onClick={() => toggleItem(item.id || `TH-${idx}`)}
-                            className="p-1 text-stone-400 hover:text-stone-600 rounded-lg hover:bg-rose-100/60 transition cursor-pointer"
-                            title="Toggle details"
-                          >
-                            {expandedItems[item.id || `TH-${idx}`] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </div>
-
-                        <p className="text-xs text-stone-700 leading-relaxed">
-                          {item.explanation || item.statement}
-                        </p>
-
-                        {expandedItems[item.id || `TH-${idx}`] && (
-                          <div className="pt-2 border-t border-rose-100 space-y-2 text-xs animate-fadeIn">
-                            {item.why_it_matters && item.why_it_matters !== item.explanation && (
-                              <div className="bg-white/80 rounded-xl p-3 border border-rose-100 space-y-1">
-                                <span className="text-[10px] font-bold text-rose-900 uppercase">
-                                  Why This Matters:
-                                </span>
-                                <p className="text-[11px] text-stone-600 leading-relaxed">
-                                  {item.why_it_matters}
-                                </p>
-                              </div>
-                            )}
-
-                            {item.evidence && item.evidence.length > 0 && (
-                              <div className="bg-rose-100/40 rounded-xl p-3 border border-rose-200/60 space-y-1.5">
-                                <span className="text-[10px] font-bold text-rose-950 uppercase flex items-center space-x-1">
-                                  <Layers className="w-3 h-3" />
-                                  <span>Upstream Grounded Evidence:</span>
-                                </span>
-                                {item.evidence.map((ev, eIdx) => (
-                                  <div key={eIdx} className="text-[11px] text-rose-900 flex flex-wrap items-center gap-1.5">
-                                    {typeof ev === 'string' ? (
-                                      <span className="font-semibold text-stone-800">
-                                        • {ev}
-                                      </span>
-                                    ) : (
-                                      <>
-                                        <span className="font-bold px-1.5 py-0.5 rounded bg-white text-rose-800 text-[10px]">
-                                          {ev.source_stage}
-                                        </span>
-                                        <span className="text-stone-500">→</span>
-                                        <span className="font-mono text-[10px] text-stone-700">
-                                          {ev.source_field}
-                                        </span>
-                                        {ev.value !== undefined && ev.value !== null && (
-                                          <span className="font-semibold text-stone-900">
-                                            = {formatVal(ev.value)}
-                                          </span>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <SwotQuadrantCard
+                  category="threats"
+                  title="THREATS"
+                  subtitle="What could negatively affect the business (External Negative)"
+                  items={swotData.swot?.threats || []}
+                  expandedItems={expandedItems}
+                  onToggleItem={toggleItem}
+                  formatStageName={formatStageName}
+                  formatVal={formatVal}
+                  getDeterministicKey={getDeterministicSwotKey}
+                />
               )}
 
             </div>
 
-            {/* Priority Actions (3–5 Items) */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 shadow-sm space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+            {/* Priority Actions */}
+            <div className="royal-card bg-[#FAF2E3] rounded-3xl p-6 sm:p-7 border border-[#79563F]/18 shadow-xs space-y-5 text-[#1C1917]">
+              <div className="flex items-center justify-between pb-3 border-b border-[#79563F]/15">
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EA580C]/10 text-[#EA580C]">
+                    <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/25 uppercase tracking-wider">
                       PRIORITY ACTION PLAN
                     </span>
-                    <span className="text-xs font-semibold text-stone-500">
-                      Top 3–5 Strategic Interventions
+                    <span className="text-xs font-semibold text-[#79563F]">
+                      Top Strategic Interventions
                     </span>
                   </div>
-                  <h4 className="text-base font-bold text-stone-900 font-['Outfit']">
+                  <h4 className="text-base font-bold text-[#1C1917] font-['Outfit']">
                     What Should the Entrepreneur Do Next?
                   </h4>
                 </div>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-orange-50 text-orange-800">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/20">
                   {swotData.swot?.priority_actions?.length || swotData.immediate_actions?.length || swotData.recommendations?.length || 0} Priorities
                 </span>
               </div>
@@ -1046,16 +830,16 @@ export default function SWOTPage() {
                       action: r.action,
                       reason: r.reason,
                       priority: r.priority,
-                      source_stage: (r.source_stages && r.source_stages[0]) || 'STAGE_10'
+                      source_stage: (r.source_stages && r.source_stages[0]) || 'READINESS'
                     }))
                 ).map((act, aIdx) => (
                   <div
-                    key={aIdx}
-                    className="p-4 rounded-2xl bg-[#FDFBF7] border border-stone-200 space-y-3 hover:border-[#EA580C] transition flex flex-col justify-between"
+                    key={`rec-${act.id || act.action?.slice(0, 16) || aIdx}`}
+                    className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#79563F]/18 space-y-3 hover:border-[#79563F]/40 transition flex flex-col justify-between"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-[#EA580C] font-mono">
+                        <span className="text-[11px] font-bold text-[#79563F] font-mono">
                           STEP {aIdx + 1}
                         </span>
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded ${getPriorityBadgeClass(act.priority)}`}>
@@ -1063,19 +847,19 @@ export default function SWOTPage() {
                         </span>
                       </div>
 
-                      <h6 className="text-xs font-bold text-stone-900 leading-snug">
-                        {act.action}
+                      <h6 className="text-xs font-bold text-[#1C1917] leading-snug break-words">
+                        {cleanEvidenceString(act.action)}
                       </h6>
 
-                      <p className="text-[11px] text-stone-600 leading-relaxed">
-                        <strong className="text-stone-700">Why: </strong>
-                        {act.reason}
+                      <p className="text-[11px] text-[#79563F] leading-relaxed break-words">
+                        <strong className="text-[#1C1917]">Why: </strong>
+                        {cleanEvidenceString(act.reason)}
                       </p>
                     </div>
 
-                    <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-500">
+                    <div className="pt-2 border-t border-[#79563F]/12 flex items-center justify-between text-[10px] text-[#79563F]">
                       <span className="font-bold">Source:</span>
-                      <span className="font-mono px-1.5 py-0.5 bg-white border border-stone-200 rounded text-stone-700">
+                      <span className="font-mono px-1.5 py-0.5 bg-white border border-[#79563F]/20 rounded text-[#1C1917]">
                         {formatStageName(act.source_stage)}
                       </span>
                     </div>
@@ -1086,22 +870,22 @@ export default function SWOTPage() {
 
             {/* Phased Strategic Roadmap */}
             {swotData.swot?.roadmap && swotData.swot.roadmap.length > 0 && (
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-stone-200 shadow-sm space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="royal-card bg-[#FAF2E3] rounded-3xl p-6 sm:p-7 border border-[#79563F]/18 shadow-xs space-y-5 text-[#1C1917]">
+                <div className="flex items-center justify-between pb-3 border-b border-[#79563F]/15">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EA580C]/10 text-[#EA580C]">
+                      <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/25 uppercase tracking-wider">
                         STRATEGIC ROADMAP
                       </span>
-                      <span className="text-xs font-semibold text-stone-500">
+                      <span className="text-xs font-semibold text-[#79563F]">
                         Phased Implementation Timeline
                       </span>
                     </div>
-                    <h4 className="text-base font-bold text-stone-900 font-['Outfit']">
+                    <h4 className="text-base font-bold text-[#1C1917] font-['Outfit']">
                       Execution Milestones & Action Steps
                     </h4>
                   </div>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-orange-50 text-orange-800">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/20">
                     {swotData.swot.roadmap.length} Phases
                   </span>
                 </div>
@@ -1109,20 +893,20 @@ export default function SWOTPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {swotData.swot.roadmap.map((phase, pIdx) => (
                     <div
-                      key={pIdx}
-                      className="p-4 rounded-2xl bg-[#FDFBF7] border border-stone-200 space-y-3"
+                      key={`phase-${phase.phase || pIdx}`}
+                      className="p-4 rounded-2xl bg-[#FAF7F2] border border-[#79563F]/18 space-y-3"
                     >
                       <div className="flex items-center space-x-2">
-                        <Clock className="w-4 h-4 text-[#EA580C]" />
-                        <span className="text-xs font-bold text-stone-900 uppercase tracking-wide">
-                          {phase.phase}
+                        <Clock className="w-4 h-4 text-[#79563F]" />
+                        <span className="text-xs font-bold text-[#1C1917] uppercase tracking-wide">
+                          {cleanEvidenceString(phase.phase)}
                         </span>
                       </div>
-                      <ul className="space-y-2 text-xs text-stone-700">
+                      <ul className="space-y-2 text-xs text-[#28231F]">
                         {(phase.actions || []).map((act, actIdx) => (
-                          <li key={actIdx} className="flex items-start space-x-2">
-                            <span className="text-[#EA580C] font-bold text-xs mt-0.5">•</span>
-                            <span className="text-[11px] leading-relaxed">{act}</span>
+                          <li key={`act-${phase.phase || pIdx}-${actIdx}`} className="flex items-start space-x-2">
+                            <span className="text-[#79563F] font-bold text-xs mt-0.5">•</span>
+                            <span className="text-[11px] leading-relaxed break-words">{cleanEvidenceString(act)}</span>
                           </li>
                         ))}
                       </ul>
@@ -1134,71 +918,81 @@ export default function SWOTPage() {
 
             {/* Upstream Evidence Verification Strip (5 Pillars) */}
             {swotData.evidence_summary && (
-              <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-xs space-y-4">
+              <div className="royal-card bg-[#FAF2E3] rounded-3xl p-6 border border-[#79563F]/18 shadow-2xs space-y-4 text-[#1C1917]">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Layers className="w-4 h-4 text-stone-500" />
-                    <h4 className="text-xs font-bold text-stone-800 uppercase tracking-wider">
+                    <Layers className="w-4 h-4 text-[#79563F]" />
+                    <h4 className="text-xs font-bold text-[#1C1917] uppercase tracking-wider">
                       Upstream Evidence Verification Baseline
                     </h4>
                   </div>
-                  <span className="text-[11px] text-stone-500 font-medium">5 Pillars Grounded</span>
+                  <span className="text-[11px] text-[#79563F] font-medium">5 Pillars Grounded</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 space-y-1">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase">Stage 6/8 • Market</span>
-                    <p className="text-[11px] text-stone-700">{swotData.evidence_summary.market || 'Verified demand signals'}</p>
+                  <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15 space-y-1">
+                    <span className="text-[10px] font-bold text-[#79563F] uppercase tracking-wide">Market</span>
+                    <p className="text-[11px] text-[#28231F] leading-snug">
+                      {cleanEvidenceString(swotData.evidence_summary.market) || 'Verified demand signals'}
+                    </p>
                   </div>
-                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 space-y-1">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase">Stage 9 • Finance</span>
-                    <p className="text-[11px] text-stone-700">{swotData.evidence_summary.financial || 'Verified DSCR & financing'}</p>
+                  <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15 space-y-1">
+                    <span className="text-[10px] font-bold text-[#79563F] uppercase tracking-wide">Finance</span>
+                    <p className="text-[11px] text-[#28231F] leading-snug">
+                      {cleanEvidenceString(swotData.evidence_summary.financial) || 'Verified DSCR & financing'}
+                    </p>
                   </div>
-                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 space-y-1">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase">Stage 10 • Readiness</span>
-                    <p className="text-[11px] text-stone-700">{swotData.evidence_summary.entrepreneur || 'Promoter readiness confirmed'}</p>
+                  <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15 space-y-1">
+                    <span className="text-[10px] font-bold text-[#79563F] uppercase tracking-wide">Readiness</span>
+                    <p className="text-[11px] text-[#28231F] leading-snug">
+                      {cleanEvidenceString(swotData.evidence_summary.entrepreneur) || 'Promoter readiness confirmed'}
+                    </p>
                   </div>
-                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 space-y-1">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase">Stage 11 • Risk</span>
-                    <p className="text-[11px] text-stone-700">{swotData.evidence_summary.risk || 'Multi-vector risks mapped'}</p>
+                  <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15 space-y-1">
+                    <span className="text-[10px] font-bold text-[#79563F] uppercase tracking-wide">Risk</span>
+                    <p className="text-[11px] text-[#28231F] leading-snug">
+                      {cleanEvidenceString(swotData.evidence_summary.risk) || 'Multi-vector risks mapped'}
+                    </p>
                   </div>
-                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/60 space-y-1">
-                    <span className="text-[10px] font-bold text-stone-500 uppercase">Stage 12 • Feasibility</span>
-                    <p className="text-[11px] text-stone-700">{swotData.evidence_summary.feasibility || 'Viable venture approved'}</p>
+                  <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15 space-y-1">
+                    <span className="text-[10px] font-bold text-[#79563F] uppercase tracking-wide">Feasibility</span>
+                    <p className="text-[11px] text-[#28231F] leading-snug">
+                      {cleanEvidenceString(swotData.evidence_summary.feasibility) || 'Viable venture approved'}
+                    </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Bottom Next Step Call-To-Action -> Assistant (Stage 15) & DPR (Stage 14) */}
-            <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-amber-950 text-white rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6 border border-stone-700">
+            {/* AI Business Advisor & DPR CTA Section */}
+            <div className="royal-card bg-[#FAF2E3] text-[#1C1917] rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-center justify-between gap-6 border border-[#79563F]/20">
               <div className="space-y-1.5 text-center md:text-left">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  STAGE 15 BUSINESS ADVISOR READY
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF7F2] text-[#79563F] border border-[#79563F]/25 uppercase tracking-wider">
+                  AI Business Advisor
                 </span>
-                <h3 className="text-xl font-bold font-['Outfit'] text-white">
-                  Have questions about your scores, loans, or next steps?
+                <h3 className="text-xl font-bold font-['Outfit'] text-[#1C1917]">
+                  Need help with your next step?
                 </h3>
-                <p className="text-xs text-stone-300 max-w-2xl">
-                  Consult your Personal AI Business Advisor for tailored guidance on bank loans, subsidy schemes (PMEGP/MUDRA), licensing, and execution steps.
+                <p className="text-xs text-[#79563F] max-w-2xl leading-relaxed">
+                  Ask the AI Business Advisor about your SWOT findings, finance or actions.
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Link to="/assistant">
-                  <button className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-stone-900 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
-                    <Sparkles className="w-4 h-4 text-stone-900" />
-                    <span>Talk to AI Business Advisor</span>
-                  </button>
-                </Link>
-                <Link
-                  to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}`}
-                  state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('kalpa:open-ai-advisor'))}
+                  className="px-5 py-2.5 bg-[#FAF7F2] hover:bg-white text-[#79563F] border border-[#79563F]/25 rounded-xl text-xs font-bold transition flex items-center space-x-2 shadow-2xs cursor-pointer whitespace-nowrap"
                 >
-                  <button className="px-5 py-3 bg-stone-800 hover:bg-stone-700 text-white border border-stone-600 rounded-xl text-xs font-semibold transition flex items-center space-x-2 shadow-sm cursor-pointer whitespace-nowrap">
-                    <span>Proceed to DPR</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <Sparkles className="w-4 h-4 text-[#79563F]" />
+                  <span>Talk to AI Advisor →</span>
+                </button>
+                <Link
+                  to={`/dpr?session_id=${effectiveSessionId || ''}&analysis_id=${effectiveAnalysisId || ''}&business_id=${businessId || effectiveSessionId || ''}`}
+                  state={{ sessionId: effectiveSessionId, analysisId: effectiveAnalysisId, businessId }}
+                  className="saffron-gradient-btn px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02] whitespace-nowrap"
+                >
+                  <span>Proceed to DPR →</span>
                 </Link>
               </div>
             </div>
@@ -1207,15 +1001,6 @@ export default function SWOTPage() {
         )}
 
       </div>
-
-      {/* Floating Personal Assistant Trigger Button */}
-      <Link
-        to="/assistant"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-full shadow-2xl transition-all transform hover:scale-105 border-2 border-amber-300"
-      >
-        <Sparkles className="w-4 h-4" />
-        <span>Ask AI Advisor</span>
-      </Link>
     </div>
   );
 }

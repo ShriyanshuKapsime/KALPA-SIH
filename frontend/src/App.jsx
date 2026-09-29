@@ -12,15 +12,20 @@ import FeasibilityPage from './pages/Feasibility/FeasibilityPage';
 import SWOTPage from './pages/SWOT/SWOTPage';
 import AssistantPage from './pages/Assistant/AssistantPage';
 import DPRPage from './pages/DPR/DPRPage';
+import DPREnrichmentPage from './pages/DPR/DPREnrichmentPage';
+import DPRDraftingPage from './pages/DPR/DPRDraftingPage';
+import GrowthManagerPage from './pages/GrowthManager/GrowthManagerPage';
 import KnowledgeHubPage from './pages/Knowledge/KnowledgeHubPage';
 import MarketIntelligencePage from './pages/MarketIntelligence/MarketIntelligencePage';
 import OpportunityEvaluationPage from './pages/OpportunityEvaluation/OpportunityEvaluationPage';
 import FinancialAnalysisPage from './pages/FinancialAnalysis/FinancialAnalysisPage';
 import { WorkflowProvider } from './context/WorkflowContext';
+import { LanguageProvider } from './context/LanguageContext';
 
 function App() {
   return (
-    <WorkflowProvider>
+    <LanguageProvider>
+      <WorkflowProvider>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
@@ -34,15 +39,22 @@ function App() {
           <Route path="opportunity-evaluation" element={<OpportunityEvaluationPage />} />
           <Route path="financial-planning" element={<FinancialAnalysisPage />} />
           <Route path="financial-analysis" element={<FinancialAnalysisPage />} />
+          <Route path="finance" element={<Navigate to="/financial-planning" replace />} />
           <Route path="analysis" element={<MarketIntelligencePage />} />
           <Route path="feasibility" element={<FeasibilityPage />} />
           <Route path="swot" element={<SWOTPage />} />
           <Route path="assistant" element={<AssistantPage />} />
+          <Route path="growth-manager" element={<GrowthManagerPage />} />
+          <Route path="grow" element={<Navigate to="/growth-manager" replace />} />
           <Route path="dpr" element={<DPRPage />} />
+          <Route path="dpr/enrichment" element={<DPREnrichmentPage />} />
+          <Route path="dpr/drafting" element={<DPRDraftingPage />} />
+          <Route path="dpr/preview" element={<DPRDraftingPage />} />
           <Route path="*" element={<HomePage />} />
         </Route>
       </Routes>
-    </WorkflowProvider>
+      </WorkflowProvider>
+    </LanguageProvider>
   );
 }
 

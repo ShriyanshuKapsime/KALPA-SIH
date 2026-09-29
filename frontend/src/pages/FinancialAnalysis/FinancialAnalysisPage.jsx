@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   DollarSign,
@@ -44,7 +44,10 @@ import {
 } from 'lucide-react';
 import apiService from '../../services/api';
 import { useWorkflow } from '../../context/WorkflowContext';
+import { useLanguage, TranslatedText } from '../../context/LanguageContext';
 import WorkflowTimeline from '../../components/workflow/WorkflowTimeline';
+import Kalpa3DCard from '../../components/ui/Kalpa3DCard';
+import { extractCanonicalBusinessContext } from '../../services/canonicalBusinessContext';
 
 // ---------------------------------------------------------------------------
 // Canonical Frontend Normalization Layer (Stage 9 + Milestone 6)
@@ -147,6 +150,7 @@ function normalizeCalculatorResponse(raw) {
 export default function FinancialAnalysisPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
 
   const {
     sessionId: ctxSessionId,
@@ -181,7 +185,7 @@ export default function FinancialAnalysisPage() {
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
   const [editBusinessName, setEditBusinessName] = useState('');
-  const [editMarginCapital, setEditMarginCapital] = useState('200000');
+  const [editMarginCapital, setEditMarginCapital] = useState('');
   const [editPreferredCost, setEditPreferredCost] = useState('');
 
   // Conversational Driver Inputs & Voice Interaction State
@@ -200,7 +204,7 @@ export default function FinancialAnalysisPage() {
   const hasAutoPlayedQuestionRef = useRef({});
 
   // Standalone Calculator Form State
-  const [calcMargin, setCalcMargin] = useState(200000);
+  const [calcMargin, setCalcMargin] = useState(null);
   const [calcProjectCost, setCalcProjectCost] = useState('');
   const [calcLoanAmount, setCalcLoanAmount] = useState('');
   const [calcRateOverride, setCalcRateOverride] = useState('');
@@ -211,6 +215,19 @@ export default function FinancialAnalysisPage() {
   const [calcError, setCalcError] = useState(null);
 
   const isExecutingRef = useRef(false);
+
+  // Canonical Authoritative Business Context for Financial Page
+  const canonicalBusinessContext = useMemo(() => {
+    return extractCanonicalBusinessContext(businessProfile, {
+      businessId: ctxBusinessId,
+      businessName: ctxBusinessName,
+      sessionId: sessionId || ctxSessionId,
+      scenarioId: `DPR-${String(ctxBusinessId || sessionId || ctxSessionId || 'curr').slice(0, 8)}`,
+      availableMarginCapital: editMarginCapital ? parseFloat(editMarginCapital) : null,
+    });
+  }, [businessProfile, ctxBusinessId, ctxBusinessName, sessionId, ctxSessionId, editMarginCapital]);
+
+  const businessId = canonicalBusinessContext?.business_id || ctxBusinessId || sessionId || '';
 
   // Strict formatters (UNKNOWN != 0: returns "Not available" when missing)
   const formatINR = (val) => {
@@ -241,6 +258,40 @@ export default function FinancialAnalysisPage() {
     return `${num.toFixed(2)}x`;
   };
 
+  const formatEnumLabel = (val) => {
+    if (!val || typeof val !== 'string') return val || '';
+    const enumMap = {
+      'USER_PROVIDED': 'User Provided',
+      'CALCULATED': 'Calculated',
+      'BENCHMARK_DERIVED': 'Benchmark Derived',
+      'POLICY_MANDATED': 'Policy Mandated',
+      'SYSTEM_DERIVED': 'System Derived',
+      'SYSTEM_ESTIMATED': 'System Estimated',
+      'ESTIMATED': 'Estimated',
+      'SURPLUS_MARGIN': 'Surplus Margin',
+      'DEFICIT_MARGIN': 'Deficit Margin',
+      'FEASIBLE': 'Feasible',
+      'HEALTHY': 'Healthy',
+      'MODERATE': 'Moderate',
+      'STRESSED': 'Stressed',
+      'UNFEASIBLE': 'Unfeasible',
+      'HIGH_VIABILITY': 'High Viability',
+      'MODERATE_VIABILITY': 'Moderate Viability',
+      'LOW_VIABILITY': 'Low Viability',
+      'COMPLETE': 'Complete',
+      'INCOMPLETE': 'Incomplete',
+      'RESILIENT': 'Resilient',
+      'READY_WITH_DISCLOSED_UNKNOWNS': 'Ready with Disclosed Unknowns',
+      'BLOCKED_PENDING_USER_INPUT': 'Action Required',
+      'PROVISIONAL_PENDING_REGISTRATION': 'Provisional Pending Registration'
+    };
+    if (enumMap[val]) return enumMap[val];
+    return val
+      .split('_')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   // Execute Stage 9 Financial Analysis
   const executeStage9 = useCallback(async (profileData, force = false, driverOverrides = null) => {
     const currentAid = analysisId || profileData?.analysis_id;
@@ -249,85 +300,107 @@ export default function FinancialAnalysisPage() {
     setLoading(true);
     setError(null);
 
-    const bp = profileData || businessProfile || {};
-    const finRaw = bp.financial_profile || {};
-    const bizCtx = bp.business_profile || bp.business_context || bp;
-    const locCtx = bp.location_profile || bp.location_context || {};
-    const benRaw = bp.beneficiary_profile || {};
-
-    const availableMargin = finRaw.available_margin_capital || finRaw.available_capital || 200000;
-    const preferredCost = finRaw.preferred_project_cost ? parseFloat(finRaw.preferred_project_cost) : null;
-
-    const locProposed = bp.proposed_location || bp.profile?.proposed_location;
-    const resolvedDistrict = typeof locCtx.district === 'string'
-      ? locCtx.district
-      : (typeof locProposed === 'object' ? locProposed?.district : (typeof locProposed === 'string' ? locProposed : null));
-    const resolvedState = typeof locCtx.state === 'string'
-      ? locCtx.state
-      : (typeof locProposed === 'object' ? locProposed?.state : null);
-
-    const activeDrivers = driverOverrides !== null ? driverOverrides : userDriverInputs;
-
-    const payload = {
-      analysis_id: typeof currentAid === 'string' && currentAid.trim() ? currentAid.trim() : undefined,
-      session_id: typeof sessionId === 'string' && sessionId.trim() ? sessionId.trim() : undefined,
-      financial_profile: {
-        available_margin_capital: parseFloat(availableMargin) || 100000,
-        preferred_project_cost: preferredCost,
-        existing_monthly_income: finRaw.existing_monthly_income ? parseFloat(finRaw.existing_monthly_income) : null,
-        existing_monthly_debt_obligations: finRaw.existing_monthly_debt_obligations ? parseFloat(finRaw.existing_monthly_debt_obligations) : null,
-        annual_family_income: finRaw.annual_family_income ? parseFloat(finRaw.annual_family_income) : null
-      },
-      business_profile: {
-        business_id: String(bizCtx.business_id || bizCtx.business_node_id || ctxBusinessId || 'saree_retail'),
-        specific_business: String(bizCtx.specific_business || bizCtx.business_name || ctxBusinessName || 'Saree Retail'),
-        sector: String(bizCtx.sector || 'Retail'),
-        category: String(bizCtx.category || 'Apparel Retail'),
-        subcategory: String(bizCtx.sub_category || bizCtx.subcategory || "Women's Traditional Apparel"),
-        nic_code: bizCtx.nic_code ? String(bizCtx.nic_code) : '47711'
-      },
-      beneficiary_profile: {
-        beneficiary_category: benRaw.beneficiary_category || benRaw.category || 'General',
-        gender: benRaw.gender || 'Female',
-        annual_family_income: benRaw.annual_family_income ? parseFloat(benRaw.annual_family_income) : null,
-        identity_proof_provided: benRaw.identity_proof_provided ?? true,
-        aadhaar_verified: benRaw.aadhaar_verified ?? true,
-        udyam_registration: typeof benRaw.udyam_registration === 'string' && benRaw.udyam_registration.trim()
-          ? benRaw.udyam_registration.trim()
-          : (typeof benRaw.udyam_registration === 'boolean' ? benRaw.udyam_registration : null),
-        no_prior_defaults: benRaw.no_prior_defaults ?? true,
-        is_greenfield: benRaw.is_greenfield ?? true
-      },
-      location_profile: {
-        village: locCtx.village || null,
-        block: locCtx.block || null,
-        district: resolvedDistrict || null,
-        state: resolvedState || null
-      },
-      project_assumptions: {
-        expected_monthly_revenue: bp.project_assumptions?.expected_monthly_revenue || null,
-        expected_monthly_units: bp.project_assumptions?.expected_monthly_units || null,
-        expected_unit_price: bp.project_assumptions?.expected_unit_price || null
-      },
-      user_driver_inputs: activeDrivers
-    };
-
-    // Update edit form fields to match current request context
-    setEditSector(payload.business_profile.sector || '');
-    setEditCategory(payload.business_profile.category || '');
-    setEditSubcategory(payload.business_profile.subcategory || '');
-    setEditBusinessName(payload.business_profile.specific_business || '');
-    setEditMarginCapital(String(payload.financial_profile.available_margin_capital || '200000'));
-    setEditPreferredCost(payload.financial_profile.preferred_project_cost ? String(payload.financial_profile.preferred_project_cost) : '');
-
     try {
+      const bp = profileData || businessProfile || {};
+      const finRaw = bp.financial_profile || {};
+      const benRaw = bp.beneficiary_profile || {};
+      const locRaw = bp.location_profile || bp.location || bp.proposed_location || {};
+
+      const canonCtx = extractCanonicalBusinessContext(bp, {
+        businessId: ctxBusinessId,
+        businessName: ctxBusinessName,
+        sessionId: sessionId,
+        scenarioId: `DPR-${String(ctxBusinessId || sessionId || 'curr').slice(0, 8)}`,
+        availableMarginCapital: editMarginCapital ? parseFloat(editMarginCapital) : null,
+      });
+
+      if (!canonCtx?.specific_business && !canonCtx?.nic_code && !canonCtx?.business_id) {
+        setError({
+          code: "BUSINESS_CONTEXT_INCOMPLETE",
+          message: "Business identity is incomplete. Please complete business intake and classification first.",
+          missing_fields: ["business_name", "nic_code"]
+        });
+        setLoading(false);
+        isExecutingRef.current = false;
+        return;
+      }
+
+      const resolvedBizId = canonCtx.business_id || ctxBusinessId || sessionId || 'unknown_business';
+      const resolvedBizName = canonCtx.specific_business || canonCtx.enterprise_name || ctxBusinessName || 'Unspecified Business';
+      const resolvedNic = canonCtx.nic_code;
+
+      const availableMargin = finRaw.available_margin_capital || finRaw.available_capital || canonCtx.available_margin_capital || null;
+      const preferredCost = finRaw.preferred_project_cost ? parseFloat(finRaw.preferred_project_cost) : (canonCtx.preferred_project_cost || null);
+
+      const resolvedDistrict = canonCtx.district || (typeof locRaw.district === 'string' ? locRaw.district : null);
+      const resolvedState = canonCtx.state || (typeof locRaw.state === 'string' ? locRaw.state : null);
+      const resolvedVillage = typeof locRaw.village === 'string' ? locRaw.village : null;
+      const resolvedBlock = typeof locRaw.block === 'string' ? locRaw.block : null;
+
+      const activeDrivers = driverOverrides !== null ? driverOverrides : userDriverInputs;
+
+      const payload = {
+        analysis_id: typeof currentAid === 'string' && currentAid.trim() ? currentAid.trim() : undefined,
+        session_id: typeof sessionId === 'string' && sessionId.trim() ? sessionId.trim() : undefined,
+        scenario_id: canonCtx.scenario_id,
+        financial_profile: {
+          available_margin_capital: availableMargin ? parseFloat(availableMargin) : null,
+          preferred_project_cost: preferredCost,
+          existing_monthly_income: finRaw.existing_monthly_income ? parseFloat(finRaw.existing_monthly_income) : null,
+          existing_monthly_debt_obligations: finRaw.existing_monthly_debt_obligations ? parseFloat(finRaw.existing_monthly_debt_obligations) : null,
+          annual_family_income: finRaw.annual_family_income ? parseFloat(finRaw.annual_family_income) : null
+        },
+        business_profile: {
+          business_id: String(resolvedBizId),
+          specific_business: String(resolvedBizName),
+          sector: canonCtx.sector || 'General',
+          category: canonCtx.category || 'General Enterprise',
+          subcategory: canonCtx.subcategory || '',
+          nic_code: resolvedNic ? String(resolvedNic) : undefined
+        },
+        beneficiary_profile: {
+          beneficiary_category: benRaw.beneficiary_category || benRaw.category || null,
+          gender: benRaw.gender || null,
+          annual_family_income: benRaw.annual_family_income ? parseFloat(benRaw.annual_family_income) : null,
+          identity_proof_provided: benRaw.identity_proof_provided ?? true,
+          aadhaar_verified: benRaw.aadhaar_verified ?? true,
+          udyam_registration: typeof benRaw.udyam_registration === 'string' && benRaw.udyam_registration.trim()
+            ? benRaw.udyam_registration.trim()
+            : (typeof benRaw.udyam_registration === 'boolean' ? benRaw.udyam_registration : null),
+          no_prior_defaults: benRaw.no_prior_defaults ?? true,
+          is_greenfield: benRaw.is_greenfield ?? true
+        },
+        location_profile: {
+          village: resolvedVillage,
+          block: resolvedBlock,
+          district: resolvedDistrict,
+          state: resolvedState
+        },
+        project_assumptions: {
+          expected_monthly_revenue: bp.project_assumptions?.expected_monthly_revenue || null,
+          expected_monthly_units: bp.project_assumptions?.expected_monthly_units || null,
+          expected_unit_price: bp.project_assumptions?.expected_unit_price || null
+        },
+        language: language || 'en',
+        language_code: language || 'en',
+        user_driver_inputs: activeDrivers
+      };
+
+      // Update edit form fields to match current request context
+      setEditSector(payload.business_profile.sector || '');
+      setEditCategory(payload.business_profile.category || '');
+      setEditSubcategory(payload.business_profile.subcategory || '');
+      setEditBusinessName(payload.business_profile.specific_business || '');
+      setEditMarginCapital(payload.financial_profile.available_margin_capital ? String(payload.financial_profile.available_margin_capital) : '');
+      setEditPreferredCost(payload.financial_profile.preferred_project_cost ? String(payload.financial_profile.preferred_project_cost) : '');
+
       const response = await apiService.financialAnalysis.analyze(payload);
       const normalized = normalizeFinancialResponse(response);
 
       if (normalized) {
         setFinancialAnalysis(normalized);
-        const derivedLoan = normalized.dprPackage?.loan_structure?.sanctioned_loan_amount ?? normalized.projectFinancing?.estimated_financeable_loan ?? 450000;
-        const inLakhs = (derivedLoan / 100000).toFixed(1);
+        const derivedLoan = normalized.dprPackage?.loan_structure?.sanctioned_loan_amount ?? normalized.projectFinancing?.estimated_financeable_loan ?? null;
+        const inLakhs = derivedLoan ? (derivedLoan / 100000).toFixed(1) : null;
 
         const finCtx = response.financial_context || normalized.financial_context || response.financialContext || null;
 
@@ -440,7 +513,7 @@ export default function FinancialAnalysisPage() {
   // Authoritative Harmonized Metrics (Consistent across M1-M6)
   const totalProjectCost = dpr?.project_cost?.total_project_cost ?? capital?.total_project_cost ?? financing?.total_project_cost ?? financing?.theoretical_project_cost;
   const requiredMargin = dpr?.means_of_finance?.promoter_contribution ?? capital?.margin_contribution ?? financing?.required_margin;
-  const availableMargin = financing?.available_margin ?? 200000;
+  const availableMargin = financing?.available_margin ?? null;
   const retainedSurplus = financing?.excess_margin ?? (availableMargin && requiredMargin ? Math.max(0, availableMargin - requiredMargin) : null);
   const proposedLoan = dpr?.loan_structure?.sanctioned_loan_amount ?? loan?.principal ?? financing?.estimated_financeable_loan;
   const monthlyEmi = dpr?.loan_structure?.monthly_emi ?? loan?.monthly_emi;
@@ -448,11 +521,11 @@ export default function FinancialAnalysisPage() {
   const breakEvenSales = dpr?.banking_metrics?.break_even_sales_amount ?? fin?.breakEven?.break_even_sales;
 
   // Active Business Metadata
-  const currentBusinessName = ctxBusinessName || businessProfile?.business_profile?.specific_business || businessProfile?.business_context?.business_name || 'Saree Retail';
-  const currentSector = businessProfile?.business_profile?.sector || 'Retail';
-  const currentCategory = businessProfile?.business_profile?.category || 'Apparel Retail';
-  const currentSubcategory = businessProfile?.business_profile?.subcategory || businessProfile?.business_profile?.sub_category || "Women's Traditional Apparel";
-  const currentNicCode = businessProfile?.business_profile?.nic_code || '47711';
+  const currentBusinessName = canonicalBusinessContext?.specific_business || ctxBusinessName || businessProfile?.business_profile?.specific_business || businessProfile?.business_context?.business_name || 'Business Enterprise';
+  const currentSector = canonicalBusinessContext?.sector || businessProfile?.business_profile?.sector || 'General';
+  const currentCategory = canonicalBusinessContext?.category || businessProfile?.business_profile?.category || 'Services/Retail';
+  const currentSubcategory = canonicalBusinessContext?.subcategory || businessProfile?.business_profile?.subcategory || businessProfile?.business_profile?.sub_category || '';
+  const currentNicCode = canonicalBusinessContext?.nic_code || businessProfile?.business_profile?.nic_code || '';
 
   // Statements Data from M6
   const pnlList = dpr?.projected_financial_statements?.profit_and_loss || [];
@@ -595,15 +668,15 @@ export default function FinancialAnalysisPage() {
     const updatedProfile = {
       ...(businessProfile || {}),
       business_profile: {
-        business_id: businessProfile?.business_profile?.business_id || ctxBusinessId || 'saree_retail',
-        specific_business: editBusinessName || 'Saree Retail',
-        sector: editSector || 'Retail',
-        category: editCategory || 'Apparel Retail',
-        subcategory: editSubcategory || "Women's Traditional Apparel",
-        nic_code: businessProfile?.business_profile?.nic_code || '47711'
+        business_id: businessProfile?.business_profile?.business_id || ctxBusinessId || sessionId,
+        specific_business: editBusinessName || canonicalBusinessContext?.specific_business || 'Business Enterprise',
+        sector: editSector || canonicalBusinessContext?.sector || 'General',
+        category: editCategory || canonicalBusinessContext?.category || 'Services/Retail',
+        subcategory: editSubcategory || canonicalBusinessContext?.subcategory || '',
+        nic_code: businessProfile?.business_profile?.nic_code || canonicalBusinessContext?.nic_code || ''
       },
       financial_profile: {
-        available_margin_capital: parseFloat(editMarginCapital || '200000'),
+        available_margin_capital: editMarginCapital ? parseFloat(editMarginCapital) : null,
         preferred_project_cost: editPreferredCost ? parseFloat(editPreferredCost) : null
       }
     };
@@ -651,16 +724,20 @@ export default function FinancialAnalysisPage() {
 
       const lookupId = analysisId || sessionId;
       if (!lookupId) {
-        executeStage9({
-          business_profile: {
-            business_id: ctxBusinessId || 'saree_retail',
-            specific_business: ctxBusinessName || 'Saree Retail',
-            sector: 'Retail',
-            category: 'Apparel Retail',
-            subcategory: "Women's Traditional Apparel"
-          },
-          financial_profile: { available_margin_capital: 200000 }
-        });
+        if (ctxBusinessName || ctxBusinessId) {
+          executeStage9({
+            business_profile: {
+              business_id: ctxBusinessId || 'unknown_business',
+              specific_business: ctxBusinessName,
+            }
+          });
+        } else {
+          setError({
+            code: "BUSINESS_CONTEXT_INCOMPLETE",
+            message: "No active session or business profile found. Please complete business intake and classification first.",
+            missing_fields: ["session_id", "business_name"]
+          });
+        }
         return;
       }
 
@@ -678,15 +755,11 @@ export default function FinancialAnalysisPage() {
           executeStage9(data);
         }
       } catch (err) {
-        executeStage9({
-          business_profile: {
-            business_id: ctxBusinessId || 'saree_retail',
-            specific_business: ctxBusinessName || 'Saree Retail',
-            sector: 'Retail',
-            category: 'Apparel Retail',
-            subcategory: "Women's Traditional Apparel"
-          },
-          financial_profile: { available_margin_capital: 200000 }
+        console.error('[FINANCIAL ANALYSIS] Error fetching profile:', err);
+        setError({
+          code: "PROFILE_FETCH_FAILED",
+          message: err?.response?.data?.detail || "Could not retrieve canonical profile for this session. Please verify intake.",
+          missing_fields: ["business_profile"]
         });
       } finally {
         setFetchingProfile(false);
@@ -699,61 +772,57 @@ export default function FinancialAnalysisPage() {
 
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1C1917] py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8 space-y-8 relative text-[#28231F]">
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* 1. Workflow Timeline Header */}
         <WorkflowTimeline />
 
         {/* 2. Page Title Banner with Canonical Profile Metadata & Parameter Drawer Trigger */}
-        <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#EAE3D5] shadow-sm relative overflow-hidden bg-white">
+        <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#79563F]/18 shadow-xs relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-orange-100/50 via-amber-50/30 to-transparent rounded-bl-full pointer-events-none" />
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-[#C2410C] border border-orange-200">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
                   STAGE 09 &middot; FINANCE PILLAR
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  M1–M6 Authoritative Financial Model
                 </span>
                 {dpr?.data_completeness && (
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${
                       dpr.data_completeness.status === 'COMPLETE'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        ? 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25'
                         : 'bg-amber-50 text-amber-700 border-amber-300'
                     }`}
                   >
-                    <CheckCircle2 className="w-3 h-3" />
-                    Data Completeness: {dpr.data_completeness.status}
+                    <CheckCircle2 className="w-3 h-3 text-[#79563F]" />
+                    Data Completeness: {formatEnumLabel(dpr.data_completeness.status)}
                   </span>
                 )}
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1C1917] font-['Outfit']">
-                Financial Planning & Institutional Credit Package
+                {t('finance_title', 'Financial Planning & Institutional Credit Package')}
               </h1>
 
               {/* Verified Sector, Category & Subcategory Display */}
               <div className="flex flex-wrap items-center gap-3 text-xs text-[#57534E] pt-1">
-                <span className="flex items-center gap-1.5 font-bold text-[#1C1917] bg-[#FAF7F2] px-3 py-1 rounded-lg border border-[#EAE3D5]">
-                  <Building2 className="w-4 h-4 text-[#EA580C]" />
-                  {currentBusinessName}
+                <span className="flex items-center gap-1.5 font-bold text-[#1C1917] bg-[#FAF7F2] px-3 py-1 rounded-lg border border-[#79563F]/15">
+                  <Building2 className="w-4 h-4 text-[#79563F]" />
+                  <TranslatedText text={currentBusinessName} />
                 </span>
-                <span className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-medium">
-                  Sector: <strong>{currentSector}</strong>
+                <span className="bg-[#FAF7F2] px-2.5 py-1 rounded-md text-[#57534E] border border-[#79563F]/10 font-medium">
+                  {t('overview_sector', 'Sector')}: <strong className="text-[#1C1917]"><TranslatedText text={currentSector} /></strong>
                 </span>
-                <span className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-medium">
-                  Category: <strong>{currentCategory}</strong>
+                <span className="bg-[#FAF7F2] px-2.5 py-1 rounded-md text-[#57534E] border border-[#79563F]/10 font-medium">
+                  {t('overview_category', 'Category')}: <strong className="text-[#1C1917]"><TranslatedText text={currentCategory} /></strong>
                 </span>
-                <span className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-700 font-medium">
-                  Subcategory: <strong>{currentSubcategory}</strong>
+                <span className="bg-[#FAF7F2] px-2.5 py-1 rounded-md text-[#57534E] border border-[#79563F]/10 font-medium">
+                  {t('overview_subcategory', 'Subcategory')}: <strong className="text-[#1C1917]"><TranslatedText text={currentSubcategory} /></strong>
                 </span>
                 {currentNicCode && (
-                  <span className="bg-stone-100 px-2.5 py-1 rounded-md text-stone-600 font-mono text-[11px]">
+                  <span className="bg-[#FAF7F2] px-2.5 py-1 rounded-md text-[#78716C] border border-[#79563F]/10 font-mono text-[11px]">
                     NIC: {currentNicCode}
                   </span>
                 )}
@@ -764,23 +833,23 @@ export default function FinancialAnalysisPage() {
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 onClick={() => setIsEditDrawerOpen(true)}
-                className="px-4 py-2.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-xs font-bold text-stone-700 shadow-2xs flex items-center gap-1.5 transition-all"
+                className="px-4 py-2.5 rounded-xl border border-[#79563F]/20 bg-[#FAF7F2] hover:bg-[#F3E8D4] text-xs font-bold text-[#28231F] shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-[#EA580C]" />
-                <span>Adjust Parameters</span>
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#79563F]" />
+                <span>{t('fin_adjust_params', 'Adjust Parameters')}</span>
               </button>
 
-              <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-[#EAE3D5]">
+              <div className="flex items-center gap-1 bg-[#FAF2E3] p-1 rounded-xl border border-[#79563F]/20">
                 <button
                   onClick={() => setActiveTab('planning')}
                   className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
                     activeTab === 'planning'
-                      ? 'bg-white text-[#1C1917] shadow-sm'
-                      : 'text-[#57534E] hover:text-[#1C1917]'
+                      ? 'bg-[#79563F] text-[#FAF4E8] shadow-2xs'
+                      : 'text-[#6F746E] hover:text-[#28231F]'
                   }`}
                 >
-                  <BarChart3 className="w-3.5 h-3.5 text-[#EA580C]" />
-                  Planning & Appraisal
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  {t('fin_tab_planning', 'Planning & Appraisal')}
                 </button>
                 <button
                   onClick={() => {
@@ -789,25 +858,41 @@ export default function FinancialAnalysisPage() {
                   }}
                   className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
                     activeTab === 'calculator'
-                      ? 'bg-white text-[#1C1917] shadow-sm'
-                      : 'text-[#57534E] hover:text-[#1C1917]'
+                      ? 'bg-[#79563F] text-[#FAF4E8] shadow-2xs'
+                      : 'text-[#6F746E] hover:text-[#28231F]'
                   }`}
                 >
-                  <Calculator className="w-3.5 h-3.5 text-[#EA580C]" />
-                  Standalone Calculator
+                  <Calculator className="w-3.5 h-3.5" />
+                  {t('fin_tab_calculator', 'Standalone Calculator')}
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Dedicated Lower Forward Navigation Area */}
+          <div className="mt-5 pt-4 border-t border-[#79563F]/12 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-2 text-xs text-[#57534E]">
+              <span className="font-bold text-[#1C1917]">{t('status', 'Credit Package Status')}:</span>
+              <span>{t('fin_credit_status', 'Institutional DSCR, CapEx & Working Capital ready for underwriting')}</span>
+            </div>
+            <Link
+              to={`/feasibility${sessionId || analysisId ? `?${new URLSearchParams({ ...(sessionId ? { session_id: sessionId } : {}), ...(analysisId ? { analysis_id: analysisId } : {}) }).toString()}` : ''}`}
+              state={{ sessionId, analysisId, businessId, businessProfile }}
+              className="saffron-gradient-btn px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all hover:scale-[1.02] shrink-0 self-end sm:self-auto"
+            >
+              <span>{t('proceed_to_feasibility', 'Continue to Feasibility')}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
 
         {/* Loading Indicator */}
         {loading && (
-          <div className="royal-panel rounded-2xl p-12 text-center border border-[#EAE3D5] space-y-4 bg-white">
-            <RefreshCw className="w-10 h-10 text-[#EA580C] animate-spin mx-auto" />
-            <h3 className="text-lg font-bold text-[#1C1917]">Synthesizing Financial Appraisal Package...</h3>
+          <div className="royal-panel rounded-2xl p-12 text-center border border-[#79563F]/15 space-y-4 bg-[#FAF7F2]">
+            <RefreshCw className="w-10 h-10 text-[#79563F] animate-spin mx-auto" />
+            <h3 className="text-lg font-bold text-[#1C1917] font-['Outfit']">{t('loading', 'Synthesizing Financial Appraisal Package...')}</h3>
             <p className="text-xs text-[#78716C] max-w-md mx-auto">
-              Running M1 Loan Capacity, M2 Project Cost & CapEx Benchmarks, M3 5-Year Accounting Statements, M4 Banking DSCR Appraisal, and M5 Stress Sensitivity.
+              {t('fin_loading_desc', 'Analyzing loan capacity, project cost benchmarks, 5-year financial statements, banking DSCR appraisal, and stress sensitivity.')}
             </p>
           </div>
         )}
@@ -817,7 +902,7 @@ export default function FinancialAnalysisPage() {
           <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-              <span>{error}</span>
+              <span>{typeof error === 'object' ? (error?.message || error?.detail || 'An issue occurred during financial analysis.') : String(error)}</span>
             </div>
             <button
               onClick={() => executeStage9(businessProfile, true)}
@@ -834,134 +919,54 @@ export default function FinancialAnalysisPage() {
         {activeTab === 'planning' && fin && !loading && (
           <div className="space-y-8 animate-fadeIn">
 
-            {/* Institutional DPR Readiness & Diagnostic Status Banner */}
-            <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl ${
-                  engineStatus === 'READY_FOR_DPR'
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : engineStatus === 'READY_WITH_DISCLOSED_UNKNOWNS'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-amber-100 text-amber-700'
-                }`}>
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-stone-900 font-['Outfit'] uppercase tracking-wider">
-                      Financial Engine Status:
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
-                      engineStatus === 'READY_FOR_DPR'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : engineStatus === 'READY_WITH_DISCLOSED_UNKNOWNS'
-                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                        : 'bg-amber-100 text-amber-800 border border-amber-300'
-                    }`}>
-                      {engineStatus}
-                    </span>
 
-                    {/* Reconciled Data Completeness Status Badge */}
-                    {dpr?.data_completeness?.status && (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide flex items-center gap-1 cursor-help ${
-                          dpr.data_completeness.status === 'COMPLETE'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-blue-50 text-blue-700 border border-blue-200'
-                        }`}
-                        title={
-                          dpr.data_completeness.status === 'COMPLETE'
-                            ? 'All mandatory financial inputs and secondary disclosures verified.'
-                            : 'Core project financing & bankability metrics are 100% verified. Secondary statutory disclosures are non-blocking.'
-                        }
-                      >
-                        <Info className="w-3 h-3" />
-                        Data Completeness: {dpr.data_completeness.status === 'COMPLETE' ? 'COMPLETE' : 'PARTIALLY COMPLETE (Non-blocking)'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-stone-500 mt-0.5">
-                    {isBlocked
-                      ? '1 mandatory financial choice pending from entrepreneur before bankable DPR packaging.'
-                      : (dpr?.data_completeness?.dpr_gate_reasons?.[0] || 'Institutional financial appraisal completed and verified for bank credit appraisal.')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isBlocked ? (
-                  <div className="relative group">
-                    <button
-                      disabled
-                      className="px-4 py-2 bg-stone-200 text-stone-400 text-xs font-bold rounded-xl cursor-not-allowed flex items-center gap-1.5 opacity-80"
-                      title="Answer the question below to proceed"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      Proceed to Bankable DPR
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="hidden group-hover:block absolute bottom-full mb-1 right-0 w-48 p-2 bg-stone-900 text-white text-[10px] rounded-lg shadow-lg text-center z-20">
-                      Answer the question below to finalize PAT and unlock DPR.
-                    </span>
-                  </div>
-                ) : (
-                  <Link
-                    to={`/dpr?session_id=${sessionId}&analysis_id=${analysisId}`}
-                    className="px-4 py-2 bg-[#EA580C] hover:bg-[#C2410C] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-                  >
-                    <FileCheck className="w-4 h-4" />
-                    Proceed to Bankable DPR
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                )}
-              </div>
-            </div>
 
             {/* CONVERSATIONAL QUESTION CARD (Minimum Question Policy - 1 At A Time) */}
             {isBlocked && currentQuestion && (
-              <div className="royal-panel rounded-2xl p-6 sm:p-7 border-2 border-amber-300 bg-gradient-to-r from-amber-50/90 via-white to-orange-50/70 shadow-md relative overflow-hidden space-y-4 animate-fadeIn">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 pb-3">
+              <div className="royal-panel rounded-2xl p-6 sm:p-7 border border-[#79563F]/25 bg-[#FAF2E3]/95 shadow-sm relative overflow-hidden space-y-4 animate-fadeIn">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#79563F]/15 pb-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="p-2 rounded-xl bg-amber-500 text-white shadow-xs">
+                    <span className="p-2 rounded-xl bg-[#79563F] text-white shadow-xs">
                       <MessageSquare className="w-4 h-4" />
                     </span>
                     <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-200/60 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#79563F] bg-[#79563F]/10 px-2 py-0.5 rounded-full">
                         Action Required · 1 Pending Choice
                       </span>
                       <h3 className="text-sm font-bold text-[#1C1917] font-['Outfit'] mt-0.5">
-                        Conversational Entrepreneur Clarification Loop
+                        Entrepreneur Clarification
                       </h3>
                     </div>
                   </div>
                   <span className="text-[11px] text-stone-500 font-medium italic">
-                    Single-question flow · Sarvam AI Voice & Text enabled
+                    Single-question flow · Voice & Text enabled
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-base sm:text-lg font-bold text-[#1C1917] leading-relaxed flex-1">
-                      "{currentQuestion.question}"
+                      "<TranslatedText text={currentQuestion.question} />"
                     </p>
                     <button
                       type="button"
-                      onClick={() => playQuestionAudio(currentQuestion.question, currentQuestion.language || 'en')}
+                      onClick={() => playQuestionAudio(currentQuestion.question, currentQuestion.language || language || 'en')}
                       disabled={isSynthesizingAudio}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
                         isPlayingAudio
-                          ? 'bg-amber-600 text-white shadow-xs animate-pulse'
+                          ? 'bg-[#79563F] text-white shadow-xs animate-pulse'
                           : isSynthesizingAudio
                           ? 'bg-amber-100 text-amber-800 border border-amber-200 cursor-wait'
-                          : 'bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                          : 'bg-white hover:bg-[#F3E8D4] text-[#28231F] border border-[#79563F]/25 shadow-2xs'
                       }`}
-                      title="Listen to question via Sarvam Bulbul TTS"
+                      title="Listen to question"
                     >
                       <Volume2 className="w-4 h-4" />
-                      <span>{isSynthesizingAudio ? 'Synthesizing...' : isPlayingAudio ? 'Playing...' : 'Replay Audio'}</span>
+                      <span>{isSynthesizingAudio ? t('fin_synthesizing', 'Synthesizing...') : isPlayingAudio ? t('fin_playing', 'Playing...') : t('listen', 'Replay Audio')}</span>
                     </button>
                   </div>
                   <p className="text-xs text-stone-500">
-                    KALPA automatically resolved your 5-year revenue growth and project benchmarks using verified local intelligence. We only ask when an entrepreneurial choice is required.
+                    {t('fin_question_help', 'KALPA automatically resolved your 5-year revenue growth and project benchmarks using verified local intelligence. We only ask when an entrepreneurial choice is required.')}
                   </p>
                 </div>
 
@@ -969,7 +974,7 @@ export default function FinancialAnalysisPage() {
                 {currentQuestion.options && currentQuestion.options.length > 0 && (
                   <div className="space-y-2 pt-1">
                     <span className="text-[11px] font-bold text-stone-700 block">
-                      Select an option:
+                      {t('select_option', 'Select an option:')}
                     </span>
                     <div className="flex flex-wrap gap-2.5">
                       {currentQuestion.options.map((opt, i) => {
@@ -993,10 +998,10 @@ export default function FinancialAnalysisPage() {
                             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 ${
                               isNotSure
                                 ? 'bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-300'
-                                : 'bg-white hover:bg-amber-100/70 text-amber-950 border border-amber-300 hover:border-amber-400'
+                                : 'bg-white hover:bg-[#F3E8D4] text-[#28231F] border border-[#79563F]/20 hover:border-[#79563F]/40'
                             }`}
                           >
-                            <span>{label}</span>
+                            <span><TranslatedText text={label} /></span>
                             <ArrowRight className="w-3.5 h-3.5 opacity-60" />
                           </button>
                         );
@@ -1017,14 +1022,14 @@ export default function FinancialAnalysisPage() {
                           handleAnswerQuestion(currentQuestion.driver_id, activeQuestionInput);
                         }
                       }}
-                      placeholder="Or type your response here..."
-                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-stone-300 bg-white text-xs font-medium text-stone-800 focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      placeholder={t('type_message', 'Or type your response here...')}
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-stone-300 bg-white text-xs font-medium text-stone-800 focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                     {activeQuestionInput && (
                       <button
                         onClick={() => handleAnswerQuestion(currentQuestion.driver_id, activeQuestionInput)}
                         disabled={submittingQuestion}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#EA580C] text-white hover:bg-[#C2410C]"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-[#79563F] text-white hover:bg-[#5C3F2D]"
                       >
                         <Send className="w-3.5 h-3.5" />
                       </button>
@@ -1040,23 +1045,23 @@ export default function FinancialAnalysisPage() {
                         ? 'bg-rose-600 text-white animate-pulse'
                         : isProcessingAudio
                         ? 'bg-amber-500 text-white cursor-wait'
-                        : 'bg-stone-800 hover:bg-black text-white'
+                        : 'bg-[#79563F] hover:bg-[#5C3F2D] text-white'
                     }`}
                   >
                     {isProcessingAudio ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Transcribing (Sarvam STT)...</span>
+                        <span>{t('intake_transcribing', 'Transcribing speech...')}</span>
                       </>
                     ) : isListening ? (
                       <>
                         <MicOff className="w-4 h-4" />
-                        <span>Listening... (Tap to Send)</span>
+                        <span>{t('intake_listening', 'Listening... (Tap to Send)')}</span>
                       </>
                     ) : (
                       <>
                         <Mic className="w-4 h-4" />
-                        <span>Voice Answer (Sarvam STT)</span>
+                        <span>{t('voice_input', 'Voice Answer')}</span>
                       </>
                     )}
                   </button>
@@ -1064,156 +1069,168 @@ export default function FinancialAnalysisPage() {
               </div>
             )}
 
-            {/* SECTION 1: Harmonized Executive Financial Summary (6 Key Cards) */}
+            {/* SECTION 1: Harmonized Executive Financial Summary (6 Key Cards with 3D Effect) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
               
-              {/* 1. Total Project Cost */}
-              <div className="royal-card rounded-2xl p-5 border border-[#EAE3D5] bg-white flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">
-                      Total Project Cost
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-50 text-amber-800 border border-amber-200">
-                      CALCULATED
-                    </span>
+              {/* 1. Total Project Cost (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
+                        {t('finance_cost_breakdown', 'Total Project Cost')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('calculated', 'Calculated')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-[#1C1917] mt-1 font-['Outfit']">
+                      {formatINR(totalProjectCost)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_capex_wc', 'Normalized CapEx + Working Capital')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-[#1C1917] mt-1 font-['Outfit']">
-                    {formatINR(totalProjectCost)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-stone-500">
+                    {t('basis', 'Basis')}: {formatEnumLabel(dpr?.project_cost?.cost_basis || 'BENCHMARK_DERIVED')}
                   </div>
-                  <p className="text-[11px] text-[#57534E] mt-1">
-                    Normalized CapEx + Working Capital
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-[#EAE3D5] text-[10px] font-semibold text-stone-500">
-                  Basis: {dpr?.project_cost?.cost_basis || 'BENCHMARK_DERIVED'}
-                </div>
-              </div>
+              </Kalpa3DCard>
 
-              {/* 2. Required Margin */}
-              <div className="royal-card rounded-2xl p-5 border border-[#EAE3D5] bg-white flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                      Required Margin (10%)
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      CALCULATED
-                    </span>
+              {/* 2. Required Margin (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
+                        {t('finance_promoter_margin', 'Required Margin (10%)')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('calculated', 'Calculated')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-[#1C1917] mt-1 font-['Outfit']">
+                      {formatINR(requiredMargin)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_promoter_equity', 'Mandatory Promoter Equity')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-emerald-700 mt-1 font-['Outfit']">
-                    {formatINR(requiredMargin)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-[#79563F] flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-[#79563F]" />
+                    {t('fin_equity_met', '100% Minimum Equity Met')}
                   </div>
-                  <p className="text-[11px] text-[#57534E] mt-1">
-                    Mandatory Promoter Equity
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-[#EAE3D5] text-[10px] font-semibold text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  100% Minimum Equity Met
-                </div>
-              </div>
+              </Kalpa3DCard>
 
-              {/* 3. Available Margin Capital */}
-              <div className="royal-card rounded-2xl p-5 border border-[#EAE3D5] bg-white flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                      Available Capital
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-800 border border-blue-200">
-                      USER_PROVIDED
-                    </span>
+              {/* 3. Available Margin Capital (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
+                        {t('fin_available_capital', 'Available Capital')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('user_provided', 'User Provided')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-stone-800 mt-1 font-['Outfit']">
+                      {formatINR(availableMargin)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_intake_budget', 'Entrepreneur Intake Budget')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-stone-800 mt-1 font-['Outfit']">
-                    {formatINR(availableMargin)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-stone-500">
+                    {t('source', 'Source')}: {t('entrepreneur_profile', 'Entrepreneur Profile')}
                   </div>
-                  <p className="text-[11px] text-[#57534E] mt-1">
-                    Entrepreneur Intake Budget
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-[#EAE3D5] text-[10px] font-semibold text-stone-500">
-                  Source: Entrepreneur Profile
-                </div>
-              </div>
+              </Kalpa3DCard>
 
-              {/* 4. Retained Surplus Capital */}
-              <div className="royal-card rounded-2xl p-5 border border-emerald-200 bg-emerald-50/30 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                      Retained Surplus
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      CALCULATED
-                    </span>
+              {/* 4. Retained Surplus Capital (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
+                        {t('fin_retained_surplus', 'Retained Surplus')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('calculated', 'Calculated')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-[#1C1917] mt-1 font-['Outfit']">
+                      {formatINR(retainedSurplus)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_safety_reserve', 'Uncommitted Safety Reserve')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-emerald-800 mt-1 font-['Outfit']">
-                    {formatINR(retainedSurplus)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-[#79563F] flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-[#79563F]" />
+                    {t('fin_contingency', 'Preserved for Contingency')}
                   </div>
-                  <p className="text-[11px] text-emerald-700 mt-1">
-                    Uncommitted Safety Reserve
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-emerald-200 text-[10px] font-semibold text-emerald-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" />
-                  Preserved for Contingency
-                </div>
-              </div>
+              </Kalpa3DCard>
 
-              {/* 5. Proposed Loan (90%) */}
-              <div className="royal-card rounded-2xl p-5 border border-orange-200 bg-orange-50/20 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C2410C]">
-                      Proposed Loan (90%)
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-orange-50 text-orange-800 border border-orange-200">
-                      CALCULATED
-                    </span>
+              {/* 5. Proposed Loan (90%) (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
+                        {t('finance_term_loan', 'Proposed Loan (90%)')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('calculated', 'Calculated')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-[#79563F] mt-1 font-['Outfit']">
+                      {formatINR(proposedLoan)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_institutional_debt', 'Recommended Institutional Debt')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-[#C2410C] mt-1 font-['Outfit']">
-                    {formatINR(proposedLoan)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-[#78716C] flex justify-between">
+                    <span>{t('fin_tenure', 'Tenure')}: {dpr?.loan_structure?.tenure_months || 84} Mo</span>
+                    <span>{t('fin_rate', 'Rate')}: {formatPct(dpr?.loan_structure?.annual_interest_rate_pct ?? 8.0)}</span>
                   </div>
-                  <p className="text-[11px] text-[#57534E] mt-1">
-                    Recommended Institutional Debt
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-orange-200 text-[10px] font-semibold text-[#78716C] flex justify-between">
-                  <span>Tenure: {dpr?.loan_structure?.tenure_months || 84} Mo</span>
-                  <span>Rate: {formatPct(dpr?.loan_structure?.annual_interest_rate_pct ?? 8.0)}</span>
-                </div>
-              </div>
+              </Kalpa3DCard>
 
-              {/* 6. Monthly EMI */}
-              <div className="royal-card rounded-2xl p-5 border border-[#EAE3D5] bg-white flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
-                      Monthly Annuity EMI
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-stone-100 text-stone-700 border border-stone-300">
-                      CALCULATED
-                    </span>
+              {/* 6. Monthly EMI (3D Card) */}
+              <Kalpa3DCard>
+                <div className="royal-card rounded-2xl p-5 border border-[#79563F]/18 bg-[#FAF7F2] flex flex-col justify-between h-full shadow-2xs">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-600">
+                        {t('fin_monthly_emi', 'Monthly Annuity EMI')}
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FAF2E3] text-[#79563F] border border-[#79563F]/25">
+                        {t('calculated', 'Calculated')}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-[#79563F] mt-1 font-['Outfit']">
+                      {formatINR(monthlyEmi)}
+                    </div>
+                    <p className="text-[11px] text-[#57534E] mt-1">
+                      {t('fin_emi_obligation', 'Post-Moratorium Obligation')}
+                    </p>
                   </div>
-                  <div className="text-2xl font-black text-[#EA580C] mt-1 font-['Outfit']">
-                    {formatINR(monthlyEmi)}
+                  <div className="mt-3 pt-2.5 border-t border-[#79563F]/15 text-[10px] font-semibold text-[#79563F] flex items-center gap-1">
+                    <span>{t('fin_avg_dscr', 'Avg DSCR')}: <strong>{formatRatioVal(avgDscr)}</strong></span>
                   </div>
-                  <p className="text-[11px] text-[#57534E] mt-1">
-                    Post-Moratorium Obligation
-                  </p>
                 </div>
-                <div className="mt-3 pt-2.5 border-t border-[#EAE3D5] text-[10px] font-semibold text-blue-700 flex items-center gap-1">
-                  <span>Avg DSCR: <strong>{formatRatioVal(avgDscr)}</strong></span>
-                </div>
-              </div>
+              </Kalpa3DCard>
 
             </div>
 
             {/* Margin Capitalization Contextual Note */}
-            <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-[#FAF2E3] border border-[#79563F]/20 text-xs text-[#28231F] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <Info className="w-4 h-4 text-[#79563F] shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold">Institutional Capitalization Harmonization:</span> Total Project Cost is sized at{' '}
                   <strong>{formatINR(totalProjectCost)}</strong> based on industry CapEx (₹3.20L) and Working Capital (₹1.80L) benchmarks for {currentBusinessName}.
@@ -1224,21 +1241,21 @@ export default function FinancialAnalysisPage() {
               </div>
               <button
                 onClick={() => setIsEditDrawerOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 font-bold hover:bg-amber-50 shrink-0 text-[11px]"
+                className="px-3 py-1.5 rounded-lg bg-white border border-[#79563F]/25 text-[#79563F] font-bold hover:bg-[#F3E8D4] shrink-0 text-[11px] cursor-pointer"
               >
                 Modify Margin Input
               </button>
             </div>
 
-            {/* SECTION 2: Project Cost Breakdown (M2) & Means of Finance (M3) */}
+            {/* SECTION 2: Project Cost Breakdown & Means of Finance */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Verified Project Cost Breakdown */}
-              <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+              <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#EA580C]" />
-                    Project Cost Breakdown (M2 Verified)
+                    <Layers className="w-4 h-4 text-[#79563F]" />
+                    Project Cost Breakdown
                   </h3>
                   <span className="text-[10px] text-stone-500 font-semibold px-2 py-0.5 bg-stone-100 rounded">
                     Authoritative Benchmark
@@ -1307,11 +1324,11 @@ export default function FinancialAnalysisPage() {
               </div>
 
               {/* Means of Finance & Sources of Funds */}
-              <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+              <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-emerald-600" />
-                    Means of Finance (M3 Verified)
+                    <CreditCard className="w-4 h-4 text-[#79563F]" />
+                    Means of Finance (Capital Structure)
                   </h3>
                   <span className="text-[10px] text-stone-500 font-semibold px-2 py-0.5 bg-stone-100 rounded">
                     Authoritative Capital Mix
@@ -1329,19 +1346,19 @@ export default function FinancialAnalysisPage() {
                   <tbody className="divide-y divide-stone-100">
                     <tr>
                       <td className="px-3.5 py-2 text-[#1C1917] font-medium">Promoter Margin Contribution (Equity)</td>
-                      <td className="px-3.5 py-2 text-right font-medium text-emerald-800">
+                      <td className="px-3.5 py-2 text-right font-medium text-[#79563F]">
                         {formatINR(requiredMargin)}
                       </td>
-                      <td className="px-3.5 py-2 text-right font-semibold text-emerald-700">
+                      <td className="px-3.5 py-2 text-right font-semibold text-[#79563F]">
                         {formatPct(dpr?.means_of_finance?.promoter_margin_pct ?? 10.0)}
                       </td>
                     </tr>
                     <tr>
                       <td className="px-3.5 py-2 text-[#1C1917] font-medium">Proposed Institutional Bank Term Loan</td>
-                      <td className="px-3.5 py-2 text-right font-medium text-[#C2410C]">
+                      <td className="px-3.5 py-2 text-right font-medium text-[#79563F]">
                         {formatINR(proposedLoan)}
                       </td>
-                      <td className="px-3.5 py-2 text-right font-semibold text-[#C2410C]">
+                      <td className="px-3.5 py-2 text-right font-semibold text-[#79563F]">
                         {formatPct(dpr?.means_of_finance?.debt_pct ?? 90.0)}
                       </td>
                     </tr>
@@ -1360,10 +1377,10 @@ export default function FinancialAnalysisPage() {
                   </tbody>
                 </table>
 
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center justify-between">
-                  <span className="font-semibold text-emerald-800">Financing Gap Status:</span>
-                  <span className="font-bold text-emerald-900 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="p-3.5 bg-[#FAF2E3] border border-[#79563F]/20 rounded-xl text-xs flex items-center justify-between">
+                  <span className="font-bold text-[#79563F]">Financing Gap Status:</span>
+                  <span className="font-bold text-[#28231F] flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#79563F]" />
                     100% Fully Financed (Gap = ₹0)
                   </span>
                 </div>
@@ -1371,44 +1388,44 @@ export default function FinancialAnalysisPage() {
 
             </div>
 
-            {/* SECTION 3: 5-Year Projected Financial Statements (M3 Projected Statements) */}
-            <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+            {/* SECTION 3: 5-Year Projected Financial Statements */}
+            <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">
-                    Accounting Projections &bull; Milestone 3 Authoritative
+                    5-Year Operational Projections & Accounting Structure
                   </span>
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#EA580C]" />
+                    <BarChart3 className="w-4 h-4 text-[#79563F]" />
                     5-Year Projected Financial Statements
                   </h3>
                 </div>
 
                 {/* Sub-navigation between P&L, Balance Sheet, and Cash Flow */}
-                <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-xl border border-[#EAE3D5] text-xs font-semibold">
+                <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-xl border border-[#79563F]/15 text-xs font-semibold">
                   <button
                     onClick={() => setStatementTab('pnl')}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
-                      statementTab === 'pnl' ? 'bg-[#1E293B] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                      statementTab === 'pnl' ? 'bg-[#79563F] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    Profit & Loss
+                    {t('finance_pnl_summary', 'Profit & Loss')}
                   </button>
                   <button
                     onClick={() => setStatementTab('balance_sheet')}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
-                      statementTab === 'balance_sheet' ? 'bg-[#1E293B] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                      statementTab === 'balance_sheet' ? 'bg-[#79563F] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    Balance Sheet
+                    {t('fin_balance_sheet', 'Balance Sheet')}
                   </button>
                   <button
                     onClick={() => setStatementTab('cash_flow')}
                     className={`px-3 py-1.5 rounded-lg transition-all ${
-                      statementTab === 'cash_flow' ? 'bg-[#1E293B] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
+                      statementTab === 'cash_flow' ? 'bg-[#79563F] text-white shadow-xs' : 'text-stone-600 hover:text-stone-900'
                     }`}
                   >
-                    Cash Flow
+                    {t('fin_cash_flow', 'Cash Flow')}
                   </button>
                 </div>
               </div>
@@ -1417,7 +1434,7 @@ export default function FinancialAnalysisPage() {
               {statementTab === 'pnl' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse border border-stone-200 rounded-lg overflow-hidden">
-                    <thead className="bg-[#1E293B] text-white">
+                    <thead className="bg-[#28231F] text-[#FAF2E3]">
                       <tr>
                         <th className="px-3.5 py-2.5 font-bold">Line Item (INR)</th>
                         {[1, 2, 3, 4, 5].map((yr) => (
@@ -1439,21 +1456,9 @@ export default function FinancialAnalysisPage() {
                         ))}
                       </tr>
                       <tr className="bg-stone-50 font-semibold">
-                        <td className="px-3.5 py-2 text-[#1C1917]">Gross Profit</td>
-                        {pnlList.map((p, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-emerald-800">{formatINR(p.gross_profit)}</td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="px-3.5 py-2 text-stone-600">Operating Expenses (Admin & Selling)</td>
-                        {pnlList.map((p, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-stone-600">{formatINR(p.operating_expenses)}</td>
-                        ))}
-                      </tr>
-                      <tr className="bg-stone-50 font-semibold">
                         <td className="px-3.5 py-2 text-[#1C1917]">EBITDA</td>
                         {pnlList.map((p, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-blue-800">{formatINR(p.ebitda)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#28231F] font-bold">{formatINR(p.ebitda)}</td>
                         ))}
                       </tr>
                       <tr>
@@ -1477,7 +1482,7 @@ export default function FinancialAnalysisPage() {
                       <tr className="bg-[#FAF7F2] font-black text-[#1C1917]">
                         <td className="px-3.5 py-2">Profit After Tax (PAT)</td>
                         {pnlList.map((p, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-emerald-700 font-bold">
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#79563F] font-bold">
                             {p.pat !== null && p.pat !== undefined ? (
                               formatINR(p.pat)
                             ) : (
@@ -1509,7 +1514,7 @@ export default function FinancialAnalysisPage() {
               {statementTab === 'balance_sheet' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse border border-stone-200 rounded-lg overflow-hidden">
-                    <thead className="bg-[#1E293B] text-white">
+                    <thead className="bg-[#28231F] text-[#FAF2E3]">
                       <tr>
                         <th className="px-3.5 py-2.5 font-bold">Balance Sheet Item (INR)</th>
                         {[1, 2, 3, 4, 5].map((yr) => (
@@ -1545,7 +1550,7 @@ export default function FinancialAnalysisPage() {
                       <tr className="bg-[#FAF7F2] font-black text-[#1C1917]">
                         <td className="px-3.5 py-2">Total Assets</td>
                         {bsList.map((b, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-emerald-800 font-bold">{formatINR(b.total_assets)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#1C1917] font-bold">{formatINR(b.total_assets)}</td>
                         ))}
                       </tr>
                       <tr>
@@ -1571,7 +1576,7 @@ export default function FinancialAnalysisPage() {
                       <tr className="bg-[#FAF7F2] font-black text-[#1C1917]">
                         <td className="px-3.5 py-2">Total Liabilities & Equity</td>
                         {bsList.map((b, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-emerald-800 font-bold">{formatINR(b.total_liabilities)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#1C1917] font-bold">{formatINR(b.total_liabilities)}</td>
                         ))}
                       </tr>
                     </tbody>
@@ -1583,7 +1588,7 @@ export default function FinancialAnalysisPage() {
               {statementTab === 'cash_flow' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse border border-stone-200 rounded-lg overflow-hidden">
-                    <thead className="bg-[#1E293B] text-white">
+                    <thead className="bg-[#28231F] text-[#FAF2E3]">
                       <tr>
                         <th className="px-3.5 py-2.5 font-bold">Cash Flow Component (INR)</th>
                         {[1, 2, 3, 4, 5].map((yr) => (
@@ -1595,7 +1600,7 @@ export default function FinancialAnalysisPage() {
                       <tr>
                         <td className="px-3.5 py-2 font-medium text-[#1C1917]">Cash from Operating Activities (CFO)</td>
                         {cfList.map((c, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right font-medium text-emerald-800">{formatINR(c.cash_from_operations)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right font-medium text-[#1C1917]">{formatINR(c.cash_from_operations)}</td>
                         ))}
                       </tr>
                       <tr>
@@ -1613,13 +1618,13 @@ export default function FinancialAnalysisPage() {
                       <tr className="bg-stone-50 font-bold text-[#1C1917]">
                         <td className="px-3.5 py-2">Net Change in Cash Position</td>
                         {cfList.map((c, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-blue-800 font-bold">{formatINR(c.net_change_in_cash)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#28231F] font-bold">{formatINR(c.net_change_in_cash)}</td>
                         ))}
                       </tr>
                       <tr className="bg-[#FAF7F2] font-black text-[#1C1917]">
                         <td className="px-3.5 py-2">Closing Cash & Bank Balance</td>
                         {cfList.map((c, idx) => (
-                          <td key={idx} className="px-3.5 py-2 text-right text-emerald-700 font-bold">{formatINR(c.closing_cash_balance)}</td>
+                          <td key={idx} className="px-3.5 py-2 text-right text-[#79563F] font-bold">{formatINR(c.closing_cash_balance)}</td>
                         ))}
                       </tr>
                     </tbody>
@@ -1628,15 +1633,15 @@ export default function FinancialAnalysisPage() {
               )}
             </div>
 
-            {/* SECTION 4: Institutional Financing Alternatives & Scheme Optimizer (M5) */}
-            <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+            {/* SECTION 4: Institutional Financing Alternatives & Scheme Optimizer */}
+            <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C]">
-                    Milestone 5 Scheme Optimizer
+                    Scheme Optimizer
                   </span>
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <Compass className="w-4 h-4 text-[#EA580C]" />
+                    <Compass className="w-4 h-4 text-[#79563F]" />
                     Institutional Financing Options & Scheme Alternatives
                   </h3>
                 </div>
@@ -1646,7 +1651,7 @@ export default function FinancialAnalysisPage() {
               </div>
 
               <p className="text-xs text-[#57534E]">
-                The M5 Financing Optimizer analyzed {alternatives.length} scheme and tenure combinations against credit capacity, subsidy availability, and debt servicing limits.
+                The Financing Optimizer analyzed {alternatives.length} scheme and tenure combinations against credit capacity, subsidy availability, and debt servicing limits.
               </p>
 
               <div className="overflow-x-auto">
@@ -1667,11 +1672,11 @@ export default function FinancialAnalysisPage() {
                     {alternatives.slice(0, 8).map((opt, i) => {
                       const isRecommended = opt.is_recommended || opt.recommended || i === 0;
                       return (
-                        <tr key={i} className={isRecommended ? 'bg-orange-50/40 font-medium' : ''}>
+                        <tr key={i} className={isRecommended ? 'bg-[#FAF2E3]/60 font-medium' : ''}>
                           <td className="px-3 py-2 text-[#1C1917]">
                             <div className="flex items-center gap-1.5">
-                              {isRecommended && <Award className="w-3.5 h-3.5 text-[#EA580C] shrink-0" />}
-                              <span className={isRecommended ? 'font-bold text-[#EA580C]' : 'font-medium'}>
+                              {isRecommended && <Award className="w-3.5 h-3.5 text-[#79563F] shrink-0" />}
+                              <span className={isRecommended ? 'font-bold text-[#79563F]' : 'font-medium'}>
                                 {opt.scheme_name || opt.name || 'MSME Term Loan'}
                               </span>
                             </div>
@@ -1691,18 +1696,18 @@ export default function FinancialAnalysisPage() {
                           <td className="px-3 py-2 text-right font-bold text-[#1C1917]">
                             {formatINR(opt.monthly_emi || monthlyEmi)}
                           </td>
-                          <td className="px-3 py-2 text-right font-bold text-blue-700">
+                          <td className="px-3 py-2 text-right font-bold text-[#79563F]">
                             {formatRatioVal(opt.stress_case_dscr ?? opt.stress_dscr ?? opt.dscr ?? opt.average_dscr ?? avgDscr)}
                           </td>
                           <td className="px-3 py-2 text-center">
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                 isRecommended
-                                  ? 'bg-[#EA580C] text-white'
+                                  ? 'bg-[#79563F] text-white'
                                   : 'bg-stone-100 text-stone-700 border border-stone-200'
                               }`}
                             >
-                              {isRecommended ? 'SELECTED STRUCTURE' : 'ALTERNATIVE SCENARIO'}
+                              {isRecommended ? 'Selected Structure' : 'Alternative Scenario'}
                             </span>
                           </td>
                         </tr>
@@ -1713,18 +1718,18 @@ export default function FinancialAnalysisPage() {
               </div>
             </div>
 
-            {/* SECTION 5: Banking Appraisal Ratios (M4) & Stress Testing Resilience (M5) */}
+            {/* SECTION 5: Banking Appraisal Ratios & Stress Testing Resilience */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Banking & Solvency Ratios */}
-              <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+              <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    Banking Solvency Ratios (M4 Appraisal)
+                    <ShieldCheck className="w-4 h-4 text-[#79563F]" />
+                    Banking Solvency Ratios & Credit Appraisal
                   </h3>
-                  <span className="text-[10px] text-stone-500 font-semibold px-2 py-0.5 bg-stone-100 rounded">
-                    Audit Checked
+                  <span className="text-[10px] text-[#79563F] font-bold px-2.5 py-1 bg-[#FAF2E3] rounded-lg border border-[#79563F]/25">
+                    Bank Eligible
                   </span>
                 </div>
 
@@ -1732,7 +1737,7 @@ export default function FinancialAnalysisPage() {
                   <tbody className="divide-y divide-stone-100">
                     <tr>
                       <td className="px-3.5 py-2 text-stone-600 font-medium">Average DSCR (5-Year)</td>
-                      <td className="px-3.5 py-2 text-right font-black text-blue-700 text-sm">
+                      <td className="px-3.5 py-2 text-right font-black text-[#79563F] text-sm">
                         {formatRatioVal(avgDscr)}
                       </td>
                     </tr>
@@ -1762,7 +1767,7 @@ export default function FinancialAnalysisPage() {
                     </tr>
                     <tr>
                       <td className="px-3.5 py-2 text-stone-600 font-medium">Current Ratio (Year 1)</td>
-                      <td className="px-3.5 py-2 text-right font-bold text-[#1C1917]">
+                      <td className="px-3.5 py-2 text-right font-bold text-[#79563F]">
                         {formatRatioVal(dpr?.banking_metrics?.current_ratio_y1 ?? 2.15)}
                       </td>
                     </tr>
@@ -1771,32 +1776,32 @@ export default function FinancialAnalysisPage() {
               </div>
 
               {/* Stress Testing Resilience & Compliance */}
-              <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+              <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    M5 Stress Testing & Downside Appraisal
+                    <AlertTriangle className="w-4 h-4 text-[#79563F]" />
+                    Stress Testing & Downside Appraisal
                   </h3>
                   <span className="text-[10px] text-stone-500 font-semibold px-2 py-0.5 bg-stone-100 rounded">
                     Worst-Case Sensitivity
                   </span>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 text-xs space-y-2">
-                  <div className="flex justify-between font-bold text-amber-900">
+                <div className="p-3.5 rounded-xl bg-[#FAF2E3] border border-[#79563F]/20 text-xs space-y-2">
+                  <div className="flex justify-between font-bold text-[#28231F]">
                     <span>Financing Resilience Status:</span>
-                    <span className="text-emerald-800 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      {dpr?.m5_stress_appraisal?.financing_resilience_status || 'RESILIENT'}
+                    <span className="text-[#79563F] flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#79563F]" />
+                      {formatEnumLabel(dpr?.m5_stress_appraisal?.financing_resilience_status || 'RESILIENT')}
                     </span>
                   </div>
-                  <div className="flex justify-between text-amber-800 text-[11px]">
+                  <div className="flex justify-between text-[#57534E] text-[11px]">
                     <span>Tested Scenario:</span>
-                    <span className="font-semibold">{dpr?.m5_stress_appraisal?.worst_case_scenario || 'Revenue -15% & Variable Cost +10%'}</span>
+                    <span className="font-semibold text-[#28231F]">{dpr?.m5_stress_appraisal?.worst_case_scenario || 'Revenue -15% & Variable Cost +10%'}</span>
                   </div>
-                  <div className="flex justify-between text-amber-800 text-[11px]">
+                  <div className="flex justify-between text-[#57534E] text-[11px]">
                     <span>Downside Stressed DSCR:</span>
-                    <span className="font-bold text-blue-900">{formatRatioVal(dpr?.m5_stress_appraisal?.downside_dscr ?? 1.28)}</span>
+                    <span className="font-bold text-[#79563F]">{formatRatioVal(dpr?.m5_stress_appraisal?.downside_dscr ?? 1.28)}</span>
                   </div>
                 </div>
 
@@ -1804,8 +1809,8 @@ export default function FinancialAnalysisPage() {
                   <span className="font-bold text-[#1C1917] block">Required Compliance & Verification Documents:</span>
                   <div className="space-y-1.5">
                     {(eligibility?.required_documents || ['Aadhaar / Voter ID', 'Udyam Registration Certificate', 'Detailed Project Report (DPR)', '6-Month Bank Account Statements']).map((doc, i) => (
-                      <div key={i} className="flex items-center gap-2 p-2 bg-[#FAF7F2] rounded-lg border border-[#EAE3D5]">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <div key={i} className="flex items-center gap-2 p-2 bg-[#FAF7F2] rounded-lg border border-[#79563F]/15">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#79563F] shrink-0" />
                         <span className="font-medium text-[#1C1917]">{doc}</span>
                       </div>
                     ))}
@@ -1815,26 +1820,27 @@ export default function FinancialAnalysisPage() {
 
             </div>
 
-            {/* SECTION 6: Milestone Completion & Workflow Return Handoff */}
-            <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#EAE3D5] flex flex-col sm:flex-row items-center justify-between gap-6 bg-white">
-              <div className="space-y-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Stage 09 Financial Planning Complete & Verified
+            {/* SECTION 6: Milestone Completion & Feasibility Handoff */}
+            <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#79563F]/18 flex flex-col sm:flex-row items-center justify-between gap-6 bg-white">
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#79563F] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#79563F]" />
+                  {t('fin_planning_complete', 'Financial Planning Complete & Verified')}
                 </span>
                 <h3 className="text-lg font-bold text-[#1C1917] font-['Outfit']">
-                  Full Financial Model & Credit Dossier Structured
+                  {t('fin_dossier_prepared', 'Full Financial Structure & Credit Dossier Prepared')}
                 </h3>
-                <p className="text-xs text-[#57534E] max-w-xl">
-                  Authoritative M1–M6 metrics have been calculated deterministically. Your project cost of {formatINR(totalProjectCost)} is fully financed with {formatINR(proposedLoan)} in proposed institutional credit and {formatINR(requiredMargin)} in promoter equity.
+                <p className="text-xs text-[#57534E] max-w-xl leading-relaxed">
+                  {t('fin_handoff_desc', 'Your financial structure has been prepared. Total project cost is structured with proposed institutional credit and promoter equity. Proceed to the Feasibility stage to assess operational viability and entrepreneur readiness.')}
                 </p>
               </div>
 
               <Link
-                to="/journey"
-                className="saffron-gradient-btn px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shrink-0"
+                to={`/feasibility${sessionId || analysisId ? `?${new URLSearchParams({ ...(sessionId ? { session_id: sessionId } : {}), ...(analysisId ? { analysis_id: analysisId } : {}) }).toString()}` : ''}`}
+                state={{ sessionId, analysisId, businessId, businessProfile }}
+                className="saffron-gradient-btn px-6 py-3.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shrink-0 cursor-pointer transition-all hover:scale-[1.02]"
               >
-                <span>Return to Journey Hub</span>
+                <span>{t('proceed_to_feasibility', 'Continue to Feasibility')}</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -1850,10 +1856,10 @@ export default function FinancialAnalysisPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
               {/* Calculator Input Form */}
-              <div className="lg:col-span-5 royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-4">
+              <div className="lg:col-span-5 royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-4">
                 <div className="space-y-1">
                   <h3 className="text-base font-bold text-[#1C1917] font-['Outfit'] flex items-center gap-2">
-                    <Calculator className="w-5 h-5 text-[#EA580C]" />
+                    <Calculator className="w-5 h-5 text-[#79563F]" />
                     Interactive Financing Calculator
                   </h3>
                   <p className="text-xs text-[#78716C]">
@@ -1871,7 +1877,7 @@ export default function FinancialAnalysisPage() {
                       value={calcMargin}
                       onChange={(e) => setCalcMargin(e.target.value)}
                       placeholder="200000"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                     <span className="text-[10px] text-[#78716C]">Default 10% equity contribution benchmark</span>
                   </div>
@@ -1885,7 +1891,7 @@ export default function FinancialAnalysisPage() {
                       value={calcProjectCost}
                       onChange={(e) => setCalcProjectCost(e.target.value)}
                       placeholder="Leave blank to derive from margin"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -1926,7 +1932,7 @@ export default function FinancialAnalysisPage() {
                   <button
                     type="submit"
                     disabled={calcLoading}
-                    className="w-full saffron-gradient-btn py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md"
+                    className="w-full saffron-gradient-btn py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
                   >
                     {calcLoading ? (
                       <>
@@ -1946,10 +1952,10 @@ export default function FinancialAnalysisPage() {
               {/* Calculator Results Display */}
               <div className="lg:col-span-7 space-y-4">
                 {calcResult && (
-                  <div className="royal-card rounded-2xl p-6 border border-[#EAE3D5] bg-white space-y-5 animate-fadeIn">
+                  <div className="royal-card rounded-2xl p-6 border border-[#79563F]/15 bg-white space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#79563F]">
                           Calculation Estimate &bull; Not a Sanction
                         </span>
                         <h3 className="text-lg font-bold text-[#1C1917] font-['Outfit']">
@@ -1958,26 +1964,26 @@ export default function FinancialAnalysisPage() {
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] text-stone-500 uppercase font-bold block">Monthly EMI</span>
-                        <div className="text-2xl font-black text-[#EA580C] font-['Outfit']">
+                        <div className="text-2xl font-black text-[#79563F] font-['Outfit']">
                           {formatINR(calcResult.monthlyEmi)}
                         </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#EAE3D5]">
+                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15">
                         <span className="text-stone-500 block text-[10px]">Project Cost</span>
                         <strong className="text-[#1C1917] text-sm">{formatINR(calcResult.theoreticalProjectCost)}</strong>
                       </div>
-                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#EAE3D5]">
+                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15">
                         <span className="text-stone-500 block text-[10px]">Required Margin</span>
-                        <strong className="text-emerald-700 text-sm">{formatINR(calcResult.requiredMargin)}</strong>
+                        <strong className="text-[#79563F] text-sm">{formatINR(calcResult.requiredMargin)}</strong>
                       </div>
-                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#EAE3D5]">
+                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15">
                         <span className="text-stone-500 block text-[10px]">Estimated Loan</span>
-                        <strong className="text-[#C2410C] text-sm">{formatINR(calcResult.estimatedLoanRequirement)}</strong>
+                        <strong className="text-[#79563F] text-sm">{formatINR(calcResult.estimatedLoanRequirement)}</strong>
                       </div>
-                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#EAE3D5]">
+                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#79563F]/15">
                         <span className="text-stone-500 block text-[10px]">Total Repayment</span>
                         <strong className="text-[#1C1917] text-sm">{formatINR(calcResult.totalRepayment)}</strong>
                       </div>
@@ -1999,14 +2005,14 @@ export default function FinancialAnalysisPage() {
               <div className="space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                   <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="w-5 h-5 text-[#EA580C]" />
+                    <SlidersHorizontal className="w-5 h-5 text-[#79563F]" />
                     <h3 className="text-base font-bold text-[#1C1917] font-['Outfit']">
                       Adjust Business & Financial Inputs
                     </h3>
                   </div>
                   <button
                     onClick={() => setIsEditDrawerOpen(false)}
-                    className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500"
+                    className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -2019,8 +2025,8 @@ export default function FinancialAnalysisPage() {
                       type="text"
                       value={editBusinessName}
                       onChange={(e) => setEditBusinessName(e.target.value)}
-                      placeholder="Saree Retail"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      placeholder="e.g. Grocery Store, Dairy Farm"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -2031,7 +2037,7 @@ export default function FinancialAnalysisPage() {
                       value={editSector}
                       onChange={(e) => setEditSector(e.target.value)}
                       placeholder="Retail"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -2041,8 +2047,8 @@ export default function FinancialAnalysisPage() {
                       type="text"
                       value={editCategory}
                       onChange={(e) => setEditCategory(e.target.value)}
-                      placeholder="Apparel Retail"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      placeholder="e.g. Retail Trade"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -2052,8 +2058,8 @@ export default function FinancialAnalysisPage() {
                       type="text"
                       value={editSubcategory}
                       onChange={(e) => setEditSubcategory(e.target.value)}
-                      placeholder="Women's Traditional Apparel"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      placeholder="e.g. Grocery Store"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -2066,7 +2072,7 @@ export default function FinancialAnalysisPage() {
                       value={editMarginCapital}
                       onChange={(e) => setEditMarginCapital(e.target.value)}
                       placeholder="200000"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                     <span className="text-[10px] text-[#78716C]">Self-financed equity available from entrepreneur</span>
                   </div>
@@ -2080,7 +2086,7 @@ export default function FinancialAnalysisPage() {
                       value={editPreferredCost}
                       onChange={(e) => setEditPreferredCost(e.target.value)}
                       placeholder="Leave blank for benchmark sizing"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#EA580C] outline-none"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CFC4] bg-[#FAF7F2] font-semibold text-[#1C1917] focus:ring-2 focus:ring-[#79563F] outline-none"
                     />
                   </div>
 
@@ -2088,13 +2094,13 @@ export default function FinancialAnalysisPage() {
                     <button
                       type="button"
                       onClick={() => setIsEditDrawerOpen(false)}
-                      className="w-1/2 py-2.5 rounded-xl border border-stone-300 font-bold text-stone-700 hover:bg-stone-50"
+                      className="w-1/2 py-2.5 rounded-xl border border-stone-300 font-bold text-stone-700 hover:bg-stone-50 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="w-1/2 saffron-gradient-btn py-2.5 rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5"
+                      className="w-1/2 saffron-gradient-btn py-2.5 rounded-xl font-bold shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Check className="w-4 h-4" />
                       <span>Recalculate</span>

@@ -104,6 +104,10 @@ def build_financial_context(
         _g(proj_id, "nic_code")
         or _g(bp, "nic_code")
         or _g(bp, "business_profile", "nic_code")
+        or _g(bp, "nic", "code")
+        or _g(bp, "business_profile", "nic", "code")
+        or _g(bp, "official_nic_code")
+        or _g(ui, "nic_code")
     )
 
     # -------------------------------------------------------------
@@ -670,7 +674,7 @@ def build_financial_context(
         "sector": sector_val,
         "category": category_val,
         "subcategory": subcategory_val,
-        "nic_code": str(nic_val) if nic_val is not None else "47711",
+        "nic_code": str(nic_val) if nic_val is not None else None,
         "currency": "INR",
         "policy_version": "AY_2026_27_FINANCE_ACT_2025",
         "package_version": "1.0.0",

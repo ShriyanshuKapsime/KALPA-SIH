@@ -23,6 +23,13 @@ class NICDetails(BaseModel):
 
 
 class BusinessProfileSection(BaseModel):
+    business_id: Optional[str] = None
+    business_node_id: Optional[str] = None
+    business_activity: Optional[str] = None
+    nic_code: Optional[str] = None
+    nic_description: Optional[str] = None
+    legal_constitution: Optional[str] = None
+    constitution: Optional[str] = None
     original_concept: str = ""
     normalized_concept: str = ""
     sector: str = ""
@@ -30,14 +37,14 @@ class BusinessProfileSection(BaseModel):
     sub_category: str = ""
     specific_business: str = ""
     nic: NICDetails = Field(default_factory=NICDetails)
-    products: List[str] = Field(default_factory=list)
-    services: List[str] = Field(default_factory=list)
+    products: Any = Field(default_factory=list)
+    services: Any = Field(default_factory=list)
 
 
 class EntrepreneurProfileSection(BaseModel):
-    skills: List[str] = Field(default_factory=list)
-    experience: List[str] = Field(default_factory=list)
-    resources: List[str] = Field(default_factory=list)
+    skills: Any = Field(default_factory=list)
+    experience: Any = Field(default_factory=list)
+    resources: Any = Field(default_factory=list)
     business_stage: str = "planning"
 
 

@@ -1,9 +1,8 @@
 import React from 'react';
-import { PieChart, Scale, ArrowUpRight, AlertCircle, ShieldCheck, TrendingUp } from 'lucide-react';
+import { PieChart, Scale, ShieldCheck, AlertCircle, Compass, Building2 } from 'lucide-react';
 import Stage6StatusBadge from './Stage6StatusBadge';
-import CalculationProvenanceViewer from './CalculationProvenanceViewer';
 
-export const MarketCapacityCard = ({ capacity = {}, provenance = [] }) => {
+export const MarketCapacityCard = ({ capacity = {} }) => {
   const status = capacity.status || 'LIMITED';
   const signal = capacity.capacity_signal || 'MODERATE_PRESSURE';
   const netScore = capacity.net_capacity_score ?? 0.50;
@@ -13,97 +12,96 @@ export const MarketCapacityCard = ({ capacity = {}, provenance = [] }) => {
   const limitations = capacity.limitations || [];
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+    <div className="royal-panel rounded-2xl p-5 sm:p-7 border border-[#79563F]/18 space-y-5 shadow-xs h-auto w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#79563F]/15 pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <PieChart className="w-5 h-5 text-emerald-400" />
-              Net Market Capacity & Expansion Signal
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg sm:text-xl font-bold text-[#28231F] flex items-center gap-2 font-['Outfit']">
+              <PieChart className="w-5 h-5 text-[#006F5F]" />
+              Net Market Capacity &amp; Expansion Signal
             </h3>
-            <Stage6StatusBadge status={signal} />
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#006F5F]/10 text-[#006F5F] font-bold border border-[#006F5F]/20">
+              SYNTHESIS CONCLUSION
+            </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Deterministic synthesis of demand absorption headroom versus proximity-weighted competitive saturation.
+          <p className="text-xs text-[#62584F] mt-1">
+            Synthesis of demand absorption headroom versus proximity-weighted competitive saturation.
           </p>
         </div>
-        <div className="text-right">
-          <span className="text-xs text-slate-400 font-mono">Net Capacity Score:</span>
-          <p className="text-xl font-bold text-emerald-400 font-mono">
-            {netScore.toFixed(2)} <span className="text-xs font-normal text-slate-400">/ 1.00</span>
-          </p>
+        <div className="flex items-center gap-2">
+          <Stage6StatusBadge status={signal} />
         </div>
       </div>
 
-      {/* Main Capacity Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Capacity Signal */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-emerald-500/20">
-          <div className="flex justify-between items-start">
-            <span className="text-xs text-slate-400 font-medium">Strategic Signal</span>
-            <Stage6StatusBadge status={signal} />
-          </div>
-          <p className="text-lg font-bold text-slate-100 mt-2 capitalize">
+      {/* Synthesis Big Signal & 4-Metric Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Strategic Signal */}
+        <div className="bg-[#FAF2E3]/90 p-4 rounded-xl border border-[#006F5F]/25 shadow-2xs">
+          <span className="text-[11px] text-[#79563F] font-medium block">Strategic Signal</span>
+          <p className="text-lg font-extrabold text-[#006F5F] mt-1 capitalize font-['Outfit']">
             {signal.replace(/_/g, ' ')}
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Capacity Status: <strong className="text-emerald-400 uppercase">{status}</strong>
+          <p className="text-[11px] text-[#62584F] mt-0.5">
+            Status: <strong className="text-[#28231F] uppercase">{status}</strong>
           </p>
         </div>
 
-        {/* Demand vs Competition Balance */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <Scale className="w-3.5 h-3.5 text-cyan-400" /> Equilibrium Dynamics
-          </span>
-          <div className="mt-2 space-y-1.5 text-xs">
+        {/* Net Capacity Score */}
+        <div className="bg-[#FAF2E3]/90 p-4 rounded-xl border border-[#79563F]/12 shadow-2xs">
+          <span className="text-[11px] text-[#79563F] font-medium block">Market Capacity Score</span>
+          <p className="text-2xl font-bold text-[#28231F] mt-1 font-mono">
+            {netScore.toFixed(2)}
+            <span className="text-xs font-normal text-[#62584F]"> / 1.00</span>
+          </p>
+          <p className="text-[11px] text-[#62584F] mt-0.5">
+            Headroom absorption index
+          </p>
+        </div>
+
+        {/* Equilibrium Dynamics */}
+        <div className="bg-[#FAF2E3]/90 p-4 rounded-xl border border-[#79563F]/12 shadow-2xs">
+          <span className="text-[11px] text-[#79563F] font-medium block">Equilibrium Dynamics</span>
+          <div className="mt-1 space-y-0.5 text-xs">
             <div className="flex justify-between">
-              <span className="text-slate-400">Demand Signal:</span>
-              <strong className="text-slate-200 font-mono uppercase">{demandSignal}</strong>
+              <span className="text-[#62584F] text-[11px]">Demand:</span>
+              <strong className="text-[#006F5F] font-mono uppercase text-xs">{demandSignal}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Competition Saturation:</span>
-              <strong className="text-slate-200 font-mono uppercase">{compPressure}</strong>
+              <span className="text-[#62584F] text-[11px]">Saturation:</span>
+              <strong className="text-[#79563F] font-mono uppercase text-xs">{compPressure}</strong>
             </div>
           </div>
         </div>
 
-        {/* Confidence & Evidence Level */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-400" /> Evidence Confidence
+        {/* Evidence Confidence */}
+        <div className="bg-[#FAF2E3]/90 p-4 rounded-xl border border-[#79563F]/12 shadow-2xs">
+          <span className="text-[11px] text-[#79563F] font-medium flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#006F5F]" /> Confidence &amp; Level
           </span>
-          <p className="text-2xl font-bold text-teal-300 mt-1 font-mono">
+          <p className="text-2xl font-bold text-[#006F5F] mt-1 font-mono">
             {(confidence * 100).toFixed(0)}%
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            Evidence Level: <strong className="text-slate-300 uppercase">{capacity.evidence_level || 'MODERATE'}</strong>
+          <p className="text-[11px] text-[#62584F] mt-0.5">
+            Evidence: <strong className="text-[#28231F] uppercase">{capacity.evidence_level || 'MODERATE'}</strong>
           </p>
         </div>
       </div>
 
-      {/* Limitations and Assumptions */}
+      {/* Assumptions & Boundary Notes */}
       {limitations.length > 0 && (
-        <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
-          <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-            Deterministic Modeling Assumptions & Boundary Conditions
+        <div className="bg-[#FAF2E3]/90 p-3.5 rounded-xl border border-[#79563F]/12 space-y-1">
+          <h4 className="text-[11px] font-bold text-[#28231F] uppercase tracking-wider flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5 text-[#C96A3A]" />
+            Modeling Assumptions &amp; Boundary Conditions
           </h4>
-          <ul className="list-disc list-inside text-xs text-slate-400 space-y-1">
+          <ul className="list-disc list-inside text-[11px] text-[#62584F] space-y-0.5 leading-relaxed">
             {limitations.map((lim, idx) => (
               <li key={idx}>{lim}</li>
             ))}
           </ul>
         </div>
       )}
-
-      {/* Provenance */}
-      <CalculationProvenanceViewer
-        provenance={provenance}
-        metricName="net_market_capacity_score"
-        title="Market Capacity Provenance"
-      />
     </div>
   );
 };

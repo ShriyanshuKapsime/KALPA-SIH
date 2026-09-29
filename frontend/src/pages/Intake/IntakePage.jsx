@@ -28,63 +28,15 @@ import {
 import Card, { CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import ContourBackground from '../../components/ui/ContourBackground';
 import apiService from '../../services/api';
 import { useWorkflow } from '../../context/WorkflowContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { SUPPORTED_LANGUAGES } from '../../i18n/translations';
+import { reverseGeocodeCoords } from '../../services/geocoding';
+import AgenticWorkflowThread from '../../components/workflow/AgenticWorkflowThread';
 
-// Language Options (Display Labels separated from Sarvam API values)
-const SUPPORTED_LANGUAGES = [
-  { code: 'auto', appCode: 'unknown', sarvamCode: 'unknown', label: 'Auto Detect', native: 'ಸ್ವಯಂಚಾಲಿತ / Auto' },
-  { code: 'en', appCode: 'en', sarvamCode: 'en-IN', label: 'English', native: 'English' },
-  { code: 'kn', appCode: 'kn', sarvamCode: 'kn-IN', label: 'Kannada', native: 'ಕನ್ನಡ' },
-  { code: 'hi', appCode: 'hi', sarvamCode: 'hi-IN', label: 'Hindi', native: 'हिन्दी' },
-];
-
-// Localized UI Texts
+// Localized UI Texts across 7 Indian Languages
 const UI_STRINGS = {
-  auto: {
-    badge: 'Step 1 of KALPA Journey',
-    title: 'Tell Us About Your Business Idea',
-    subtitle: 'Speak naturally in any Indian language or type in your preferred language.',
-    guidanceHeading: 'Tell us about your business idea naturally:',
-    guidancePoints: [
-      'What business you want to start or expand',
-      'How much money you can invest',
-      'Where you want to run it (village, town, district)',
-      'Your relevant skills or experience'
-    ],
-    quickExamples: 'Quick Examples to Try:',
-    textTab: 'Text Input',
-    voiceTab: 'Voice Input',
-    textPlaceholder: 'e.g. I want to start a dairy farm in Mandya with ₹2 lakh. I have experience in cattle farming.',
-    continueBtn: 'Continue',
-    processingText: 'Understanding your business idea...',
-    readyToListen: 'Ready to listen. Tap to Speak',
-    listening: 'Listening... Speak in English, Hindi, or Kannada',
-    processingSpeech: 'Processing speech with Sarvam STT...',
-    transcriptReceived: 'Transcript received. You can review or edit below:',
-    confirmAndAnalyze: 'Confirm & Understand Business Idea',
-    reRecord: 'Re-record',
-    clarificationTitle: 'Clarification Needed',
-    typeAnswerTab: 'Type Answer',
-    speakAnswerTab: 'Speak Answer',
-    submitAnswer: 'Submit Answer',
-    listenQuestion: 'Listen',
-    stopSpeaking: 'Stop Speaking',
-    useCurrentLocation: 'Use Current Location (GPS)',
-    gpsLocating: 'Fetching GPS location...',
-    gpsSuccess: 'Device GPS Location detected',
-    noExperienceBtn: "I don't have experience",
-    stage1CompleteTitle: 'Stage 1 Intake & Extraction Complete!',
-    stage1CompleteDesc: 'Your business profile, capital, location, and skills have been structured and verified.',
-    readyForPhase2: 'Ready for Stage 2: Business Classification & NIC Mapping',
-    startOver: 'Start Over',
-    edit: 'Edit',
-    save: 'Save',
-    cancel: 'Cancel',
-    sourceUser: 'Provided by you',
-    sourceGPS: 'Device GPS'
-  },
   en: {
     badge: 'Step 1 of KALPA Journey',
     title: 'Tell Us About Your Business Idea',
@@ -103,8 +55,8 @@ const UI_STRINGS = {
     continueBtn: 'Continue',
     processingText: 'Understanding your business idea...',
     readyToListen: 'Ready to listen. Tap to Speak',
-    listening: 'Listening... Speak clearly',
-    processingSpeech: 'Processing speech with Sarvam STT...',
+    listening: 'Listening... Speak clearly in your language',
+    processingSpeech: 'Processing speech with AI...',
     transcriptReceived: 'Transcript received. You can review or edit below:',
     confirmAndAnalyze: 'Confirm & Understand Business Idea',
     reRecord: 'Re-record',
@@ -114,9 +66,9 @@ const UI_STRINGS = {
     submitAnswer: 'Submit Answer',
     listenQuestion: 'Listen',
     stopSpeaking: 'Stop Speaking',
-    useCurrentLocation: 'Use Current Location (GPS)',
-    gpsLocating: 'Fetching GPS location...',
-    gpsSuccess: 'Device GPS Location detected',
+    useCurrentLocation: 'Use Current Location',
+    gpsLocating: 'Resolving location...',
+    gpsSuccess: 'Device Location detected',
     noExperienceBtn: "I don't have experience",
     stage1CompleteTitle: 'Stage 1 Intake & Extraction Complete!',
     stage1CompleteDesc: 'Your business profile, capital, location, and skills have been structured and verified.',
@@ -126,50 +78,7 @@ const UI_STRINGS = {
     save: 'Save',
     cancel: 'Cancel',
     sourceUser: 'Provided by you',
-    sourceGPS: 'Device GPS'
-  },
-  kn: {
-    badge: 'ಕಲ್ಪ ಪ್ರಯಾಣದ ಹಂತ 1',
-    title: 'ನಿಮ್ಮ ವ್ಯವಹಾರದ ಕಲ್ಪನೆಯನ್ನು ನಮಗೆ ತಿಳಿಸಿ',
-    subtitle: 'ನಿಮ್ಮ ಮಾತೃಭಾಷೆಯಲ್ಲಿ ಸ್ವಾಭಾವಿಕವಾಗಿ ಮಾತನಾಡಿ ಅಥವಾ ನಿಮ್ಮ ಆಯ್ಕೆಯ ಭಾಷೆಯಲ್ಲಿ ಬರೆಯಿರಿ.',
-    guidanceHeading: 'ನಿಮ್ಮ ವ್ಯಾಪಾರದ ಬಗ್ಗೆ ಮುಕ್ತವಾಗಿ ತಿಳಿಸಿ:',
-    guidancePoints: [
-      'ನೀವು ಯಾವ ವ್ಯವಹಾರವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಅಥವಾ ವಿಸ್ತರಿಸಲು ಬಯಸುತ್ತೀರಿ',
-      'ನೀವು ಎಷ್ಟು ಬಂಡವಾಳ ಹೂಡಿಕೆ ಮಾಡಬಹುದು',
-      'ವ್ಯವಹಾರವನ್ನು ಎಲ್ಲಿ ನಡೆಸಲು ಯೋಜಿಸುತ್ತಿದ್ದೀರಿ (ಗ್ರಾಮ, ತಾಲೂಕು, ಜಿಲ್ಲೆ)',
-      'ನಿಮ್ಮಲ್ಲಿರುವ ಸಂಬಂಧಿತ ಅನುಭವ ಅಥವಾ ಕೌಶಲ್ಯಗಳು'
-    ],
-    quickExamples: 'ತ್ವರಿತ ಉದಾಹರಣೆಗಳು:',
-    textTab: 'ಬರೆದು ತಿಳಿಸಿ',
-    voiceTab: 'ಮಾತನಾಡಿ ತಿಳಿಸಿ',
-    textPlaceholder: 'ಉದಾ: ನಾನು ಮಂಡ್ಯದಲ್ಲಿ ₹2 ಲಕ್ಷ ಬಂಡವಾಳದೊಂದಿಗೆ ಡೈರಿ ಫಾರ್ಮ್ ಪ್ರಾರಂಭಿಸಲು ಬಯಸುತ್ತೇನೆ. ನನಗೆ ಹೈನುಗಾರಿಕೆ ಅನುಭವವಿದೆ.',
-    continueBtn: 'ಮುಂದುವರಿಯಿರಿ',
-    processingText: 'ನಿಮ್ಮ ವ್ಯವಹಾರ ಕಲ್ಪನೆಯನ್ನು ಗ್ರಹಿಸಲಾಗುತ್ತಿದೆ...',
-    readyToListen: 'ಮಾತನಾಡಲು ಸಿದ್ಧ. ಮೈಕ್ ಮೇಲೆ ಸ್ಪರ್ಶಿಸಿ',
-    listening: 'ಕೇಳಿಸಿಕೊಳ್ಳುತ್ತಿದ್ದೇವೆ... ಸ್ಪಷ್ಟವಾಗಿ ಮಾತನಾಡಿ',
-    processingSpeech: 'ಧ್ವನಿಯನ್ನು ಪಠ್ಯಕ್ಕೆ ಪರಿವರ್ತಿಸಲಾಗುತ್ತಿದೆ...',
-    transcriptReceived: 'ಧ್ವನಿ ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ಪರಿಶೀಲಿಸಿ ಅಥವಾ ತಿದ್ದಿ:',
-    confirmAndAnalyze: 'ಖಚಿತಪಡಿಸಿ ಮತ್ತು ವಿಶ್ಲೇಷಿಸಿ',
-    reRecord: 'ಮತ್ತೊಮ್ಮೆ ಧ್ವನಿಮುದ್ರಿಸಿ',
-    clarificationTitle: 'ಹೆಚ್ಚುವರಿ ಮಾಹಿತಿ ಅಗತ್ಯವಿದೆ',
-    typeAnswerTab: 'ಬರೆದು ಉತ್ತರಿಸಿ',
-    speakAnswerTab: 'ಮಾತನಾಡಿ ಉತ್ತರಿಸಿ',
-    submitAnswer: 'ಉತ್ತರ ಸಲ್ಲಿಸಿ',
-    listenQuestion: 'ಪ್ರಶ್ನೆ ಆಲಿಸಿ',
-    stopSpeaking: 'ನಿಲ್ಲಿಸಿ',
-    useCurrentLocation: 'ಪ್ರಸ್ತುತ ಸ್ಥಳ ಬಳಸಿ (GPS)',
-    gpsLocating: 'GPS ಸ್ಥಳ ಪಡೆಯಲಾಗುತ್ತಿದೆ...',
-    gpsSuccess: 'ಸಾಧನದ GPS ಸ್ಥಳ ಗುರುತಿಸಲಾಗಿದೆ',
-    noExperienceBtn: 'ನನಗೆ ಅನುಭವವಿಲ್ಲ',
-    stage1CompleteTitle: 'ಹಂತ 1 - ಮಾಹಿತಿ ಸಂಗ್ರಹ ಪೂರ್ಣಗೊಂಡಿದೆ!',
-    stage1CompleteDesc: 'ನಿಮ್ಮ ವ್ಯಾಪಾರ ಪರಿಕಲ್ಪನೆ, ಬಂಡವಾಳ, ಸ್ಥಳ ಮತ್ತು ಕೌಶಲ್ಯಗಳನ್ನು ಯಶಸ್ವಿಯಾಗಿ ರಚಿಸಲಾಗಿದೆ.',
-    readyForPhase2: 'ಹಂತ 2: ವ್ಯಾಪಾರ ವರ್ಗೀಕರಣಕ್ಕೆ ಸಿದ್ಧವಾಗಿದೆ',
-    startOver: 'ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ',
-    edit: 'ತಿದ್ದಿ',
-    save: 'ಉಳಿಸಿ',
-    cancel: 'ರದ್ದು',
-    sourceUser: 'ನೀವು ನೀಡಿದ ಸ್ಥಳ',
-    sourceGPS: 'ಸಾಧನದ GPS'
+    sourceGPS: 'Device Location'
   },
   hi: {
     badge: 'कल्पा यात्रा का चरण 1',
@@ -200,9 +109,9 @@ const UI_STRINGS = {
     submitAnswer: 'उत्तर भेजें',
     listenQuestion: 'प्रश्न सुनें',
     stopSpeaking: 'रोकें',
-    useCurrentLocation: 'वर्तमान स्थान का उपयोग करें (GPS)',
-    gpsLocating: 'GPS स्थान खोजा जा रहा है...',
-    gpsSuccess: 'डिवाइस का GPS स्थान मिल गया',
+    useCurrentLocation: 'वर्तमान स्थान का उपयोग करें',
+    gpsLocating: 'स्थान खोजा जा रहा है...',
+    gpsSuccess: 'स्थान मिल गया',
     noExperienceBtn: 'मुझे पूर्व अनुभव नहीं है',
     stage1CompleteTitle: 'चरण 1 - जानकारी निष्कर्षण पूर्ण!',
     stage1CompleteDesc: 'आपकी व्यावसायिक अवधारणा, पूंजी, स्थान और कौशल का सत्यापन हो चुका है।',
@@ -212,7 +121,222 @@ const UI_STRINGS = {
     save: 'सहेजें',
     cancel: 'रद्द करें',
     sourceUser: 'आपके द्वारा दिया गया',
-    sourceGPS: 'डिवाइस GPS'
+    sourceGPS: 'डिवाइस स्थान'
+  },
+  kn: {
+    badge: 'ಕಲ್ಪ ಪ್ರಯಾಣದ ಹಂತ 1',
+    title: 'ನಿಮ್ಮ ವ್ಯಾಪಾರ ಕಲ್ಪನೆಯನ್ನು ನಮಗೆ ತಿಳಿಸಿ',
+    subtitle: 'ನಿಮ್ಮ ಮಾತೃಭಾಷೆಯಲ್ಲಿ ಮುಕ್ತವಾಗಿ ಮಾತನಾಡಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ.',
+    guidanceHeading: 'ನಿಮ್ಮ ವ್ಯಾಪಾರ ಕಲ್ಪನೆಯ ಬಗ್ಗೆ ವಿವರವಾಗಿ ತಿಳಿಸಿ:',
+    guidancePoints: [
+      'ನೀವು ಯಾವ ವ್ಯವಹಾರವನ್ನು ಪ್ರಾರಂಭಿಸಲು ಬಯಸುತ್ತೀರಿ',
+      'ನೀವು ಎಷ್ಟು ಬಂಡವಾಳ ಹೂಡಿಕೆ ಮಾಡಬಹುದು',
+      'ನೀವು ಅದನ್ನು ಎಲ್ಲಿ ನಡೆಸಲು ಬಯಸುತ್ತೀರಿ (ಗ್ರಾಮ, ಪಟ್ಟಣ, ಜಿಲ್ಲೆ)',
+      'ನಿಮ್ಮ ಕೌಶಲ್ಯ ಅಥವಾ ಹಿಂದಿನ ಅನುಭವ'
+    ],
+    quickExamples: 'ಪ್ರಾರಂಭಿಸಲು ಮಾದರಿ ಉದಾಹರಣೆಗಳು:',
+    textTab: 'ಪಠ್ಯ ಇನ್‌ಪುಟ್',
+    voiceTab: 'ಧ್ವನಿ ಇನ್‌ಪುಟ್',
+    textPlaceholder: 'ಉದಾ: ನಾನು ಮಂಡ್ಯದಲ್ಲಿ ₹2 ಲಕ್ಷ ಬಂಡವಾಳದೊಂದಿಗೆ ಡೈರಿ ಫಾರ್ಮ್ ಪ್ರಾರಂಭಿಸಲು ಬಯಸುತ್ತೇನೆ. ನನಗೆ ಹೈನುಗಾರಿಕೆ ಅನುಭವವಿದೆ.',
+    continueBtn: 'ಮುಂದುವರಿಯಿರಿ',
+    processingText: 'ವ್ಯಾಪಾರ ಕಲ್ಪನೆಯನ್ನು ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ...',
+    readyToListen: 'ಆಲಿಸಲು ಸಿದ್ಧವಾಗಿದೆ. ಮಾತನಾಡಲು ಒತ್ತಿ',
+    listening: 'ಆಲಿಸಲಾಗುತ್ತಿದೆ... ಸ್ಪಷ್ಟವಾಗಿ ಮಾತನಾಡಿ',
+    processingSpeech: 'ಧ್ವನಿಯನ್ನು ಪಠ್ಯಕ್ಕೆ ಪರಿವರ್ತಿಸಲಾಗುತ್ತಿದೆ...',
+    transcriptReceived: 'ಧ್ವನಿ ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ಪರಿಶೀಲಿಸಿ:',
+    confirmAndAnalyze: 'ದೃಢೀಕರಿಸಿ ಮತ್ತು ವಿಶ್ಲೇಷಿಸಿ',
+    reRecord: 'ಮರು ರೆಕಾರ್ಡ್ ಮಾಡಿ',
+    clarificationTitle: 'ಸ್ಪಷ್ಟೀಕರಣ ಅಗತ್ಯವಿದೆ',
+    typeAnswerTab: 'ಟೈಪ್ ಮಾಡಿ',
+    speakAnswerTab: 'ಮಾತನಾಡಿ ಉತ್ತರಿಸಿ',
+    submitAnswer: 'ಉತ್ತರ ಸಲ್ಲಿಸಿ',
+    listenQuestion: 'ಪ್ರಶ್ನೆ ಆಲಿಸಿ',
+    stopSpeaking: 'ನಿಲ್ಲಿಸಿ',
+    useCurrentLocation: 'ಪ್ರಸ್ತುತ ಸ್ಥಳ ಬಳಸಿ',
+    gpsLocating: 'ಸ್ಥಳ ಪತ್ತೆಹಚ್ಚಲಾಗುತ್ತಿದೆ...',
+    gpsSuccess: 'ಸಾಧನದ ಸ್ಥಳ ಪತ್ತೆಯಾಗಿದೆ',
+    noExperienceBtn: 'ನನಗೆ ಹಿಂದಿನ ಅನುಭವವಿಲ್ಲ',
+    stage1CompleteTitle: 'ಹಂತ 1 - ಮಾಹಿತಿ ಸಂಗ್ರಹ ಪೂರ್ಣಗೊಂಡಿದೆ!',
+    stage1CompleteDesc: 'ನಿಮ್ಮ ವ್ಯಾಪಾರ ವಿವರ, ಬಂಡವಾಳ, ಸ್ಥಳ ಮತ್ತು ಕೌಶಲ್ಯಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗಿದೆ.',
+    readyForPhase2: 'ಹಂತ 2: ವ್ಯಾಪಾರ ವರ್ಗೀಕರಣಕ್ಕೆ ಸಿದ್ಧವಾಗಿದೆ',
+    startOver: 'ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ',
+    edit: 'ತಿದ್ದುಪಡಿ',
+    save: 'ಉಳಿಸಿ',
+    cancel: 'ರದ್ದುಮಾಡಿ',
+    sourceUser: 'ನೀವು ನೀಡಿದ ಮಾಹಿತಿ',
+    sourceGPS: 'ಜಿಪಿಎಸ್ ಸ್ಥಳ'
+  },
+  mr: {
+    badge: 'कल्पा प्रवासाचा टप्पा 1',
+    title: 'तुमच्या व्यवसाय कल्पनेबद्दल सांगा',
+    subtitle: 'तुमच्या मातृभाषेत सहज बोला किंवा तुमच्या पसंतीच्या भाषेत टाइप करा.',
+    guidanceHeading: 'तुमच्या व्यवसायाबद्दल थोडक्यात सांगा:',
+    guidancePoints: [
+      'तुम्हाला कोणता व्यवसाय सुरू अथवा विस्तार करायचा आहे',
+      'तुम्ही किती भांडवल गुंतवू शकता',
+      'तुम्हाला हा व्यवसाय कुठे करायचा आहे (गाव, शहर, जिल्हा)',
+      'तुमचे कौशल्य किंवा कामाचा अनुभव'
+    ],
+    quickExamples: 'सुरुवात करण्यासाठी नमुना कल्पना:',
+    textTab: 'मजकूर इनपुट',
+    voiceTab: 'आवाज इनपुट',
+    textPlaceholder: 'उदा: मला ₹२ लाखांसह डेअरी फार्म सुरू करायचा आहे. मला पशुपालनाचा अनुभव आहे.',
+    continueBtn: 'पुढे जा',
+    processingText: 'व्यवसाय कल्पना समजून घेत आहे...',
+    readyToListen: 'ऐकण्यासाठी सज्ज. बोलण्यासाठी टॅप करा',
+    listening: 'ऐकत आहे... कृपया स्पष्ट बोला',
+    processingSpeech: 'आवाज मजकुरात बदलत आहे...',
+    transcriptReceived: 'आवाज प्राप्त झाला. खाली तपासा:',
+    confirmAndAnalyze: 'पुष्टी करा आणि विश्लेषण करा',
+    reRecord: 'पुन्हा रेकॉर्ड करा',
+    clarificationTitle: 'स्पष्टीकरण आवश्यक आहे',
+    typeAnswerTab: 'टाइप करा',
+    speakAnswerTab: 'बोलून सांगा',
+    submitAnswer: 'उत्तर पाठवा',
+    listenQuestion: 'प्रश्न ऐका',
+    stopSpeaking: 'थांबवा',
+    useCurrentLocation: 'सध्याचे स्थान वापरा',
+    gpsLocating: 'स्थान शोधत आहे...',
+    gpsSuccess: 'स्थान सापडले',
+    noExperienceBtn: 'मला अनुभव नाही',
+    stage1CompleteTitle: 'टप्पा 1 - माहिती संकलन पूर्ण झाले!',
+    stage1CompleteDesc: 'तुमची व्यावसायिक माहिती, भांडवल, स्थान आणि कौशल्यांची पडताळणी झाली आहे.',
+    readyForPhase2: 'टप्पा 2: व्यवसाय वर्गीकरणासाठी तयार',
+    startOver: 'पुन्हा सुरुवात करा',
+    edit: 'बदला',
+    save: 'जतन करा',
+    cancel: 'रद्द करा',
+    sourceUser: 'तुम्ही दिलेली माहिती',
+    sourceGPS: 'डिव्हाइस स्थान'
+  },
+  ta: {
+    badge: 'கல்பா பயணத்தின் படி 1',
+    title: 'உங்கள் தொழில் யோசனையைப் பற்றி எங்களிடம் கூறுங்கள்',
+    subtitle: 'உங்கள் தாய்மொழியில் இயல்பாகப் பேசுங்கள் அல்லது தட்டச்சு செய்யுங்கள்.',
+    guidanceHeading: 'உங்கள் வணிக யோசனை குறித்து தெளிவாக விவரிக்கவும்:',
+    guidancePoints: [
+      'நீங்கள் என்ன தொழில் தொடங்க அல்லது விரிவாக்க விரும்புகிறீர்கள்',
+      'நீங்கள் எவ்வளவு மூலதனம் முதலீடு செய்ய முடியும்',
+      'எங்கு தொழில் நடத்த விரும்புகிறீர்கள் (கிராமம், நகரம், மாவட்டம்)',
+      'உங்கள் திறன்கள் அல்லது முந்தைய அனுபவம்'
+    ],
+    quickExamples: 'மாதிரி உதாரணங்கள்:',
+    textTab: 'உரை உள்ளீடு',
+    voiceTab: 'குரல் உள்ளீடு',
+    textPlaceholder: 'உதா: நான் ₹2 லட்சம் முதலீட்டில் பால் பண்ணை தொடங்க விரும்புகிறேன். எனக்கு கால்நடை வளர்ப்பு அனுபவம் உள்ளது.',
+    continueBtn: 'தொடரவும்',
+    processingText: 'வணிக யோசனை பகுப்பாய்வு செய்யப்படுகிறது...',
+    readyToListen: 'கேட்க தயார். பேச கிளிக் செய்க',
+    listening: 'கேட்கிறது... தெளிவாகப் பேசுங்கள்',
+    processingSpeech: 'குரல் செயலாக்கப்படுகிறது...',
+    transcriptReceived: 'குரல் பெறப்பட்டது. கீழே சரிபார்க்கவும்:',
+    confirmAndAnalyze: 'உறுதிப்படுத்தி பகுப்பாய்வு செய்க',
+    reRecord: 'மீண்டும் பதிவு செய்',
+    clarificationTitle: 'விளக்கம் தேவைப்படுகிறது',
+    typeAnswerTab: 'தட்டச்சு செய்',
+    speakAnswerTab: 'பேசிப் பதிலளிக்கவும்',
+    submitAnswer: 'பதிலைச் சமர்ப்பிக்கவும்',
+    listenQuestion: 'கேள்வியைக் கேளுங்கள்',
+    stopSpeaking: 'நிறுத்து',
+    useCurrentLocation: 'தற்போதைய இருப்பிடத்தைப் பயன்படுத்து',
+    gpsLocating: 'இருப்பிடம் கண்டறியப்படுகிறது...',
+    gpsSuccess: 'இருப்பிடம் கண்டறியப்பட்டது',
+    noExperienceBtn: 'எனக்கு முன் அனுபவம் இல்லை',
+    stage1CompleteTitle: 'படி 1 - தகவல் பதிவு நிறைவுற்றது!',
+    stage1CompleteDesc: 'உங்கள் தொழில் விவரம், மூலதனம், இடம் மற்றும் திறன்கள் சரிபார்க்கப்பட்டன.',
+    readyForPhase2: 'படி 2: தொழில் வகைப்பாடுக்கு தயாராக உள்ளது',
+    startOver: 'மீண்டும் தொடங்கவும்',
+    edit: 'திருத்து',
+    save: 'சேமி',
+    cancel: 'ரத்து செய்',
+    sourceUser: 'நீங்கள் வழங்கியது',
+    sourceGPS: 'ஜிபிஎஸ் இருப்பிடம்'
+  },
+  te: {
+    badge: 'కల్పా ప్రయాణం దశ 1',
+    title: 'మీ వ్యాపార ఆలోచన గురించి మాకు చెప్పండి',
+    subtitle: 'మీ మాతృభాషలో స్పష్టంగా మాట్లాడండి లేదా టైప్ చేయండి.',
+    guidanceHeading: 'మీ వ్యాపార ఆలోచనను సహజంగా వివరించండి:',
+    guidancePoints: [
+      'మీరు ఏ వ్యాపారాన్ని ప్రారంభించాలనుకుంటున్నారు లేదా విస్తరించాలనుకుంటున్నారు',
+      'మీరు ఎంత పెట్టుబడి పెట్టగలరు',
+      'మీరు ఎక్కడ వ్యాపారం చేయాలనుకుంటున్నారు (గ్రామం, పట్టణం, జిల్లా)',
+      'మీ నైపుణ్యాలు లేదా మునుపటి అనుభవం'
+    ],
+    quickExamples: 'ప్రారంభించడానికి నమూనా ఆలోచనలు:',
+    textTab: 'వచన నమోదు',
+    voiceTab: 'వాయిస్ నమోదు',
+    textPlaceholder: 'ఉదా: నేను ₹2 లక్షల పెట్టుబడితో పాడి పరిశ్రమను ప్రారంభించాలనుకుంటున్నాను. నాకు అనుభవం ఉంది.',
+    continueBtn: 'కొనసాగించండి',
+    processingText: 'వ్యాపార ఆలోచన విశ్లేషించబడుతోంది...',
+    readyToListen: 'వినడానికి సిద్ధంగా ఉంది. మాట్లాడటానికి నొక్కండి',
+    listening: 'వింటోంది... స్పష్టంగా మాట్లాడండి',
+    processingSpeech: 'వాయిస్ ప్రాసెస్ అవుతోంది...',
+    transcriptReceived: 'వాయిస్ స్వీకరించబడింది. సమీక్షించండి:',
+    confirmAndAnalyze: 'నిర్ధారించి విశ్లేషించండి',
+    reRecord: 'మళ్ళీ రికార్డ్ చేయండి',
+    clarificationTitle: 'స్పష్టత అవసరం',
+    typeAnswerTab: 'టైప్ చేయండి',
+    speakAnswerTab: 'మాట్లాడి సమాధానం ఇవ్వండి',
+    submitAnswer: 'సమాధానం పంపండి',
+    listenQuestion: 'ప్రశ్న వినండి',
+    stopSpeaking: 'ఆపు',
+    useCurrentLocation: 'ప్రస్తుత స్థానాన్ని ఉపయోగించండి',
+    gpsLocating: 'స్థానం కనుగొనబడుతోంది...',
+    gpsSuccess: 'స్థానం కనుగొనబడింది',
+    noExperienceBtn: 'నాకు మునుపటి అనుభవం లేదు',
+    stage1CompleteTitle: 'దశ 1 - సమాచార సేకరణ పూర్తయింది!',
+    stage1CompleteDesc: 'మీ వ్యాపార వివరాలు, మూలధనం, స్థానం మరియు నైపుణ్యాలు ధృవీకరించబడ్డాయి.',
+    readyForPhase2: 'దశ 2: వ్యాపార వర్గీకరణకు సిద్ధంగా ఉంది',
+    startOver: 'మళ్లీ ప్రారంభించండి',
+    edit: 'సవరించండి',
+    save: 'సేవ్ చేయండి',
+    cancel: 'రద్దు చేయి',
+    sourceUser: 'మీరు అందించిన సమాచారం',
+    sourceGPS: 'GPS స్థానం'
+  },
+  gu: {
+    badge: 'કલ્પા યાત્રાનો તબક્કો 1',
+    title: 'તમારા વ્યવસાય વિચાર વિશે જણાવો',
+    subtitle: 'તમારી માતૃભાષામાં મુક્તપણે બોલો અથવા તમારી પસંદગીની ભાષામાં લખો.',
+    guidanceHeading: 'તમારા વ્યવસાય વિચાર વિશે વિગતવાર જણાવો:',
+    guidancePoints: [
+      'તમે કયો વ્યવસાય શરૂ અથવા વિસ્તૃત કરવા માંગો છો',
+      'તમે કેટલું મૂડી રોકાણ કરી શકો છો',
+      'તમે તેને ક્યાં ચલાવવા માંગો છો (ગામ, નગર, જિલ્લો)',
+      'તમારું કૌશલ્ય અથવા પૂર્વ અનુભવ'
+    ],
+    quickExamples: 'શરૂ કરવા માટે ઉદાહરણ વિચારો:',
+    textTab: 'ટેક્સ્ટ ઇનપુટ',
+    voiceTab: 'વૉઇસ ઇનપુટ',
+    textPlaceholder: 'દા.ત.: હું ₹2 લાખના રોકાણ સાથે ડેરી ફાર્મ શરૂ કરવા માંગુ છું. મને પશુપાલનનો અનુભવ છે.',
+    continueBtn: 'આગળ વધો',
+    processingText: 'વ્યવસાય વિચારનું વિશ્લેષણ થઈ રહ્યું છે...',
+    readyToListen: 'સાંભળવા માટે તૈયાર. બોલવા માટે ક્લિક કરો',
+    listening: 'સાંભળી રહ્યા છીએ... કૃપા કરીને સ્પષ્ટ બોલો',
+    processingSpeech: 'અવાજ લખાણમાં રૂપાંતરિત થઈ રહ્યો છે...',
+    transcriptReceived: 'અવાજ પ્રાપ્ત થયો. નીચે ચકાસો:',
+    confirmAndAnalyze: 'પુષ્ટિ કરો અને વિશ્લેષણ કરો',
+    reRecord: 'ફરીથી રેકોર્ડ કરો',
+    clarificationTitle: 'સ્પષ્ટીકરણ જરૂરી છે',
+    typeAnswerTab: 'લખીને જવાબ આપો',
+    speakAnswerTab: 'બોલીને જવાબ આપો',
+    submitAnswer: 'જવાબ સબમિટ કરો',
+    listenQuestion: 'પ્રશ્ન સાંભળો',
+    stopSpeaking: 'રોકો',
+    useCurrentLocation: 'હાલનું સ્થાન વાપરો',
+    gpsLocating: 'સ્થાન શોધાઈ રહ્યું છે...',
+    gpsSuccess: 'સ્થાન મળી ગયું',
+    noExperienceBtn: 'મને પૂર્વ અનુભવ નથી',
+    stage1CompleteTitle: 'તબક્કો 1 - માહિતી ઇનટેક પૂર્ણ!',
+    stage1CompleteDesc: 'તમારી વ્યવસાય રૂપરેખા, મૂડી, સ્થાન અને કૌશલ્યોની ચકાસણી પૂર્ણ થઈ છે.',
+    readyForPhase2: 'તબક્કો 2: વ્યવસાય વર્ગીકરણ માટે તૈયાર',
+    startOver: 'ફરીથી શરૂ કરો',
+    edit: 'સુધારો',
+    save: 'સાચવો',
+    cancel: 'રદ કરો',
+    sourceUser: 'તમે આપેલી માહિતી',
+    sourceGPS: 'GPS સ્થાન'
   }
 };
 
@@ -270,8 +394,19 @@ function getDisplayError(err, fallback = 'Something went wrong. Please try again
 export const IntakePage = () => {
   const navigate = useNavigate();
   const { updateWorkflowState, markStageComplete } = useWorkflow();
-  // Language State: Priority English -> Kannada -> Hindi
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const { language: universalLanguage, setLanguage: setUniversalLanguage } = useLanguage();
+  const selectedLanguage = universalLanguage || 'en';
+
+  const setSelectedLanguage = (code) => {
+    setUniversalLanguage(code);
+    if (profile?.session_id) {
+      // Update language on active session
+      apiService.intake.continueIntake({
+        session_id: profile.session_id,
+        language_code: code,
+      }).then(setSessionResponse).catch(console.warn);
+    }
+  };
   
   // Intake Mode State
   const [activeTab, setActiveTab] = useState('text'); // 'text' | 'voice'
@@ -287,6 +422,8 @@ export const IntakePage = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
+  const browserRecognitionRef = useRef(null);
+  const browserTranscriptRef = useRef('');
 
   // Stage 1 API Response & Canonical Profile Adapter
   const [sessionResponse, setSessionResponse] = useState(null);
@@ -328,6 +465,8 @@ export const IntakePage = () => {
   const followUpMediaRecorderRef = useRef(null);
   const followUpAudioChunksRef = useRef([]);
   const followUpTimerRef = useRef(null);
+  const followUpBrowserRecognitionRef = useRef(null);
+  const followUpBrowserTranscriptRef = useRef('');
 
   // Text-To-Speech (TTS) State
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -437,20 +576,22 @@ export const IntakePage = () => {
     
     // Choose voice based on language code
     const voices = window.speechSynthesis.getVoices();
-    let matchedVoice = null;
-
-    if (selectedLanguage === 'kn') {
-      matchedVoice = voices.find((v) => v.lang.startsWith('kn') || v.lang.includes('Kannada'));
-    } else if (selectedLanguage === 'hi') {
-      matchedVoice = voices.find((v) => v.lang.startsWith('hi') || v.lang.includes('Hindi'));
-    } else {
-      matchedVoice = voices.find((v) => v.lang === 'en-IN') || voices.find((v) => v.lang.startsWith('en'));
-    }
+    const langVoiceMap = {
+      kn: 'kn',
+      hi: 'hi',
+      mr: 'mr',
+      ta: 'ta',
+      te: 'te',
+      gu: 'gu',
+      en: 'en',
+    };
+    const prefix = langVoiceMap[selectedLanguage] || 'en';
+    const matchedVoice = voices.find((v) => v.lang.toLowerCase().startsWith(prefix));
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;
     }
-    utterance.lang = selectedLanguage === 'kn' ? 'kn-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+    utterance.lang = `${prefix}-IN`;
     utterance.rate = 0.95;
 
     utterance.onend = () => setIsSpeaking(false);
@@ -464,6 +605,37 @@ export const IntakePage = () => {
   const startRecording = async () => {
     setErrorMessage(null);
     setVoiceTranscript('');
+    browserTranscriptRef.current = '';
+
+    // Initialize browser speech recognition concurrently if supported
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = `${langVoiceMap[selectedLanguage] || 'en'}-IN`;
+        recognition.onresult = (event) => {
+          let text = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            text += event.results[i][0].transcript + ' ';
+          }
+          const trimmed = text.trim();
+          if (trimmed) {
+            browserTranscriptRef.current = trimmed;
+            setVoiceTranscript(trimmed);
+          }
+        };
+        recognition.onerror = (e) => {
+          console.warn('[BROWSER SPEECH REC ERROR]', e);
+        };
+        recognition.start();
+        browserRecognitionRef.current = recognition;
+      } catch (recErr) {
+        console.warn('[BROWSER SPEECH REC INIT FAILED]', recErr);
+      }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
@@ -487,12 +659,18 @@ export const IntakePage = () => {
       setVoiceStatus('listening');
     } catch (err) {
       console.error('Microphone access denied:', err);
+      if (browserRecognitionRef.current) {
+        try { browserRecognitionRef.current.stop(); } catch (e) {}
+      }
       setErrorMessage('Microphone access was denied or not available. Please type your business idea below.');
       setVoiceStatus('idle');
     }
   };
 
   const stopRecording = () => {
+    if (browserRecognitionRef.current) {
+      try { browserRecognitionRef.current.stop(); } catch (e) {}
+    }
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -500,24 +678,33 @@ export const IntakePage = () => {
     }
   };
 
-  // Upload Voice to Sarvam STT
+  // Upload Voice to Sarvam STT (with graceful browser-transcript fallback)
   const handleVoiceSTT = async (audioBlob) => {
     setIsProcessing(true);
     setVoiceStatus('transcribing');
     setErrorMessage(null);
 
+    const clientTranscript = (browserTranscriptRef.current || voiceTranscript || '').trim();
+
     const langConfig = SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
     const formData = new FormData();
     formData.append('file', audioBlob, 'intake_recording.webm');
+    if (clientTranscript) {
+      formData.append('transcript', clientTranscript);
+    }
     formData.append('language_code', langConfig.sarvamCode || 'unknown');
     formData.append('selected_language', langConfig.appCode === 'unknown' ? 'en' : langConfig.appCode);
 
     try {
       const response = await apiService.intake.submitVoice(formData);
-      if (response && response.transcript) {
-        setVoiceTranscript(String(response.transcript));
+      if (response && (response.transcript || response.profile)) {
+        setVoiceTranscript(String(response.transcript || clientTranscript));
         setVoiceStatus('received');
         setSessionResponse(response);
+      } else if (clientTranscript) {
+        // Direct fallback to text submit using client transcript
+        console.log('[INTAKE → VOICE] Falling back to text submit with transcript:', clientTranscript);
+        await handleTextSubmit(clientTranscript);
       } else {
         throw {
           code: 'STT_PROCESSING_FAILED',
@@ -526,9 +713,27 @@ export const IntakePage = () => {
       }
     } catch (err) {
       console.error('[INTAKE → VOICE]', err);
-      const displayMsg = getDisplayError(err, 'Voice recognition could not process your recording. Please try speaking clearly or enter your idea as text.');
+      // Resilient fallback: If browser captured transcript, submit it as text!
+      if (clientTranscript) {
+        console.log('[INTAKE → VOICE RECOVERY] Submitting browser transcript as text:', clientTranscript);
+        try {
+          await handleTextSubmit(clientTranscript);
+          return;
+        } catch (textErr) {
+          console.error('[INTAKE → VOICE RECOVERY FAILED]', textErr);
+        }
+      }
+      const displayMsg = getDisplayError(err, 'Voice recognition could not process your recording. Please try speaking clearly or enter your idea as text below.');
       setErrorMessage(displayMsg);
       setVoiceStatus('idle');
+      if (clientTranscript) {
+        setTextInput(clientTranscript);
+      }
+      setActiveTab('text');
+      setTimeout(() => {
+        const inputEl = document.querySelector('textarea, input[type="text"]');
+        if (inputEl) inputEl.focus();
+      }, 100);
     } finally {
       setIsProcessing(false);
       setIsRecording(false);
@@ -569,6 +774,36 @@ export const IntakePage = () => {
   // Follow-Up Voice Recording Handlers
   const startFollowUpRecording = async () => {
     setErrorMessage(null);
+    followUpBrowserTranscriptRef.current = '';
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = selectedLanguage === 'kn' ? 'kn-IN' : selectedLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+        recognition.onresult = (event) => {
+          let text = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            text += event.results[i][0].transcript + ' ';
+          }
+          const trimmed = text.trim();
+          if (trimmed) {
+            followUpBrowserTranscriptRef.current = trimmed;
+            setFollowUpAnswer(trimmed);
+          }
+        };
+        recognition.onerror = (e) => {
+          console.warn('[FOLLOW-UP SPEECH REC ERROR]', e);
+        };
+        recognition.start();
+        followUpBrowserRecognitionRef.current = recognition;
+      } catch (e) {
+        console.warn('[FOLLOW-UP SPEECH REC INIT FAILED]', e);
+      }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       followUpAudioChunksRef.current = [];
@@ -591,12 +826,18 @@ export const IntakePage = () => {
       setIsFollowUpRecording(true);
     } catch (err) {
       console.error('Follow-up mic access denied:', err);
+      if (followUpBrowserRecognitionRef.current) {
+        try { followUpBrowserRecognitionRef.current.stop(); } catch (e) {}
+      }
       setErrorMessage('Microphone access denied. You can type your answer instead.');
       setIsFollowUpRecording(false);
     }
   };
 
   const stopFollowUpRecording = () => {
+    if (followUpBrowserRecognitionRef.current) {
+      try { followUpBrowserRecognitionRef.current.stop(); } catch (e) {}
+    }
     if (followUpMediaRecorderRef.current && isFollowUpRecording) {
       followUpMediaRecorderRef.current.stop();
       setIsFollowUpRecording(false);
@@ -606,18 +847,25 @@ export const IntakePage = () => {
   const handleFollowUpVoiceSTT = async (audioBlob) => {
     setIsSubmittingFollowUp(true);
     setErrorMessage(null);
+
+    const clientTranscript = (followUpBrowserTranscriptRef.current || followUpAnswer || '').trim();
+
     const langConfig = SUPPORTED_LANGUAGES.find((l) => l.code === selectedLanguage) || SUPPORTED_LANGUAGES[0];
     const formData = new FormData();
     formData.append('file', audioBlob, 'followup_recording.webm');
+    if (clientTranscript) {
+      formData.append('transcript', clientTranscript);
+    }
     formData.append('language_code', langConfig.sarvamCode || 'unknown');
     formData.append('selected_language', langConfig.appCode === 'unknown' ? 'en' : langConfig.appCode);
 
     try {
       const response = await apiService.intake.submitVoice(formData);
-      if (response && response.transcript) {
-        setFollowUpAnswer(String(response.transcript));
+      const resText = (response && response.transcript) ? String(response.transcript) : clientTranscript;
+      if (resText) {
+        setFollowUpAnswer(resText);
         // Automatically submit transcribed text to follow up
-        await submitFollowUpPayload({ text: String(response.transcript) });
+        await submitFollowUpPayload({ text: resText });
       } else {
         throw {
           code: 'STT_PROCESSING_FAILED',
@@ -626,8 +874,19 @@ export const IntakePage = () => {
       }
     } catch (err) {
       console.error('[INTAKE → FOLLOW-UP VOICE]', err);
-      const displayMsg = getDisplayError(err, 'Could not process voice answer. Please type your response.');
+      if (clientTranscript) {
+        console.log('[INTAKE → FOLLOW-UP RECOVERY] Submitting client transcript:', clientTranscript);
+        try {
+          setFollowUpAnswer(clientTranscript);
+          await submitFollowUpPayload({ text: clientTranscript });
+          return;
+        } catch (subErr) {
+          console.error('[INTAKE → FOLLOW-UP RECOVERY FAILED]', subErr);
+        }
+      }
+      const displayMsg = getDisplayError(err, 'Could not process voice answer. Please type your response below.');
       setErrorMessage(displayMsg);
+      setFollowUpTab('text');
     } finally {
       setIsSubmittingFollowUp(false);
       setIsFollowUpRecording(false);
@@ -674,7 +933,7 @@ export const IntakePage = () => {
     submitFollowUpPayload({ text: followUpAnswer.trim() });
   };
 
-  // GPS Fallback Request Handler
+  // GPS Location Request Handler with Reverse Geocoding
   const handleRequestGPS = () => {
     if (!navigator.geolocation) {
       setErrorMessage('Geolocation is not supported by your browser.');
@@ -686,24 +945,48 @@ export const IntakePage = () => {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const coords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        };
-        setGpsData(coords);
-        setGpsLoading(false);
+        try {
+          const coords = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          };
+          setGpsData(coords);
 
-        // Submit GPS coordinates to session
-        await submitFollowUpPayload({
-          gps_location: coords,
-          answers: { location: 'Current Location (GPS)' },
-        });
+          // Reverse geocode coordinates to human-readable Indian location
+          const resolved = await reverseGeocodeCoords(coords.latitude, coords.longitude);
+          const resolvedLocationName = resolved?.resolvedName || 'Location coordinates captured';
+
+          setGpsLoading(false);
+
+          // Submit resolved human-readable address & GPS coordinates to session
+          await submitFollowUpPayload({
+            gps_location: coords,
+            answers: {
+              proposed_location: resolvedLocationName,
+              location: resolvedLocationName,
+              location_details: resolved?.details || null,
+            },
+          });
+        } catch (geoErr) {
+          console.warn('[GPS RESOLUTION ERROR]', geoErr);
+          setGpsLoading(false);
+          await submitFollowUpPayload({
+            gps_location: {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            },
+            answers: {
+              proposed_location: 'Location coordinates captured',
+              location: 'Location coordinates captured',
+            },
+          });
+        }
       },
       (error) => {
         console.warn('Geolocation error:', error);
         setGpsLoading(false);
-        setErrorMessage('Location permission was denied. Please type your village, town or district instead.');
+        setErrorMessage('Location permission was denied. Please enter your village, town or district instead.');
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
@@ -777,78 +1060,53 @@ export const IntakePage = () => {
   return (
     <div className="relative min-h-screen">
       {/* Subtle Animated Topographic Contour Background */}
-      <ContourBackground />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-8">
-        {/* Step Progress Tracker */}
-        <div className="royal-panel rounded-2xl p-4 sm:p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 text-xs">
-            <div className="flex items-center gap-2 font-bold text-[#EA580C] shrink-0">
-              <span className="w-6 h-6 rounded-full bg-[#EA580C] text-white flex items-center justify-center text-[11px]">
-                1
-              </span>
-              <span>01 Intake & Extraction</span>
-            </div>
-            <span className="text-stone-300">→</span>
-            <div className="flex items-center gap-1 text-stone-400 shrink-0">
-              <Lock className="w-3 h-3 text-stone-400" />
-              <span>02 Classification (NIC)</span>
-            </div>
-            <span className="text-stone-300">→</span>
-            <div className="flex items-center gap-1 text-stone-400 shrink-0">
-              <Lock className="w-3 h-3 text-stone-400" />
-              <span>03 Market Intel</span>
-            </div>
-            <span className="text-stone-300">→</span>
-            <div className="flex items-center gap-1 text-stone-400 shrink-0">
-              <Lock className="w-3 h-3 text-stone-400" />
-              <span>04 Feasibility</span>
-            </div>
-            <span className="text-stone-300">→</span>
-            <div className="flex items-center gap-1 text-stone-400 shrink-0">
-              <Lock className="w-3 h-3 text-stone-400" />
-              <span>05 DPR</span>
-            </div>
-          </div>
-        </div>
+        {/* Agentic Workflow Thread */}
+        <AgenticWorkflowThread currentStepNumber={1} className="mb-2" />
 
         {/* Language Selector Toolbar */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
           <div className="flex items-center gap-2">
-            <Globe2 className="w-4 h-4 text-[#EA580C]" />
-            <span className="text-xs font-bold text-[#57534E]">Select Language / ಭಾಷೆ / भाषा:</span>
+            <Globe2 className="w-4 h-4 text-[#7A563E]" />
+            <span className="text-xs font-bold text-[#7A563E]">Language / भाषा:</span>
           </div>
 
-          <div className="inline-flex p-1 rounded-2xl bg-[#EFE8DE] border border-[#D6CDBC]">
-            {SUPPORTED_LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                type="button"
-                onClick={() => {
-                  setSelectedLanguage(lang.code);
-                  if (profile?.session_id) {
-                    // Update language on active session
-                    apiService.intake.continueIntake({
-                      session_id: profile.session_id,
-                      language_code: lang.code,
-                    }).then(setSessionResponse).catch(console.warn);
-                  }
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  selectedLanguage === lang.code
-                    ? 'bg-white text-[#EA580C] shadow-sm'
-                    : 'text-[#78716C] hover:text-[#1C1917]'
-                }`}
-              >
-                {lang.native} ({lang.label})
-              </button>
-            ))}
+          <div className="inline-flex p-1 rounded-full bg-[#EFE8DE] border border-[#D6CDBC]/70 shadow-2xs">
+            {SUPPORTED_LANGUAGES.map((lang) => {
+              const isSelected = selectedLanguage === lang.code;
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => {
+                    setSelectedLanguage(lang.code);
+                    if (profile?.session_id) {
+                      // Update language on active session
+                      apiService.intake.continueIntake({
+                        session_id: profile.session_id,
+                        language_code: lang.code,
+                      }).then(setSessionResponse).catch(console.warn);
+                    }
+                  }}
+                  className={`px-3.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#7A563E] text-[#FAF4E8] shadow-sm font-bold'
+                      : 'text-[#6F746E] hover:text-[#26332F] bg-transparent'
+                  }`}
+                >
+                  {lang.label === 'Auto Detect' ? 'Auto Detect' : lang.native}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Header Banner */}
         <div className="text-center space-y-2 max-w-2xl mx-auto">
-          <Badge variant="saffron">{t.badge}</Badge>
+          <Badge variant="brown" className="mb-2">
+            <Sparkles className="w-3 h-3 mr-1" /> {t.badge}
+          </Badge>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1C1917] font-['Outfit']">
             {t.title}
           </h1>
@@ -870,9 +1128,9 @@ export const IntakePage = () => {
 
         {/* Initial Intake Section */}
         {!profile ? (
-          <div className="royal-card rounded-3xl p-6 sm:p-8 space-y-6 shadow-md bg-white/95 backdrop-blur-sm border border-[#EAE3D5]">
+          <div className="rounded-3xl p-6 sm:p-8 space-y-6 bg-[#F1E4CC] border border-[#7A563E]/20 shadow-sm">
             {/* User Guidance Card */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF7F2] border border-[#E2D9CB] space-y-2">
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#C2410C] flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 {t.guidanceHeading}
@@ -889,14 +1147,14 @@ export const IntakePage = () => {
 
             {/* Input Mode Tabs */}
             <div className="flex items-center justify-center">
-              <div className="inline-flex p-1 rounded-2xl bg-[#EFE8DE] border border-[#D6CDBC]">
+              <div className="inline-flex p-1 rounded-2xl bg-[#E8DCC7] border border-[#7A563E]/20">
                 <button
                   type="button"
                   onClick={() => { setActiveTab('text'); setErrorMessage(null); }}
                   className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'text'
-                      ? 'bg-white text-[#1C1917] shadow-sm'
-                      : 'text-[#78716C] hover:text-[#1C1917]'
+                      ? 'bg-[#FAF2E3] text-[#1C1917] shadow-2xs font-bold'
+                      : 'text-[#7A563E]/80 hover:text-[#1C1917]'
                   }`}
                 >
                   <Globe2 className="w-4 h-4 text-[#EA580C]" />
@@ -907,8 +1165,8 @@ export const IntakePage = () => {
                   onClick={() => { setActiveTab('voice'); setErrorMessage(null); }}
                   className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-bold transition-all ${
                     activeTab === 'voice'
-                      ? 'bg-white text-[#1C1917] shadow-sm'
-                      : 'text-[#78716C] hover:text-[#1C1917]'
+                      ? 'bg-[#FAF2E3] text-[#1C1917] shadow-2xs font-bold'
+                      : 'text-[#7A563E]/80 hover:text-[#1C1917]'
                   }`}
                 >
                   <Mic className="w-4 h-4 text-[#EA580C]" />
@@ -926,7 +1184,7 @@ export const IntakePage = () => {
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
                     placeholder={t.textPlaceholder}
-                    className="w-full bg-[#FAF7F2] border border-[#D6CDBC] rounded-2xl p-4 text-sm text-[#1C1917] placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-[#EA580C] resize-none transition-all leading-relaxed"
+                    className="w-full bg-[#FAF2E3] border border-[#7A563E]/20 rounded-2xl p-4 text-sm text-[#1C1917] placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#7A563E]/30 focus:border-[#7A563E] resize-none transition-all leading-relaxed"
                   />
                 </div>
 
@@ -943,7 +1201,7 @@ export const IntakePage = () => {
                           setSelectedLanguage(sample.lang);
                           handleTextSubmit(sample.text, sample.lang);
                         }}
-                        className="text-left px-3 py-1.5 rounded-xl bg-[#FAF7F2] hover:bg-orange-50 border border-[#D6CDBC] hover:border-orange-300 text-xs text-[#44403C] hover:text-[#C2410C] transition-all"
+                        className="text-left px-3 py-1.5 rounded-xl bg-[#FAF2E3] hover:bg-[#FAF2E3]/90 border border-[#7A563E]/20 hover:border-[#7A563E]/40 text-xs text-[#44403C] transition-all"
                       >
                         <span className="font-semibold text-[#EA580C]">{sample.label}:</span>{' '}
                         <span className="text-stone-600 truncate max-w-[200px] inline-block align-bottom">{sample.text}</span>
@@ -1012,16 +1270,16 @@ export const IntakePage = () => {
 
                   {/* Transcript Review Box */}
                   {voiceTranscript && (
-                    <div className="text-left p-4 rounded-2xl bg-[#FAF7F2] border border-[#D6CDBC] space-y-3 animate-fadeIn">
+                    <div className="text-left p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/20 space-y-3 animate-fadeIn">
                       <div className="flex items-center justify-between text-xs text-[#78716C] font-semibold">
                         <span>{t.transcriptReceived}</span>
-                        <Badge variant="saffron">Sarvam STT</Badge>
+                        <Badge variant="saffron">Voice Input</Badge>
                       </div>
                       <textarea
                         rows={3}
                         value={voiceTranscript}
                         onChange={(e) => setVoiceTranscript(e.target.value)}
-                        className="w-full bg-white border border-[#D6CDBC] rounded-xl p-3 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                        className="w-full bg-[#FAF2E3] border border-[#7A563E]/25 rounded-xl p-3 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#7A563E]/30"
                       />
                       <div className="flex gap-2 justify-end">
                         <Button
@@ -1053,10 +1311,10 @@ export const IntakePage = () => {
           /* Structured Understanding & Stage 1 Review Screen */
           <div className="space-y-8 animate-fadeIn">
             {/* Overview Header */}
-            <div className="royal-panel rounded-3xl p-6 sm:p-8 space-y-6 shadow-md border border-[#EAE3D5]">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#EAE3D5] pb-4">
+            <div className="rounded-3xl p-6 sm:p-8 space-y-6 bg-[#F1E4CC] border border-[#7A563E]/20 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#7A563E]/15 pb-4">
                 <div>
-                  <Badge variant="saffron" className="mb-1">Stage 1 Profile</Badge>
+                  <Badge variant="brown" className="mb-1">Stage 1 Profile</Badge>
                   <h2 className="text-2xl font-bold tracking-tight text-[#1C1917] font-['Outfit'] flex items-center gap-2">
                     <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                     Understood Business Profile
@@ -1076,7 +1334,7 @@ export const IntakePage = () => {
               {/* 6 Dimension Profile Grid with Inline Editing */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {/* 1. Business Concept */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2 relative group">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2 relative group">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                       <Briefcase className="w-3.5 h-3.5 text-[#EA580C]" />
@@ -1096,7 +1354,7 @@ export const IntakePage = () => {
                         type="text"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
                       />
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => setEditingField(null)} className="px-2 py-1 text-[10px] text-stone-500 font-bold">{t.cancel}</button>
@@ -1116,7 +1374,7 @@ export const IntakePage = () => {
                 </div>
 
                 {/* 2. Intent & Stage */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2 relative">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2 relative">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-[#EA580C]" />
@@ -1135,7 +1393,7 @@ export const IntakePage = () => {
                       <select
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none"
+                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none bg-white"
                       >
                         <option value="start_business">Start New Business</option>
                         <option value="expand_business">Expand Existing Business</option>
@@ -1150,7 +1408,7 @@ export const IntakePage = () => {
                       <p className="text-sm font-bold text-[#1C1917] capitalize">
                         {profile.intent === 'expand_business' ? 'Expand Existing Business' : 'Start New Business'}
                       </p>
-                      <span className="inline-block text-[11px] px-2 py-0.5 rounded bg-orange-50 text-[#C2410C] font-semibold capitalize">
+                      <span className="inline-block text-[11px] px-2 py-0.5 rounded bg-[#FAF2E3] text-[#C2410C] font-semibold capitalize border border-[#7A563E]/10">
                         Stage: {profile.business_stage || 'Planning'}
                       </span>
                     </>
@@ -1158,7 +1416,7 @@ export const IntakePage = () => {
                 </div>
 
                 {/* 3. Available Capital */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2 relative">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2 relative">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                       <IndianRupee className="w-3.5 h-3.5 text-[#EA580C]" />
@@ -1179,7 +1437,7 @@ export const IntakePage = () => {
                         placeholder="e.g. 200000 or 2 lakh"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
                       />
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => setEditingField(null)} className="px-2 py-1 text-[10px] text-stone-500 font-bold">{t.cancel}</button>
@@ -1198,7 +1456,7 @@ export const IntakePage = () => {
                       <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
                         <span>Currency: {profile.capital_currency || 'INR'}</span>
                         {profile.available_capital !== null && (
-                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-medium">
+                          <span className="text-[#7A563E] bg-[#FAF2E3] border border-[#7A563E]/25 px-2 py-0.5 rounded-md font-semibold text-[10px]">
                             {profile.confidence?.available_capital ? `${Math.round(profile.confidence.available_capital * 100)}% confidence` : 'Canonical'}
                           </span>
                         )}
@@ -1208,7 +1466,7 @@ export const IntakePage = () => {
                 </div>
 
                 {/* 4. Business Location */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2 relative">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2 relative">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-[#EA580C]" />
@@ -1229,7 +1487,7 @@ export const IntakePage = () => {
                         placeholder="e.g. Mandya, Karnataka"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
                       />
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => setEditingField(null)} className="px-2 py-1 text-[10px] text-stone-500 font-bold">{t.cancel}</button>
@@ -1253,7 +1511,7 @@ export const IntakePage = () => {
                 </div>
 
                 {/* 5. Detected Language */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                     <Globe2 className="w-3.5 h-3.5 text-[#EA580C]" />
                     Language
@@ -1267,7 +1525,7 @@ export const IntakePage = () => {
                 </div>
 
                 {/* 6. Entrepreneur Skills */}
-                <div className="p-4 rounded-2xl bg-white border border-[#EAE3D5] space-y-2 relative">
+                <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/15 space-y-2 relative">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
                       <User className="w-3.5 h-3.5 text-[#EA580C]" />
@@ -1288,7 +1546,7 @@ export const IntakePage = () => {
                         placeholder="e.g. Farming, Cattle rearing or No experience"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
-                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500"
+                        className="w-full text-xs p-2 border border-orange-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
                       />
                       <div className="flex gap-1 justify-end">
                         <button onClick={() => setEditingField(null)} className="px-2 py-1 text-[10px] text-stone-500 font-bold">{t.cancel}</button>
@@ -1314,24 +1572,27 @@ export const IntakePage = () => {
             </div>
 
             {/* Clarification Section: Only active when Stage 1 has missing fields */}
-            {nextAction?.type === 'clarification' && nextAction.question ? (
-              <div className="royal-card rounded-3xl p-6 sm:p-8 border-2 border-amber-300 bg-amber-50/40 space-y-5 shadow-md animate-fadeIn">
+            {nextAction?.type === 'clarification' && (nextAction.question || nextAction.field === 'proposed_location') ? (
+              <div className="rounded-3xl p-6 sm:p-8 border border-[#D97706]/40 bg-[#FAF0DC] space-y-5 shadow-sm animate-fadeIn">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="gold">{t.clarificationTitle}</Badge>
-                    <span className="text-xs text-[#78716C] font-semibold">
-                      Field: <span className="font-mono text-[#C2410C]">{nextAction.field}</span>
-                    </span>
+                    <Badge variant="brown">{t.clarificationTitle}</Badge>
                   </div>
 
                   {/* Browser TTS Button */}
                   <button
                     type="button"
-                    onClick={() => handleToggleTTS(nextAction.question)}
+                    onClick={() =>
+                      handleToggleTTS(
+                        nextAction.field === 'proposed_location'
+                          ? 'Where do you plan to run this business? You can enter your village, town, taluk, district, or city.'
+                          : nextAction.question
+                      )
+                    }
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
                       isSpeaking
                         ? 'bg-rose-100 text-rose-800 border-rose-300'
-                        : 'bg-white text-[#EA580C] border-orange-200 hover:bg-orange-50 shadow-sm'
+                        : 'bg-[#FAF2E3] text-[#7A563E] border-[#7A563E]/20 hover:bg-[#FAF2E3]/90 shadow-2xs'
                     }`}
                   >
                     {isSpeaking ? (
@@ -1351,13 +1612,15 @@ export const IntakePage = () => {
                 {/* Question & Guidance */}
                 <div className="space-y-1.5">
                   <h3 className="text-lg sm:text-xl font-bold text-[#1C1917] font-['Outfit'] leading-snug">
-                    {nextAction.question}
+                    {nextAction.field === 'proposed_location'
+                      ? 'Where do you plan to run this business?'
+                      : nextAction.question}
                   </h3>
-                  {nextAction.helper_text && (
-                    <p className="text-xs sm:text-sm font-medium text-[#57534E]">
-                      {nextAction.helper_text}
-                    </p>
-                  )}
+                  <p className="text-xs sm:text-sm font-medium text-[#57534E]">
+                    {nextAction.field === 'proposed_location'
+                      ? 'You can enter your village, town, taluk, district, or city.'
+                      : nextAction.helper_text}
+                  </p>
                 </div>
 
                 {/* Special Case: Intent Options */}
@@ -1369,7 +1632,7 @@ export const IntakePage = () => {
                         type="button"
                         onClick={() => submitFollowUpPayload({ answers: { intent: opt.value } })}
                         disabled={isSubmittingFollowUp}
-                        className="px-5 py-2.5 rounded-2xl bg-white border-2 border-orange-300 hover:border-orange-500 text-sm font-bold text-[#1C1917] hover:bg-orange-50 transition-all shadow-sm flex items-center gap-2"
+                        className="px-5 py-2.5 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/30 hover:border-[#EA580C] text-sm font-bold text-[#1C1917] hover:bg-[#FAF2E3]/90 transition-all shadow-2xs flex items-center gap-2"
                       >
                         <Sparkles className="w-4 h-4 text-[#EA580C]" />
                         <span>{opt.label}</span>
@@ -1385,7 +1648,7 @@ export const IntakePage = () => {
                       type="button"
                       onClick={handleRequestGPS}
                       disabled={gpsLoading || isSubmittingFollowUp}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-[#D6CDBC] hover:border-orange-400 text-xs font-bold text-[#1C1917] hover:bg-orange-50 shadow-sm transition-all"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/30 hover:border-[#EA580C] text-xs font-bold text-[#1C1917] hover:bg-[#FAF2E3]/90 shadow-2xs transition-all"
                     >
                       <Compass className={`w-4 h-4 text-[#EA580C] ${gpsLoading ? 'animate-spin' : ''}`} />
                       <span>{gpsLoading ? t.gpsLocating : t.useCurrentLocation}</span>
@@ -1400,7 +1663,7 @@ export const IntakePage = () => {
                       type="button"
                       onClick={() => submitFollowUpPayload({ answers: { skills_status: 'no_experience', skills: 'no experience' } })}
                       disabled={isSubmittingFollowUp}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-stone-100 hover:bg-stone-200 text-xs font-bold text-stone-700 transition-all"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#E8DCC7] hover:bg-[#D6CDBC] text-xs font-bold text-stone-700 transition-all"
                     >
                       <X className="w-3.5 h-3.5 text-stone-500" />
                       <span>{t.noExperienceBtn}</span>
@@ -1416,8 +1679,8 @@ export const IntakePage = () => {
                       onClick={() => setFollowUpTab('text')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         followUpTab === 'text'
-                          ? 'bg-[#1C1917] text-white'
-                          : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                          ? 'bg-[#7A563E] text-[#FAF4E8]'
+                          : 'bg-[#FAF2E3] text-[#7A563E] border border-[#7A563E]/20 hover:bg-[#FAF2E3]/80'
                       }`}
                     >
                       {t.typeAnswerTab}
@@ -1428,7 +1691,7 @@ export const IntakePage = () => {
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                         followUpTab === 'voice'
                           ? 'bg-[#EA580C] text-white'
-                          : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                          : 'bg-[#FAF2E3] text-[#7A563E] border border-[#7A563E]/20 hover:bg-[#FAF2E3]/80'
                       }`}
                     >
                       <Mic className="w-3.5 h-3.5" />
@@ -1444,7 +1707,7 @@ export const IntakePage = () => {
                         value={followUpAnswer}
                         onChange={(e) => setFollowUpAnswer(e.target.value)}
                         placeholder={nextAction.helper_text || 'Type your answer here...'}
-                        className="flex-grow bg-white border border-[#D6CDBC] rounded-xl px-4 py-3 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-[#EA580C]"
+                        className="flex-grow bg-[#FAF2E3] border border-[#7A563E]/25 rounded-xl px-4 py-3 text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#7A563E]/30 focus:border-[#7A563E]"
                       />
                       <Button
                         type="submit"
@@ -1460,7 +1723,7 @@ export const IntakePage = () => {
 
                   {/* Mode B: Speak Follow-up Answer */}
                   {followUpTab === 'voice' && (
-                    <div className="p-4 rounded-2xl bg-white border border-[#D6CDBC] space-y-3">
+                    <div className="p-4 rounded-2xl bg-[#FAF2E3] border border-[#7A563E]/20 space-y-3">
                       <div className="flex items-center gap-3">
                         <button
                           type="button"
@@ -1486,15 +1749,15 @@ export const IntakePage = () => {
               </div>
             ) : (
               /* All Stage 1 Conditions Satisfied Banner */
-              <div className="royal-card rounded-3xl p-6 sm:p-8 bg-emerald-50/70 border-2 border-emerald-300 space-y-4 text-center animate-fadeIn shadow-md">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
+              <div className="rounded-3xl p-6 sm:p-8 bg-[#F1E4CC] border border-[#7A563E]/20 space-y-4 text-center animate-fadeIn shadow-sm">
+                <div className="w-14 h-14 rounded-full bg-[#FAF2E3] text-[#006B59] border border-[#7A563E]/15 flex items-center justify-center mx-auto shadow-inner">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-2xl font-bold text-emerald-950 font-['Outfit']">
+                  <h3 className="text-2xl font-bold text-[#1C1917] font-['Outfit']">
                     {t.stage1CompleteTitle}
                   </h3>
-                  <p className="text-xs sm:text-sm text-emerald-800 max-w-lg mx-auto leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#57534E] max-w-lg mx-auto leading-relaxed">
                     {t.stage1CompleteDesc}
                   </p>
                 </div>
@@ -1505,9 +1768,10 @@ export const IntakePage = () => {
                     onClick={() => {
                       const sid = sessionResponse?.session_id || sessionResponse?.profile?.session_id || '';
                       console.log('[STAGE 1 → STAGE 2] Proceeding with session_id:', sid);
+                      markStageComplete(1, 2);
                       navigate(`/classification${sid ? `?session_id=${encodeURIComponent(sid)}` : ''}`);
                     }}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-sm font-bold shadow-lg shadow-orange-900/20 transition-all hover:scale-105"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#EA580C] hover:bg-[#C2410C] text-white text-sm font-bold shadow-lg shadow-orange-900/20 transition-all hover:scale-105 cursor-pointer"
                   >
                     <span>Proceed to Stage 2: Business Classification</span>
                     <ArrowRight className="w-4 h-4" />

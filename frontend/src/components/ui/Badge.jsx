@@ -2,14 +2,16 @@ import React from 'react';
 
 export const Badge = ({ children, variant = 'default', className = '' }) => {
   const variants = {
-    default: 'bg-[#EFE8DE] text-[#44403C] border-[#D6CDBC]',
-    saffron: 'bg-orange-50 text-[#C2410C] border-orange-200 font-semibold',
-    gold: 'bg-amber-50 text-[#B45309] border-amber-200 font-semibold',
-    charcoal: 'bg-[#292524] text-[#FAF8F5] border-[#1C1917]',
-    emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-800 border-amber-200',
+    default: 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25 font-semibold',
+    brown: 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25 font-semibold',
+    orange: 'bg-[#FAF2E3] text-[#C96A3A] border-[#C96A3A]/30 font-semibold',
+    saffron: 'bg-[#FAF2E3] text-[#C96A3A] border-[#C96A3A]/30 font-semibold',
+    gold: 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/25 font-semibold',
+    charcoal: 'bg-[#4A3427] text-white border-[#4A3427]',
+    emerald: 'bg-[#FAF2E3] text-[#006F5F] border-[#006F5F]/30 font-semibold',
+    amber: 'bg-[#FAF2E3] text-[#92745A] border-[#92745A]/25 font-semibold',
     rose: 'bg-rose-50 text-rose-800 border-rose-200',
-    locked: 'bg-stone-100 text-stone-500 border-stone-200',
+    locked: 'bg-[#FAF2E3] text-[#79563F] border-[#79563F]/20',
   };
 
   return (

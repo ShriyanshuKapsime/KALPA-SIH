@@ -92,7 +92,7 @@ class EntrepreneurProfileEngine:
         """Resolves (profile, reqs, node_id) flexibly from 1, 2, or 3 arguments."""
         profile = None
         reqs = None
-        node_id = "saree_retail"
+        node_id = ""
 
         for a in (arg1, arg2, arg3):
             if a is None:
@@ -107,6 +107,9 @@ class EntrepreneurProfileEngine:
                 reqs = a
             elif hasattr(a, "business_node_id") or hasattr(a, "business_id"):
                 profile = a
+
+        if not node_id and profile:
+            node_id = getattr(profile, "business_node_id", getattr(profile, "business_id", ""))
 
         if not profile and node_id:
             profile = self.business_repo.get_profile(node_id)

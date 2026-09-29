@@ -25,6 +25,11 @@ function extractErrorMessage(data, fallback = 'An unexpected error occurred') {
     if (typeof data.detail.message === 'string' && data.detail.message.trim()) {
       return data.detail.message;
     }
+    if (data.detail.error && typeof data.detail.error === 'object') {
+      if (typeof data.detail.error.message === 'string' && data.detail.error.message.trim()) {
+        return data.detail.error.message;
+      }
+    }
     if (typeof data.detail.provider_error === 'string' && data.detail.provider_error.trim()) {
       return data.detail.provider_error;
     }
@@ -43,6 +48,11 @@ function extractErrorMessage(data, fallback = 'An unexpected error occurred') {
       .filter(Boolean)
       .join('; ');
     if (joined.trim()) return joined;
+  }
+  if (data.error && typeof data.error === 'object') {
+    if (typeof data.error.message === 'string' && data.error.message.trim()) {
+      return data.error.message;
+    }
   }
   if (typeof data.error === 'string' && data.error.trim()) {
     return data.error;
@@ -64,7 +74,7 @@ apiClient.interceptors.response.use(
     const customError = {
       message: extractErrorMessage(resData, error.message || 'An unexpected error occurred'),
       status: error.response?.status || 500,
-      code: resData?.error || resData?.detail?.error || (is422 ? 'VALIDATION_ERROR' : 'REQUEST_FAILED'),
+      code: resData?.error?.code || resData?.error || resData?.detail?.error?.code || resData?.detail?.error || (is422 ? 'VALIDATION_ERROR' : 'REQUEST_FAILED'),
       details: resData?.details || resData?.detail?.details || null,
       raw: resData || null,
       validationErrors: is422 && Array.isArray(resData?.detail) ? resData.detail : null,
@@ -81,6 +91,18 @@ export const apiService = {
   },
   checkAIHealth: async () => {
     return apiClient.get('/health/ai');
+  },
+
+  translate: {
+    text: async (text, targetLanguage, sourceLanguage = 'en') => {
+      return apiClient.post('/translate/text', { text, target_language: targetLanguage, source_language: sourceLanguage });
+    },
+    batch: async (texts, targetLanguage, sourceLanguage = 'en') => {
+      return apiClient.post('/translate/batch', { texts, target_language: targetLanguage, source_language: sourceLanguage });
+    },
+    object: async (data, targetLanguage, sourceLanguage = 'en') => {
+      return apiClient.post('/translate/object', { data, target_language: targetLanguage, source_language: sourceLanguage });
+    },
   },
 
   intake: {
@@ -101,7 +123,18 @@ export const apiService = {
     },
     transcribe: async (formData) => {
       console.log('[FRONTEND → GATEWAY] Transcribing audio at /intake/transcribe');
-      return apiClient.post('/intake/transcribe', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      try {
+        return await apiClient.post('/intake/transcribe', formData);
+      } catch (err) {
+        console.warn('[API SERVICE] /intake/transcribe error caught gracefully:', err);
+        const errMsg = err?.message || extractErrorMessage(err?.raw, 'Could not detect clear speech in the recording. Please speak closer to the microphone or type your answer.');
+        return {
+          success: false,
+          transcript: null,
+          error: err?.code || 'STT_FAILED',
+          message: errMsg,
+        };
+      }
     },
     submitText: async (payload) => {
       console.log('[FRONTEND → GATEWAY] Submitting text intake to /intake/text:', payload);
@@ -354,6 +387,56 @@ export const apiService = {
       console.log('[FRONTEND → GATEWAY] Triggering Stage 13 Dynamic SWOT Agent:', payload);
       return apiClient.post('/swot/analyze', payload, { timeout: 120000 });
     },
+    stream: async (payload, onEvent) => {
+      console.log('[FRONTEND → GATEWAY] Starting Stage 13 SWOT Stream:', payload);
+      const url = `${API_BASE_URL}/swot/stream`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let errDetails = '';
+        try {
+          const errJson = await response.json();
+          errDetails = errJson.message || errJson.error || JSON.stringify(errJson);
+        } catch {
+          errDetails = await response.text();
+        }
+        throw new Error(`SWOT Stream failed (${response.status}): ${errDetails}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            const dataStr = trimmed.slice(5).trim();
+            if (dataStr) {
+              try {
+                const parsed = JSON.parse(dataStr);
+                if (onEvent) onEvent(parsed);
+              } catch (e) {
+                console.warn('[SWOT STREAM] Failed to parse event JSON:', dataStr, e);
+              }
+            }
+          }
+        }
+      }
+    },
     getById: async (analysisId) => {
       console.log(`[FRONTEND → GATEWAY] Fetching SWOT record /swot/${analysisId}`);
       return apiClient.get(`/swot/${analysisId}`);
@@ -399,9 +482,62 @@ export const apiService = {
   },
 
   dpr: {
+    getContext: async (businessId, params = {}) => apiClient.get(`/dpr/context/${businessId}`, { params }),
+    getGapAnalysis: async (businessId, params = {}) => apiClient.get(`/dpr/gap-analysis/${businessId}`, { params }),
+    getSections: async (businessId, params = {}) => apiClient.get(`/dpr/sections/${businessId}`, { params }),
+    getAssumptions: async (businessId, params = {}) => apiClient.get(`/dpr/assumptions/${businessId}`, { params }),
+    getNextQuestion: async (businessId, params = {}) => apiClient.get(`/dpr/question/next/${businessId}`, { params }),
+    answerQuestion: async (businessId, payload) => apiClient.post(`/dpr/question/answer/${businessId}`, payload),
+    setOverride: async (businessId, payload) => apiClient.post(`/dpr/override/${businessId}`, payload),
+    acceptBenchmark: async (businessId, payload) => apiClient.post(`/dpr/benchmark/accept/${businessId}`, payload),
+    updateDocument: async (businessId, payload) => apiClient.post(`/dpr/document/update/${businessId}`, payload),
+    recalculate: async (businessId, params = {}) => apiClient.post(`/dpr/recalculate/${businessId}`, null, { params }),
+    getReadiness: async (businessId, params = {}) => apiClient.get(`/dpr/readiness/${businessId}`, { params }),
+    getPackage: async (businessId, params = {}) => apiClient.get(`/dpr/package/${businessId}`, { params }),
+    getHandoff: async (businessId, params = {}) => apiClient.get(`/dpr/handoff/${businessId}`, { params }),
+    submitIntake: async (businessId, payload) => apiClient.post(`/dpr/intake/${businessId}`, payload),
+    getDebugLineage: async (businessId, params = {}) => apiClient.get(`/dpr/stage1/debug/lineage/${businessId}`, { params }),
+    // Explicit New Scenario Creation
+    createNewScenario: async (businessId, payload = {}) => apiClient.post(`/dpr/new-scenario/${businessId}`, payload),
+    // Stage 14.2: DPR Enrichment & Deterministic Inference
+    getEnrichment: async (businessId, params = {}) => apiClient.get(`/dpr/14.2/enrichment/${businessId}`, { params }),
+    runEnrichment: async (businessId, payload = {}, params = {}) => apiClient.post(`/dpr/enrichment/run/${businessId}`, payload, { params }),
+    // Dev tools
+    resetScenario: async (payload) => apiClient.post('/dpr/dev/reset-scenario', payload),
+    getFieldLineage: async (businessId, scenarioId, fieldId) => apiClient.get(`/dpr/debug/field-lineage/${businessId}/${scenarioId}/${fieldId}`),
+    getEnrichmentAssumptions: async (businessId, params = {}) => apiClient.get(`/dpr/enrichment/assumptions/${businessId}`, { params }),
+    updateEnrichmentAssumption: async (businessId, payload, params = {}) => apiClient.post(`/dpr/14.2/assumption/${businessId}`, payload, { params }),
+    getEnrichmentStatus: async (businessId, params = {}) => apiClient.get(`/dpr/enrichment/status/${businessId}`, { params }),
+    get14_2Context: async (businessId, params = {}) => apiClient.get(`/dpr/14.2/context/${businessId}`, { params }),
+    get14_2Gaps: async (businessId, params = {}) => apiClient.get(`/dpr/14.2/gaps/${businessId}`, { params }),
+    answer14_2Question: async (businessId, payload) => apiClient.post(`/dpr/14.2/answer/${businessId}`, payload),
+    accept14_2Benchmark: async (businessId, payload) => apiClient.post(`/dpr/14.2/benchmark/accept/${businessId}`, payload),
+    update14_2Document: async (businessId, payload) => apiClient.post(`/dpr/14.2/document/${businessId}`, payload),
+    get14_2Validation: async (businessId, params = {}) => apiClient.get(`/dpr/14.2/validation/${businessId}`, { params }),
+    get14_2Readiness: async (businessId, params = {}) => apiClient.get(`/dpr/14.2/readiness/${businessId}`, { params }),
+    transcribeAudio: async (formData, language = 'en') => {
+      const baseUrl = (apiClient.defaults?.baseURL || API_BASE_URL || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const url = `${baseUrl}/dpr/audio/transcribe?language_code=${encodeURIComponent(language)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.message || errData?.detail || `Transcription failed with status ${res.status}`);
+      }
+      const data = await res.json();
+      return { data };
+    },
+    synthesizeAudio: async (payload) => apiClient.post('/dpr/audio/synthesize', payload),
     generateReport: async (businessId, payload = {}) => apiClient.post(`/dpr/generate/${businessId}`, payload),
     getReport: async (reportId) => apiClient.get(`/dpr/report/${reportId}`),
     downloadPdfUrl: (reportId) => `${apiClient.defaults?.baseURL || '/api'}/dpr/report/${reportId}/pdf`,
+    // Stage 14.3: Final DPR Generation & PDF Engine
+    generate14_3DPR: async (businessId, payload = {}) => apiClient.post(`/dpr/14.3/generate/${businessId}`, payload),
+    get14_3Status: async (documentId) => apiClient.get(`/dpr/14.3/status/${documentId}`),
+    preview14_3Url: (documentId) => `${apiClient.defaults?.baseURL || '/api'}/dpr/14.3/preview/${documentId}`,
+    download14_3Url: (documentId) => `${apiClient.defaults?.baseURL || '/api'}/dpr/14.3/download/${documentId}`,
   },
 };
 

@@ -11,14 +11,14 @@ export const Button = ({
   icon: Icon,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variants = {
-    primary: 'saffron-gradient-btn focus:ring-orange-500 font-semibold',
-    secondary: 'bg-[#1C1917] hover:bg-[#292524] text-[#FAF8F5] shadow-md shadow-stone-900/10 focus:ring-stone-700',
-    outline: 'border border-[#D6CDBC] hover:border-[#D97706] text-[#292524] hover:text-[#C2410C] bg-white/80 hover:bg-[#FAF6F0] focus:ring-orange-400 shadow-sm',
-    ghost: 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#EFE8DE]/60 focus:ring-stone-400',
-    gold: 'bg-gradient-to-r from-[#D97706] to-[#B45309] text-white shadow-md shadow-amber-600/20 hover:brightness-105',
+    primary: 'saffron-gradient-btn focus:ring-[#C96A3A] font-semibold',
+    secondary: 'bg-[#006F5F] hover:bg-[#075648] text-white shadow-md shadow-stone-900/10 focus:ring-[#006F5F]',
+    outline: 'border border-[#79563F]/30 hover:border-[#79563F] text-[#28231F] hover:text-[#4A3427] bg-[#FAF2E3] hover:bg-[#F1E4CC] focus:ring-[#79563F] shadow-sm',
+    ghost: 'text-[#62584F] hover:text-[#28231F] hover:bg-[#FAF2E3] focus:ring-[#79563F]',
+    gold: 'bg-[#79563F] hover:bg-[#4A3427] text-white shadow-md shadow-stone-900/10',
     danger: 'bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 shadow-sm',
   };
 

@@ -1,12 +1,9 @@
 import React from 'react';
-import { MapPin, Navigation, Compass, Globe, CheckCircle2, AlertTriangle } from 'lucide-react';
-import Stage6StatusBadge from './Stage6StatusBadge';
-import CalculationProvenanceViewer from './CalculationProvenanceViewer';
+import { MapPin, Navigation, Compass, Globe, CheckCircle2 } from 'lucide-react';
 
-export const GeospatialAnalysisCard = ({ geospatial = {}, marketAccess = {}, provenance = [] }) => {
+export const GeospatialAnalysisCard = ({ geospatial = {}, marketAccess = {} }) => {
   const coords = geospatial.coordinates || {};
   const resolved = geospatial.resolved_location || {};
-  const catchment = marketAccess.catchment || {};
 
   const primaryRadius = geospatial.primary_radius_km || 15.0;
   const secondaryRadius = geospatial.secondary_radius_km || 50.0;
@@ -15,140 +12,112 @@ export const GeospatialAnalysisCard = ({ geospatial = {}, marketAccess = {}, pro
   const accessScore = marketAccess.geographic_accessibility_score ?? 0.80;
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+    <div className="royal-panel rounded-2xl p-5 sm:p-6 border border-[#79563F]/18 space-y-4 shadow-xs h-auto w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#79563F]/15 pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-emerald-400" />
-              Geospatial & Catchment Zone Analysis
-            </h3>
-            <Stage6StatusBadge status="ACTUAL" />
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Deterministic Haversine distance mapping, dynamic catchment boundaries, and spatial accessibility scoring.
+          <h3 className="text-base sm:text-lg font-bold text-[#28231F] flex items-center gap-2 font-['Outfit']">
+            <MapPin className="w-4 h-4 text-[#006F5F]" />
+            Geospatial &amp; Catchment Zone Analysis
+          </h3>
+          <p className="text-xs text-[#62584F] mt-0.5">
+            Distance mapping, dynamic catchment boundaries, and spatial accessibility.
           </p>
         </div>
-        <div className="text-right">
-          <span className="text-xs text-slate-400 font-mono">Geographic Precision:</span>
-          <p className="text-sm font-bold text-emerald-400 capitalize">
+        <div className="text-left sm:text-right shrink-0">
+          <span className="text-[11px] text-[#79563F] font-mono">Precision: </span>
+          <span className="text-xs font-bold text-[#006F5F] capitalize">
             {geospatial.data_precision || 'District'}
-          </p>
+          </span>
         </div>
       </div>
 
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Main 4 Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {/* Coordinates */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <Globe className="w-3.5 h-3.5 text-cyan-400" /> Resolved Coordinates
+        <div className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12">
+          <span className="text-[11px] text-[#79563F] font-medium flex items-center gap-1">
+            <Globe className="w-3 h-3 text-[#006F5F]" /> Coordinates
           </span>
-          <p className="text-lg font-bold text-slate-200 mt-1 font-mono">
-            {coords.latitude ? coords.latitude.toFixed(4) : '—'}° N, {coords.longitude ? coords.longitude.toFixed(4) : '—'}° E
+          <p className="text-xs font-bold text-[#28231F] mt-1 font-mono">
+            {coords.latitude ? coords.latitude.toFixed(2) : '—'}°N, {coords.longitude ? coords.longitude.toFixed(2) : '—'}°E
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            {resolved.district || 'District'}, {resolved.state || 'India'}
+          <p className="text-[10px] text-[#62584F] truncate mt-0.5">
+            {resolved.district || 'District'}
           </p>
         </div>
 
         {/* Catchment Radius */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <Compass className="w-3.5 h-3.5 text-emerald-400" /> Catchment Boundaries
+        <div className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12">
+          <span className="text-[11px] text-[#79563F] font-medium flex items-center gap-1">
+            <Compass className="w-3 h-3 text-[#006F5F]" /> Radius
           </span>
-          <p className="text-lg font-bold text-emerald-400 mt-1">
-            {primaryRadius} km <span className="text-xs text-slate-400 font-normal">/ {secondaryRadius} km</span>
+          <p className="text-xs font-bold text-[#006F5F] mt-1">
+            {primaryRadius} km <span className="text-[10px] text-[#62584F] font-normal">/ {secondaryRadius} km</span>
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            Primary vs Secondary Extent
+          <p className="text-[10px] text-[#62584F] mt-0.5">
+            Primary / Secondary
           </p>
         </div>
 
         {/* Spatial Reachability */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <Navigation className="w-3.5 h-3.5 text-indigo-400" /> Accessibility Score
+        <div className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12">
+          <span className="text-[11px] text-[#79563F] font-medium flex items-center gap-1">
+            <Navigation className="w-3 h-3 text-[#79563F]" /> Access
           </span>
-          <p className="text-lg font-bold text-indigo-300 mt-1 font-mono">
+          <p className="text-xs font-bold text-[#28231F] mt-1 font-mono">
             {(accessScore * 100).toFixed(0)} / 100
           </p>
-          <p className="text-xs text-slate-500 mt-1">
-            Rating: <strong className="text-slate-300 uppercase">{marketAccess.accessibility || 'HIGH'}</strong>
+          <p className="text-[10px] text-[#62584F] mt-0.5 uppercase font-semibold">
+            {marketAccess.accessibility || 'HIGH'}
           </p>
         </div>
 
-        {/* Precision Gap */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" /> Spatial Confidence
+        {/* Spatial Confidence */}
+        <div className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12">
+          <span className="text-[11px] text-[#79563F] font-medium flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-[#006F5F]" /> Confidence
           </span>
-          <p className="text-lg font-bold text-teal-300 mt-1">
+          <p className="text-xs font-bold text-[#006F5F] mt-1 font-mono">
             {((geospatial.confidence || 0.90) * 100).toFixed(0)}%
           </p>
-          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-            {geospatial.precision_gap ? (
-              <span className="text-amber-400 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> District proxy used
-              </span>
-            ) : (
-              <span className="text-emerald-400">Target precision aligned</span>
-            )}
-          </div>
+          <p className="text-[10px] text-[#62584F] mt-0.5 truncate">
+            {geospatial.precision_gap ? 'District proxy' : 'Target aligned'}
+          </p>
         </div>
       </div>
 
       {/* Catchment Zones Visual Tiering */}
-      <div className="bg-slate-950/80 p-5 rounded-xl border border-slate-800 space-y-3">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          Catchment Zone Density Classification
+      <div className="bg-[#FAF2E3]/90 p-3 rounded-xl border border-[#79563F]/12 space-y-1.5">
+        <h4 className="text-[10px] font-bold text-[#28231F] uppercase tracking-wider">
+          Catchment Zone Density Distribution
         </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div className="bg-slate-900/90 p-3 rounded-lg border border-emerald-500/20">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold text-emerald-400">PRIMARY ZONE</span>
-              <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-300 px-1.5 py-0.5 rounded">≤ 5 km</span>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-100">{entitiesPrimary}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Immediate daily walk-in / farm-gate catchment</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <div className="bg-[#F1E4CC]/80 p-2 rounded-lg border border-[#006F5F]/20 text-center">
+            <span className="text-[9px] font-bold text-[#006F5F] block">PRIMARY (≤5km)</span>
+            <p className="text-base font-bold text-[#28231F] mt-0.5">{entitiesPrimary}</p>
+            <p className="text-[9px] text-[#62584F]">Direct catchment</p>
           </div>
 
-          <div className="bg-slate-900/90 p-3 rounded-lg border border-cyan-500/20">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold text-cyan-400">SECONDARY ZONE</span>
-              <span className="text-[10px] font-mono bg-cyan-500/10 text-cyan-300 px-1.5 py-0.5 rounded">≤ 15 km</span>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-100">{entitiesSecondary}</p>
-            <p className="text-[11px] text-slate-400 mt-1">Block / Mandi commute radius</p>
+          <div className="bg-[#F1E4CC]/80 p-2 rounded-lg border border-[#79563F]/20 text-center">
+            <span className="text-[9px] font-bold text-[#79563F] block">SECONDARY (≤15km)</span>
+            <p className="text-base font-bold text-[#28231F] mt-0.5">{entitiesSecondary}</p>
+            <p className="text-[9px] text-[#62584F]">Mandi radius</p>
           </div>
 
-          <div className="bg-slate-900/90 p-3 rounded-lg border border-indigo-500/20">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold text-indigo-400">EXTENDED ZONE</span>
-              <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded">≤ 30 km</span>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-100 font-mono">1.2x</p>
-            <p className="text-[11px] text-slate-400 mt-1">Regional wholesale / logistics network</p>
+          <div className="bg-[#F1E4CC]/80 p-2 rounded-lg border border-[#79563F]/20 text-center">
+            <span className="text-[9px] font-bold text-[#62584F] block">EXTENDED (≤30km)</span>
+            <p className="text-base font-bold text-[#28231F] font-mono mt-0.5">1.2x</p>
+            <p className="text-[9px] text-[#62584F]">Regional link</p>
           </div>
 
-          <div className="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold text-slate-400">OUTSIDE ZONE</span>
-              <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">&gt; 30 km</span>
-            </div>
-            <p className="text-2xl font-extrabold text-slate-400 font-mono">0.0x</p>
-            <p className="text-[11px] text-slate-500 mt-1">Minimal hyper-local commercial influence</p>
+          <div className="bg-[#F1E4CC]/80 p-2 rounded-lg border border-[#79563F]/12 text-center">
+            <span className="text-[9px] font-bold text-[#92745A] block">OUTSIDE (&gt;30km)</span>
+            <p className="text-base font-bold text-[#92745A] font-mono mt-0.5">0.0x</p>
+            <p className="text-[9px] text-[#92745A]">Minimal pull</p>
           </div>
         </div>
       </div>
-
-      {/* Calculation Provenance Details */}
-      <CalculationProvenanceViewer
-        provenance={provenance}
-        metricName="geospatial_accessibility_score"
-        title="Geospatial Calculation Provenance"
-      />
     </div>
   );
 };

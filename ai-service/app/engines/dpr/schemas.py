@@ -6,7 +6,7 @@ class DPRDocumentRequest(BaseModel):
     business_id: str
     session_id: Optional[str] = None
     analysis_id: Optional[str] = None
-    scheme_code: str = "PMEGP"
+    scheme_code: Optional[str] = None
     language_code: str = "en"
     target_scheme: Optional[str] = None
     report_format: str = "pdf"

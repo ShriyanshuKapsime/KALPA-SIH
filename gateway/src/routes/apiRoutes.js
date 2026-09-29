@@ -14,9 +14,15 @@ import feasibilityController from '../controllers/feasibilityController.js';
 import swotController from '../controllers/swotController.js';
 import assistantController from '../controllers/assistantController.js';
 import dprController from '../controllers/dprController.js';
+import translationController from '../controllers/translationController.js';
 
 
 const router = Router();
+
+// Translation Engine Routes
+router.post('/translate/text', translationController.translateText);
+router.post('/translate/batch', translationController.translateBatch);
+router.post('/translate/object', translationController.translateObject);
 
 // Subsystem health proxy
 router.get('/health/ai', healthController.getAIHealth);
@@ -104,6 +110,7 @@ router.post('/feasibility/pivot-suggestions', feasibilityController.getPivotSugg
 
 // Stage 13 Live Dynamic SWOT Agent Routes
 router.post('/swot/analyze', swotController.analyzeSWOT);
+router.post('/swot/stream', swotController.streamSWOT);
 router.get('/swot/health', swotController.getSWOTHealth);
 router.get('/swot/:id', swotController.getSWOTById);
 
@@ -127,10 +134,56 @@ router.all('/market/*', (req, res) => {
   });
 });
 
+// Stage 14.1 Live Enterprise DPR Intake & Gap Discovery Routes
+router.get('/dpr/context/:id', dprController.getContext);
+router.get('/dpr/gap-analysis/:id', dprController.getGapAnalysis);
+router.get('/dpr/sections/:id', dprController.getSections);
+router.get('/dpr/assumptions/:id', dprController.getAssumptions);
+router.get('/dpr/question/next/:id', dprController.getNextQuestion);
+router.get('/dpr/question/next', dprController.getNextQuestion);
+router.post('/dpr/question/answer/:id', dprController.answerQuestion);
+router.post('/dpr/override/:id', dprController.setOverride);
+router.post('/dpr/benchmark/accept/:id', dprController.acceptBenchmark);
+router.post('/dpr/document/update/:id', dprController.updateDocument);
+router.post('/dpr/recalculate/:id', dprController.triggerRecalculation);
+router.get('/dpr/readiness/:id', dprController.getReadiness);
+router.get('/dpr/package/:id', dprController.getContextPackage);
+router.get('/dpr/handoff/:id', dprController.getStage14Handoff);
+router.post('/dpr/intake/:id', dprController.submitStage14Intake);
+router.post('/dpr/new-scenario/:id', dprController.createNewScenario);
+router.get('/dpr/stage1/debug/lineage/:id', dprController.getDebugLineage);
+router.get('/dpr/debug/lineage/:id', dprController.getDebugLineage);
+router.post('/dpr/audio/transcribe', dprController.transcribeAudio);
+router.post('/dpr/audio/synthesize', dprController.synthesizeAudio);
+
+// Stage 14.2 Live DPR Enrichment & Deterministic Inference Routes
+router.get('/dpr/14.2/context/:id', dprController.get14_2Context);
+router.get('/dpr/14.2/enrichment/:id', dprController.get14_2Enrichment);
+router.get('/dpr/14.2/gaps/:id', dprController.get14_2Gaps);
+router.post('/dpr/14.2/answer/:id', dprController.answer14_2Question);
+router.post('/dpr/14.2/benchmark/accept/:id', dprController.accept14_2Benchmark);
+router.post('/dpr/14.2/document/:id', dprController.update14_2Document);
+router.post('/dpr/14.2/assumption/:id', dprController.update14_2Assumption);
+router.get('/dpr/14.2/validation/:id', dprController.get14_2Validation);
+router.get('/dpr/14.2/readiness/:id', dprController.get14_2Readiness);
+router.get('/dpr/enrichment/assumptions/:id', dprController.getEnrichmentAssumptions);
+router.post('/dpr/enrichment/assumption/:id', dprController.updateEnrichmentAssumption);
+router.get('/dpr/enrichment/status/:id', dprController.getEnrichmentStatus);
+router.get('/dpr/enrichment/:id', dprController.getEnrichment);
+router.post('/dpr/enrichment/run/:id', dprController.runEnrichment);
+
 // Stage 14 Live Bankable DPR Generator Routes
 router.post('/dpr/generate/:id', dprController.generateDpr);
 router.get('/dpr/report/:id/pdf', dprController.downloadDprPdf);
 router.get('/dpr/report/:id', dprController.getDprReport);
+
+// Stage 14.3 Institutional Bank-Review DPR Generator Routes
+router.post('/dpr/14.3/generate/:id', dprController.generate14_3Dpr);
+router.get('/dpr/14.3/status/:id', dprController.get14_3Status);
+router.get('/dpr/14.3/preview/:id', dprController.preview14_3Pdf);
+router.get('/dpr/14.3/download/:id', dprController.download14_3Pdf);
+router.get('/dpr/14.3/document/:id/preview', dprController.preview14_3Pdf);
+router.get('/dpr/14.3/document/:id/download', dprController.download14_3Pdf);
 
 export default router;
 

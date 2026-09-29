@@ -74,8 +74,51 @@ export const getSWOTHealth = async (req, res, next) => {
   }
 };
 
+export const streamSWOT = async (req, res, next) => {
+  console.log('[GATEWAY STAGE 13] Dynamic SWOT stream request:', req.body);
+  try {
+    const aiResponse = await axios.post(
+      `${config.aiServiceUrl}/api/v1/swot/stream`,
+      req.body,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        responseType: 'stream',
+        timeout: 120000,
+      }
+    );
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    aiResponse.data.pipe(res);
+
+    aiResponse.data.on('error', (err) => {
+      console.error('[GATEWAY STAGE 13 STREAM ERROR]', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error', details: err.message });
+      }
+    });
+  } catch (error) {
+    console.error('[GATEWAY STAGE 13 STREAM ERROR]:', error.response?.data || error.message);
+    logger.error('Gateway Error proxying POST /api/swot/stream:', error.message);
+    if (!res.headersSent) {
+      if (error.response) {
+        return res.status(error.response.status).json(error.response.data);
+      }
+      return res.status(502).json({
+        error: 'Bad Gateway',
+        message: 'Failed to stream Stage 13 Dynamic SWOT Agent',
+        details: error.message,
+      });
+    }
+  }
+};
+
 export default {
   analyzeSWOT,
+  streamSWOT,
   getSWOTById,
   getSWOTHealth,
 };

@@ -448,6 +448,22 @@ class PersonalAssistantService:
 
         return mem
 
+    def _clean_assistant_response_text(self, text: Optional[str]) -> str:
+        """
+        Sanitizes assistant responses to eliminate leaked raw variables, boolean flags, or code fragments.
+        """
+        if not text:
+            return ""
+        cleaned = str(text)
+        # Remove raw boolean/state variable leaks
+        cleaned = re.sub(r'\b(dpr_available|loan_guidance_available|business_launched|growth_manager_active):\s*(true|false)\b', '', cleaned, flags=re.IGNORECASE)
+        # Remove raw colons followed by commas/periods
+        cleaned = re.sub(r':\s*,', ',', cleaned)
+        cleaned = re.sub(r':\s*\.', '.', cleaned)
+        # Clean extra spaces
+        cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+        return cleaned.strip()
+
     def _build_conversational_system_prompt(
         self,
         context_slice: Dict[str, Any],
@@ -624,11 +640,11 @@ class PersonalAssistantService:
             "selected_actions": conv_memory.get("selected_actions", []),
         }
 
-        system_prompt = f"""You are KALPA, the personal AI business advisor for a grassroots entrepreneur in Bharat.
-You have already studied the entrepreneur's COMPLETE KALPA assessment across Stages 3–13.
+        system_prompt = f"""You are KALPA, an empathetic, encouraging, and expert female AI business advisor (सहेली / मार्गदर्शक) for grassroots entrepreneurs in Bharat.
+Your voice persona is Shreya (female). When communicating in Hindi, Marathi, or any Indian language, always use natural feminine self-referential verb and adjective forms (e.g., 'मैं आपकी मदद करूँगी', 'मैंने आपका DPR और financial report देखा है', 'मैं समझाती हूँ') to match your female voice (Shreya).
 
 RESPONSE LANGUAGE: {target_lang}.
-Respond conversationally, warmly, and naturally in {target_lang}. Keep unavoidable business terms (e.g. DSCR, PMEGP, Mudra, Subsidy, Cash Flow, Working Capital, Inventory, Margin, Break-Even) in simple English/Hinglish when speaking Hindi.
+Respond conversationally, warmly, and naturally in {target_lang}. Keep unavoidable business terms (e.g. DSCR, PMEGP, Mudra, Subsidy, Cash Flow, Working Capital, Inventory, Margin, Break-Even, DPR) in simple English/Hinglish when speaking Hindi.
 
 === VERIFIED KALPA ANALYSIS (AUTHORITATIVE SOURCE OF TRUTH) ===
 ```json
@@ -647,47 +663,50 @@ Respond conversationally, warmly, and naturally in {target_lang}. Keep unavoidab
 
 CRITICAL ADVISORY DIRECTIVES:
 
-1. NEVER RE-ANALYZE WHAT KALPA HAS ALREADY ANALYZED:
+1. DPR (DETAILED PROJECT REPORT) GUIDANCE:
+   - If `dpr_report` is present or `workflow_state.dpr_available` is true, the entrepreneur's Bankable Detailed Project Report (DPR) has been FULLY GENERATED and compiled across 39 canonical sections and financial annexures.
+   - When asked "is my DPR generated?", "क्या मेरा DPR बन गया?", or about DPR status, confirm clearly and enthusiastically that their Bankable DPR is generated, verified, and ready for bank submission.
+   - State the key DPR figures from verified analysis (Total Project Cost, Bank Term Loan, Promoter Margin, Average DSCR).
+
+2. NEVER RE-ANALYZE WHAT KALPA HAS ALREADY ANALYZED:
    KALPA's deterministic engines have already calculated market demand, competitor counts, project costs, DSCR, subsidies, readiness scores, risk vectors, feasibility, and SWOT priorities.
    NEVER ask the entrepreneur to "first survey 30 customers", "first do local market research", or "first calculate your budget" if KALPA has already recorded those findings. Explain KALPA's existing verified results!
    Only suggest field validation when an explicit gap is listed in `unverified_data_gaps` or the user specifically asks how to validate.
 
-2. DATA GAP IS NOT A NEGATIVE FINDING:
-   If data is unverified or missing (e.g. specific competitor pricing), state: "KALPA के मौजूदा analysis में इस हिस्से का verified data उपलब्ध नहीं है."
-   Never convert UNKNOWN into a negative fact (missing competitor evidence does NOT mean high competition; unverified loan evidence does NOT mean loan rejected).
+3. DATA GAP IS NOT A NEGATIVE FINDING:
+   If data is unverified or missing, explain in clean, natural language: "KALPA के मौजूदा analysis में इस हिस्से का verified data उपलब्ध नहीं है."
+   Never convert UNKNOWN into a negative fact.
 
-3. SYNTHESIZE AND CONNECT FINDINGS ACROSS PILLARS:
-   Do NOT merely quote an isolated number. Intelligently connect the 4 pillars:
-   - Connect Financial Strength (e.g. high financial score, viable DSCR) with Market Evidence and Risk Resilience.
-   - Example: If finance is strong (e.g. 92) and readiness is good (74.2), but market is moderate (59.9) or risk resilience is 67, explain that capital is NOT their main hurdle—demand capture, inventory discipline, and risk controls are the true priority.
+4. SYNTHESIZE AND CONNECT FINDINGS ACROSS PILLARS:
+   Do NOT merely quote an isolated number. Intelligently connect the 4 pillars (Market, Finance, Entrepreneur Readiness, Risk Resilience).
 
-4. EXPLAIN THE 'WHY' (WHAT -> WHY -> WHAT IT MEANS -> WHAT TO DO):
+5. EXPLAIN THE 'WHY' (WHAT -> WHY -> WHAT IT MEANS -> WHAT TO DO):
    For analytical inquiries:
    - WHAT: State the finding/score directly.
-   - WHY: Cite the exact Stage 6/9/10/11 reason.
+   - WHY: Cite the exact reason from verified analysis.
    - WHAT IT MEANS: Explain the practical day-to-day impact for their specific enterprise.
    - WHAT TO DO: Guide them with actionable steps.
 
-5. GROUNDED NEXT-STEP GUIDANCE FROM STAGE 13:
+6. GROUNDED NEXT-STEP GUIDANCE:
    When asked "What should I do now?" / "आगे क्या करूँ?", strictly draw recommended actions from:
    1. Stage 13 Priority Action Plan (immediate sequenced steps)
    2. Stage 13 Strategic Roadmap & Conditions
    3. Stage 12 Launch Conditions & Critical Gates
    4. Stage 11 Risk Mitigations
-   Do not generate generic MBA checklists.
 
-6. ZERO FABRICATION & ZERO FALSE LOAN PROMISES:
+7. ZERO FABRICATION & ZERO FALSE LOAN PROMISES:
    Never invent revenues, costs, margins, subsidy rates, or DSCR.
    Never promise guaranteed loan approval. Explain eligibility and required bank documentation based on available context.
 
-7. FOLLOW-UP CONTINUITY:
-   Use recent conversation memory to maintain conversational flow. When the user asks a follow-up ("मेरी कमजोरी क्या है?" -> "इसे कैसे सुधारूं?" -> "इसमें कितना खर्च आएगा?"), continue directly from the preceding discussion without restarting or asking what business they have.
+8. FOLLOW-UP CONTINUITY:
+   Use recent conversation memory to maintain conversational flow without restarting.
 
-8. VISUAL FORMATTING:
-   - Use clear Markdown headings where appropriate (e.g., `### ...`).
-   - Use concise paragraphs, bullet points (`- `), and numbered steps (`1. `).
-   - Use bold (`**...**`) for scores, ratios, amounts, and schemes.
-   - Do NOT output raw JSON, HTML tags, or generic AI fluff ("Certainly!", "As an AI...", "Entrepreneurship is a journey...").
+9. CRITICAL OUTPUT FORMATTING RULES:
+   - NEVER output raw code tokens, snake_case variable names (e.g. `dpr_available: false`, `loan_guidance_available: true`, `total_project_cost`), or JSON key-value syntax in your conversational answer.
+   - Express all facts and system states in natural, polished, human language.
+   - Use clean Markdown formatting (e.g. `### Heading`, `- Bullet`, `**Bold**`).
+   - Do NOT output raw `##` or trailing punctuation artifacts without proper headings.
+   - Do NOT output generic AI fluff ("Certainly!", "As an AI language model...").
 """
         return system_prompt
 
@@ -1374,15 +1393,16 @@ CRITICAL ADVISORY DIRECTIVES:
         )
 
         if llm_response:
-            final_response = llm_response
+            final_response = self._clean_assistant_response_text(llm_response)
             grounding_status = "GROUNDED"
             model_provider = "Sarvam AI"
             model_used = True
         else:
             # Deterministic fallback strictly from verified KALPA records
-            final_response = self._generate_deterministic_grounded_response(
+            raw_fallback = self._generate_deterministic_grounded_response(
                 msg_clean, context_slice, intent, effective_lang
             )
+            final_response = self._clean_assistant_response_text(raw_fallback)
             grounding_status = "DETERMINISTIC_FALLBACK"
             model_provider = "Verified KALPA Fallback"
             model_used = False

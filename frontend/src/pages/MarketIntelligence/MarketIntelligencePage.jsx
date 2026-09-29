@@ -3,35 +3,22 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   Compass,
   MapPin,
-  Layers,
-  Users,
   Building2,
   TrendingUp,
   Truck,
   Zap,
-  DollarSign,
   Calendar,
   AlertTriangle,
-  CheckCircle2,
-  ShieldCheck,
   RefreshCw,
-  Cpu,
-  Database,
   ArrowRight,
-  FileCode,
-  Copy,
-  Check,
-  Search,
-  Activity,
-  Radio,
-  ExternalLink,
-  Lock,
-  PieChart,
-  Sliders,
-  Calculator
+  ShieldCheck,
+  Award,
+  Layers,
+  PieChart
 } from 'lucide-react';
 import apiService from '../../services/api';
 import { useWorkflow } from '../../context/WorkflowContext';
+import { useLanguage } from '../../context/LanguageContext';
 import WorkflowTimeline from '../../components/workflow/WorkflowTimeline';
 
 // Stage 6 Modular Components
@@ -46,10 +33,7 @@ import DemandEvidenceCard from '../../components/market/DemandEvidenceCard';
 import SeasonalityAnalysisCard from '../../components/market/SeasonalityAnalysisCard';
 import MarketCapacityCard from '../../components/market/MarketCapacityCard';
 import StructuredIndicatorsGrid from '../../components/market/StructuredIndicatorsGrid';
-import MarketFeaturesHandoff from '../../components/market/MarketFeaturesHandoff';
 import BenchmarkComparisonCard from '../../components/market/BenchmarkComparisonCard';
-import EvidenceGapsCard from '../../components/market/EvidenceGapsCard';
-import ExecutionMetadataCard from '../../components/market/ExecutionMetadataCard';
 
 export default function MarketIntelligencePage() {
   const location = useLocation();
@@ -62,14 +46,14 @@ export default function MarketIntelligencePage() {
     markStageComplete
   } = useWorkflow();
 
+  const { t, language } = useLanguage();
+
   const queryParams = new URLSearchParams(location.search);
   const initialSessionId = location.state?.sessionId || location.state?.session_id || queryParams.get('session_id') || ctxSessionId || '';
   const initialAnalysisId = location.state?.analysisId || location.state?.analysis_id || queryParams.get('analysis_id') || ctxAnalysisId || '';
-  const initialView = queryParams.get('view') || 'engine'; // 'engine' (Stage 6) | 'evidence' (Stage 5)
 
   const [analysisId, setAnalysisId] = useState(initialAnalysisId);
   const [sessionId, setSessionId] = useState(initialSessionId);
-  const [primaryView, setPrimaryView] = useState(initialView);
 
   // Data Containers
   const [evidenceProfile, setEvidenceProfile] = useState(null);
@@ -80,13 +64,8 @@ export default function MarketIntelligencePage() {
   const [analyzingStage6, setAnalyzingStage6] = useState(false);
   const [collectingStage5, setCollectingStage5] = useState(false);
   const [forceRefresh, setForceRefresh] = useState(false);
-  const [toolHealth, setToolHealth] = useState(null);
   const [error, setError] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [selectedEnterprise, setSelectedEnterprise] = useState('poultry_farm_bangalore');
-
-  // Stage 5 Tabs
-  const [stage5Tab, setStage5Tab] = useState('demographics');
 
   const isExecutingRef = useRef(false);
 
@@ -98,7 +77,6 @@ export default function MarketIntelligencePage() {
   ];
 
   useEffect(() => {
-    fetchToolHealth();
     if (analysisId) {
       loadPipelineData(analysisId);
     } else if (sessionId) {
@@ -114,15 +92,6 @@ export default function MarketIntelligencePage() {
         });
     }
   }, [analysisId, sessionId]);
-
-  const fetchToolHealth = async () => {
-    try {
-      const data = await apiService.marketIntelligence.getToolHealth();
-      setToolHealth(data);
-    } catch (err) {
-      console.warn('Could not fetch tool health:', err);
-    }
-  };
 
   const loadPipelineData = async (id) => {
     setLoading(true);
@@ -256,66 +225,49 @@ export default function MarketIntelligencePage() {
     }
   };
 
-  const handleCopyJSON = () => {
-    const dataToCopy = primaryView === 'engine' ? stage6Output : evidenceProfile;
-    if (dataToCopy) {
-      navigator.clipboard.writeText(JSON.stringify(dataToCopy, null, 2));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   const bizContext = stage6Output?.business_context || evidenceProfile?.business_context || {};
   const locContext = stage6Output?.location_context || evidenceProfile?.location_context || {};
   const resolvedLoc = locContext.resolved_location || locContext;
   const indicators = stage6Output?.market_indicators || {};
-  const marketFeatures = stage6Output?.market_features || {};
   const benchmarkAnalysis = stage6Output?.benchmark_analysis || {};
   const calculationProvenance = stage6Output?.calculation_provenance || [];
-  const evidenceGaps = stage6Output?.evidence_gaps || evidenceProfile?.evidence_gaps || [];
   const quality = stage6Output?.evidence_quality || {};
 
-  const bizName = bizContext.specific_business || bizContext.business_name || 'Broiler Poultry Farm Unit';
-  const bizCategory = bizContext.category || bizContext.business_category || 'Animal Husbandry';
-  const locationName = `${resolvedLoc.district || 'Solapur'}, ${resolvedLoc.state || 'Maharashtra'}`;
-
-  const isComplete = Boolean(stage6Output);
+  const bizName = bizContext.specific_business || bizContext.business_name || 'Enterprise Profile';
+  const locationName = [resolvedLoc.district, resolvedLoc.state].filter(Boolean).join(', ') || 'Location Not Specified';
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1C1917] py-8 px-4 sm:px-6 lg:px-8 space-y-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 relative text-[#28231F]">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         
         {/* 1. Workflow Timeline Header */}
         <WorkflowTimeline />
 
         {/* 2. Page Title & Control Bar */}
-        <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#EAE3D5] shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-orange-100/50 via-amber-50/30 to-transparent rounded-bl-full pointer-events-none" />
-
+        <div className="royal-panel rounded-2xl p-6 sm:p-8 border border-[#79563F]/18 shadow-xs relative overflow-hidden h-auto">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-[#C2410C] border border-orange-200">
-                  STAGE 05 &middot; DISCOVER PILLAR
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Zero-LLM Spatial Evidence Synthesis
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#C96A3A]/10 text-[#C96A3A] border border-[#C96A3A]/25">
+                  {t('step_3', '03 Market Intelligence')}
                 </span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1C1917] font-['Outfit']">
-                Spatial Market Intelligence Engine
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#28231F] font-['Outfit']">
+                {t('market_title', 'Spatial Market Intelligence Engine')}
               </h1>
+              <p className="text-xs sm:text-sm text-[#79563F]">
+                {t('market_subtitle', 'Data-grounded catchment analysis, demand density, and competitor mapping.')}
+              </p>
 
-              <div className="flex flex-wrap items-center gap-4 text-xs text-[#57534E]">
-                <span className="flex items-center gap-1.5 font-bold text-[#1C1917]">
-                  <Building2 className="w-4 h-4 text-[#EA580C]" />
+              <div className="flex flex-wrap items-center gap-4 text-xs text-[#62584F] pt-1">
+                <span className="flex items-center gap-1.5 font-bold text-[#28231F]">
+                  <Building2 className="w-4 h-4 text-[#C96A3A]" />
                   {bizName}
                 </span>
                 <span>&middot;</span>
-                <span className="flex items-center gap-1 text-[#78716C]">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="flex items-center gap-1 text-[#62584F]">
+                  <MapPin className="w-3.5 h-3.5 text-[#006F5F]" />
                   {locationName}
                 </span>
               </div>
@@ -323,21 +275,6 @@ export default function MarketIntelligencePage() {
 
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <select
-                value={selectedEnterprise}
-                onChange={(e) => {
-                  setSelectedEnterprise(e.target.value);
-                  runFullPipeline(e.target.value);
-                }}
-                className="bg-white border border-[#D9CFC4] text-[#1C1917] text-xs font-semibold rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-[#EA580C] outline-none shadow-2xs"
-              >
-                {SAMPLE_ENTERPRISES.map((ent) => (
-                  <option key={ent.id} value={ent.id}>
-                    {ent.name} ({ent.district})
-                  </option>
-                ))}
-              </select>
-
               <button
                 onClick={() => runFullPipeline(selectedEnterprise, forceRefresh)}
                 disabled={collectingStage5 || analyzingStage6 || loading}
@@ -345,16 +282,16 @@ export default function MarketIntelligencePage() {
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${(collectingStage5 || analyzingStage6) ? 'animate-spin' : ''}`} />
                 <span>
-                  {collectingStage5 ? 'Collecting...' : analyzingStage6 ? 'Analyzing...' : 'Run Market Pipeline'}
+                  {collectingStage5 ? t('loading', 'Collecting...') : analyzingStage6 ? t('analyzing', 'Analyzing...') : t('refresh', 'Run Market Pipeline')}
                 </span>
               </button>
 
               <Link
                 to={`/opportunity-evaluation${analysisId ? `?analysis_id=${analysisId}` : ''}`}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-stone-50 border border-[#EAE3D5] text-[#57534E] shadow-2xs flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#FAF2E3] hover:bg-[#F1E4CC] border border-[#79563F]/20 text-[#28231F] shadow-2xs flex items-center gap-1.5 transition-colors"
               >
-                <span>Proceed to Opportunity</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#EA580C]" />
+                <span>{t('proceed', 'Proceed to Opportunity')}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#C96A3A]" />
               </Link>
             </div>
           </div>
@@ -368,86 +305,78 @@ export default function MarketIntelligencePage() {
           </div>
         )}
 
-        {/* PRIMARY VIEW: STAGE 6 MARKET ENGINE */}
-        <div className="space-y-8 animate-fadeIn">
-          {/* Input Evidence Summary */}
+        {/* PRIMARY VIEW: EDITORIAL MARKET ADVISORY INTERFACE */}
+        <div className="space-y-6 sm:space-y-8 animate-fadeIn">
+          
+          {/* 1. Market Evidence Summary */}
           <InputEvidenceSummary
             stage5Data={evidenceProfile || {}}
             stage6Data={stage6Output || {}}
           />
 
-          {/* Structured Market Indicators */}
+          {/* 2. Consolidated Market Indicators */}
           <StructuredIndicatorsGrid
             indicators={indicators}
             quality={quality}
           />
 
-          {/* Geospatial & Competition Analysis */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GeospatialAnalysisCard
-              geospatial={indicators.geospatial_analysis || {}}
-              marketAccess={indicators.market_access || {}}
-              provenance={calculationProvenance}
-            />
-            <CompetitionAnalysisCard
-              competition={indicators.competition || {}}
-              provenance={calculationProvenance}
-            />
+          {/* 3. TWO INDEPENDENT MASONRY COLUMNS (Zero row synchronization, packed layout) */}
+          <div className="market-analysis-masonry grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-start">
+            
+            {/* LEFT COLUMN: Seasonality -> Geospatial -> Infrastructure -> Calculation Provenance */}
+            <div className="market-analysis-column flex flex-col gap-5 sm:gap-6 w-full min-w-0">
+              <SeasonalityAnalysisCard
+                seasonality={indicators.seasonality || {}}
+              />
+              <GeospatialAnalysisCard
+                geospatial={indicators.geospatial_analysis || {}}
+                marketAccess={indicators.market_access || {}}
+              />
+              <InfrastructureAnalysisCard
+                infrastructure={indicators.infrastructure || {}}
+              />
+              <CalculationProvenanceViewer
+                provenance={calculationProvenance}
+                title="Mathematical Calculation Provenance (Audit View)"
+                collapsible={true}
+                defaultExpanded={false}
+              />
+            </div>
+
+            {/* RIGHT COLUMN: Competition -> Supply Ecosystem -> Demand Evidence -> Benchmark Deviations */}
+            <div className="market-analysis-column flex flex-col gap-5 sm:gap-6 w-full min-w-0">
+              <CompetitionAnalysisCard
+                competition={indicators.competition || {}}
+              />
+              <SupplyEcosystemCard
+                supply={indicators.supply_ecosystem || {}}
+              />
+              <DemandEvidenceCard
+                demand={indicators.demand_evidence || {}}
+              />
+              <BenchmarkComparisonCard
+                benchmarkAnalysis={benchmarkAnalysis}
+              />
+            </div>
+
           </div>
 
-          {/* Infrastructure & Supply Ecosystem */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <InfrastructureAnalysisCard
-              infrastructure={indicators.infrastructure || {}}
-              provenance={calculationProvenance}
-            />
-            <SupplyEcosystemCard
-              supply={indicators.supply_ecosystem || {}}
-              provenance={calculationProvenance}
-            />
-          </div>
-
-          {/* Demand Evidence & Seasonality */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <DemandEvidenceCard
-              demand={indicators.demand_evidence || {}}
-              provenance={calculationProvenance}
-            />
-            <SeasonalityAnalysisCard
-              seasonality={indicators.seasonality || {}}
-              provenance={calculationProvenance}
-            />
-          </div>
-
-          {/* Market Capacity */}
+          {/* 4. FULL-WIDTH SYNTHESIS: Net Market Capacity & Expansion Signal */}
           <MarketCapacityCard
             capacity={indicators.market_capacity || {}}
-            provenance={calculationProvenance}
           />
 
-          {/* Calculation Provenance & Benchmark References */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CalculationProvenanceViewer
-              provenance={calculationProvenance}
-              title="Mathematical Calculation Provenance (Audit View)"
-              collapsible={false}
-            />
-            <BenchmarkComparisonCard
-              benchmarkAnalysis={benchmarkAnalysis}
-            />
-          </div>
-
-          {/* Handoff Banner to Stage 8 */}
-          <div className="royal-panel rounded-2xl p-6 border border-[#EAE3D5] flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* 5. FULL-WIDTH NEXT STEP: Stage 8 Handoff Banner */}
+          <div className="royal-panel rounded-2xl p-6 border border-[#79563F]/18 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs h-auto">
             <div className="space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                Stage 5 Market Intelligence Established
+              <span className="text-xs font-bold uppercase tracking-wider text-[#006F5F]">
+                {t('completed', 'Stage 5 Market Intelligence Established')}
               </span>
-              <h3 className="text-base font-bold text-[#1C1917] font-['Outfit']">
-                Ready for Stage 8: Opportunity Evaluation Engine
+              <h3 className="text-base font-bold text-[#28231F] font-['Outfit']">
+                {t('opp_title', 'Ready for Stage 8: Opportunity Evaluation Engine')}
               </h3>
-              <p className="text-xs text-[#57534E]">
-                Proceed to evaluate multi-factor opportunity scores, competition trade-offs, and critical constraints.
+              <p className="text-xs text-[#62584F]">
+                {t('opp_subtitle', 'Proceed to evaluate multi-factor opportunity scores, competition trade-offs, and critical constraints.')}
               </p>
             </div>
 
@@ -455,10 +384,11 @@ export default function MarketIntelligencePage() {
               to={`/opportunity-evaluation${analysisId ? `?analysis_id=${analysisId}` : ''}`}
               className="saffron-gradient-btn px-6 py-3 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shrink-0"
             >
-              <span>Proceed to Opportunity Evaluation</span>
+              <span>{t('proceed', 'Proceed to Opportunity Evaluation')}</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+
         </div>
 
       </div>

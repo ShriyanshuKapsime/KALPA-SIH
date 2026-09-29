@@ -50,7 +50,7 @@ export const WorkflowProvider = ({ children }) => {
   );
   const [currentStage, setCurrentStage] = useState(stored?.current_stage || 1);
   const [workflowStatus, setWorkflowStatus] = useState(stored?.workflow_status || 'IDLE');
-  const [completedStages, setCompletedStages] = useState(stored?.completed_stages || [1]);
+  const [completedStages, setCompletedStages] = useState(stored?.completed_stages || []);
   const [availableStages, setAvailableStages] = useState(stored?.available_stages || [1, 2, 3, 4, 5, 8, 9, 10, 11]);
   const [lockedStages, setLockedStages] = useState(stored?.locked_stages || [12, 13, 14, 15]);
   const [activeAgent, setActiveAgent] = useState(stored?.active_agent || null);
@@ -76,36 +76,72 @@ export const WorkflowProvider = ({ children }) => {
   const [orchestrationProgress, setOrchestrationProgress] = useState(0);
   const [workflowError, setWorkflowError] = useState(null);
 
+  const getSessionIdKey = (bId) => (bId ? `kalpa_session_id_${bId}` : STORAGE_KEYS.SESSION_ID);
+  const getAnalysisIdKey = (bId) => (bId ? `kalpa_analysis_id_${bId}` : STORAGE_KEYS.ANALYSIS_ID);
+  const getFinancialContextKey = (bId) => (bId ? `kalpa_financial_context_${bId}` : STORAGE_KEYS.FINANCIAL_CONTEXT);
+  const getFinancialAnalysisKey = (bId) => (bId ? `kalpa_financial_analysis_${bId}` : STORAGE_KEYS.FINANCIAL_ANALYSIS);
+
   const [financialContext, setFinancialContext] = useState(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_CONTEXT);
-      return raw ? JSON.parse(raw) : (stored?.financial_context || null);
+      const bId = stored?.business_id || sessionStorage.getItem(STORAGE_KEYS.BUSINESS_ID);
+      const key = getFinancialContextKey(bId);
+      const raw = sessionStorage.getItem(key) || sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_CONTEXT);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const currSession = sessionStorage.getItem(STORAGE_KEYS.SESSION_ID);
+      if (currSession && parsed?.session_id && parsed.session_id !== currSession) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+      return parsed;
     } catch (e) {
-      return stored?.financial_context || null;
+      return null;
     }
   });
 
   const [financialAnalysis, setFinancialAnalysis] = useState(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_ANALYSIS);
-      return raw ? JSON.parse(raw) : (stored?.financial_analysis || null);
+      const bId = stored?.business_id || sessionStorage.getItem(STORAGE_KEYS.BUSINESS_ID);
+      const key = getFinancialAnalysisKey(bId);
+      const raw = sessionStorage.getItem(key) || sessionStorage.getItem(STORAGE_KEYS.FINANCIAL_ANALYSIS);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const currSession = sessionStorage.getItem(STORAGE_KEYS.SESSION_ID);
+      const storedSid = parsed?.session_id || parsed?.sessionId || parsed?.data?.session_id;
+      if (currSession && storedSid && storedSid !== currSession) {
+        sessionStorage.removeItem(key);
+        return null;
+      }
+      return parsed;
     } catch (e) {
-      return stored?.financial_analysis || null;
+      return null;
     }
   });
 
   // Sync to sessionStorage on state change
   useEffect(() => {
     try {
-      if (sessionId) sessionStorage.setItem(STORAGE_KEYS.SESSION_ID, sessionId);
-      if (analysisId) sessionStorage.setItem(STORAGE_KEYS.ANALYSIS_ID, analysisId);
+      if (sessionId) {
+        sessionStorage.setItem(STORAGE_KEYS.SESSION_ID, sessionId);
+        if (businessId) sessionStorage.setItem(getSessionIdKey(businessId), sessionId);
+      }
+      if (analysisId) {
+        sessionStorage.setItem(STORAGE_KEYS.ANALYSIS_ID, analysisId);
+        if (businessId) sessionStorage.setItem(getAnalysisIdKey(businessId), analysisId);
+      }
       if (businessId) sessionStorage.setItem(STORAGE_KEYS.BUSINESS_ID, businessId);
       if (businessName) sessionStorage.setItem(STORAGE_KEYS.BUSINESS_NAME, businessName);
       if (financialContext) {
         sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_CONTEXT, JSON.stringify(financialContext));
+        if (businessId) {
+          sessionStorage.setItem(getFinancialContextKey(businessId), JSON.stringify(financialContext));
+        }
       }
       if (financialAnalysis) {
         sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_ANALYSIS, JSON.stringify(financialAnalysis));
+        if (businessId) {
+          sessionStorage.setItem(getFinancialAnalysisKey(businessId), JSON.stringify(financialAnalysis));
+        }
       }
 
       const stateObj = {
@@ -139,16 +175,46 @@ export const WorkflowProvider = ({ children }) => {
       const sId = patch.sessionId || patch.session_id;
       setSessionId(sId);
       sessionStorage.setItem(STORAGE_KEYS.SESSION_ID, sId);
+      const currBId = patch.businessId || patch.business_id || businessId;
+      if (currBId) {
+        sessionStorage.setItem(getSessionIdKey(currBId), sId);
+      }
     }
     if (patch.analysisId || patch.analysis_id) {
       const aId = patch.analysisId || patch.analysis_id;
       setAnalysisId(aId);
       sessionStorage.setItem(STORAGE_KEYS.ANALYSIS_ID, aId);
+      const currBId = patch.businessId || patch.business_id || businessId;
+      if (currBId) {
+        sessionStorage.setItem(getAnalysisIdKey(currBId), aId);
+      }
     }
     if (patch.businessId || patch.business_id) {
       const bId = patch.businessId || patch.business_id;
       setBusinessId(bId);
       sessionStorage.setItem(STORAGE_KEYS.BUSINESS_ID, bId);
+      if (bId !== businessId) {
+        // Business switched! Retrieve business-scoped state so Grocery never leaks into Dairy or Saree
+        const scopedSid = sessionStorage.getItem(getSessionIdKey(bId)) || '';
+        setSessionId(scopedSid);
+
+        const scopedAid = sessionStorage.getItem(getAnalysisIdKey(bId)) || '';
+        setAnalysisId(scopedAid);
+
+        let scopedFc = null;
+        try {
+          const raw = sessionStorage.getItem(getFinancialContextKey(bId));
+          if (raw) scopedFc = JSON.parse(raw);
+        } catch (e) {}
+        setFinancialContext(scopedFc);
+
+        let scopedFa = null;
+        try {
+          const raw = sessionStorage.getItem(getFinancialAnalysisKey(bId));
+          if (raw) scopedFa = JSON.parse(raw);
+        } catch (e) {}
+        setFinancialAnalysis(scopedFa);
+      }
     }
     if (patch.businessName || patch.business_name) {
       const bName = patch.businessName || patch.business_name;
@@ -183,25 +249,38 @@ export const WorkflowProvider = ({ children }) => {
     if (patch.journeyStatus || patch.journey_status) {
       setJourneyStatus(prev => ({ ...prev, ...(patch.journeyStatus || patch.journey_status) }));
     }
+    const currentBId = patch.businessId || patch.business_id || businessId;
     if (patch.financialContext !== undefined || patch.financial_context !== undefined) {
       const fc = patch.financialContext !== undefined ? patch.financialContext : patch.financial_context;
       setFinancialContext(fc);
       if (fc) {
-        try { sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_CONTEXT, JSON.stringify(fc)); } catch (e) {}
+        try {
+          sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_CONTEXT, JSON.stringify(fc));
+          if (currentBId) sessionStorage.setItem(getFinancialContextKey(currentBId), JSON.stringify(fc));
+        } catch (e) {}
       } else {
-        try { sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_CONTEXT); } catch (e) {}
+        try {
+          sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_CONTEXT);
+          if (currentBId) sessionStorage.removeItem(getFinancialContextKey(currentBId));
+        } catch (e) {}
       }
     }
     if (patch.financialAnalysis !== undefined || patch.financial_analysis !== undefined) {
       const fa = patch.financialAnalysis !== undefined ? patch.financialAnalysis : patch.financial_analysis;
       setFinancialAnalysis(fa);
       if (fa) {
-        try { sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_ANALYSIS, JSON.stringify(fa)); } catch (e) {}
+        try {
+          sessionStorage.setItem(STORAGE_KEYS.FINANCIAL_ANALYSIS, JSON.stringify(fa));
+          if (currentBId) sessionStorage.setItem(getFinancialAnalysisKey(currentBId), JSON.stringify(fa));
+        } catch (e) {}
       } else {
-        try { sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_ANALYSIS); } catch (e) {}
+        try {
+          sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_ANALYSIS);
+          if (currentBId) sessionStorage.removeItem(getFinancialAnalysisKey(currentBId));
+        } catch (e) {}
       }
     }
-  }, []);
+  }, [businessId]);
 
   // Mark a specific stage as completed and advance
   const markStageComplete = useCallback((stageNum, nextStageNum) => {
@@ -389,10 +468,20 @@ export const WorkflowProvider = ({ children }) => {
         return { success: true, status: 'STAGE_10_CLARIFICATION_REQUIRED' };
       }
 
+      setEngineOutputs((prev) => ({
+        ...prev,
+        market_intelligence: 'Demand Strong ✓',
+        opportunity_evaluation: 'Opportunity Synthesized ✓',
+        financial_planning: 'Financing Structured ✓',
+        entrepreneur_profile: 'Readiness Assessed ✓',
+        risk_analysis: 'Risk Vectors Evaluated ✓',
+        feasibility_assessment: 'Feasibility Viable ✓',
+      }));
+
       updateWorkflowState({
         sessionId: sId,
         analysisId: activeAid,
-        currentStage: 12,
+        currentStage: 13,
         completedStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12],
         availableStages: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13],
         lockedStages: [14, 15],
@@ -403,7 +492,7 @@ export const WorkflowProvider = ({ children }) => {
           validate: 'COMPLETED',
           finance: 'COMPLETED',
           prepare: 'COMPLETED',
-          grow: 'ACTIVE'
+          grow: 'LOCKED'
         }
       });
 
@@ -429,7 +518,7 @@ export const WorkflowProvider = ({ children }) => {
     setBusinessName('');
     setCurrentStage(1);
     setWorkflowStatus('IDLE');
-    setCompletedStages([1]);
+    setCompletedStages([]);
     setAvailableStages([1, 2, 3, 4, 5, 8, 9]);
     setLockedStages([10, 11, 12, 13, 14, 15]);
     setActiveAgent(null);
@@ -447,6 +536,8 @@ export const WorkflowProvider = ({ children }) => {
       prepare: 'LOCKED',
       grow: 'LOCKED'
     });
+    setFinancialContext(null);
+    setFinancialAnalysis(null);
     setWorkflowError(null);
     try {
       sessionStorage.removeItem(STORAGE_KEYS.STATE);
@@ -454,6 +545,8 @@ export const WorkflowProvider = ({ children }) => {
       sessionStorage.removeItem(STORAGE_KEYS.ANALYSIS_ID);
       sessionStorage.removeItem(STORAGE_KEYS.BUSINESS_ID);
       sessionStorage.removeItem(STORAGE_KEYS.BUSINESS_NAME);
+      sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_CONTEXT);
+      sessionStorage.removeItem(STORAGE_KEYS.FINANCIAL_ANALYSIS);
     } catch (e) {
       console.warn('[WORKFLOW CONTEXT] Error clearing sessionStorage:', e);
     }
@@ -490,6 +583,7 @@ export const WorkflowProvider = ({ children }) => {
     restoreWorkflowState,
     runOrchestratorPipeline,
     resetWorkflow,
+    setEngineOutputs,
   };
 
   return (

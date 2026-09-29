@@ -783,13 +783,13 @@ class DPRPackager:
 
     def _package_banking_metrics(self, raw: Dict[str, Any]) -> BankingMetricsPackage:
         m4_app = raw.get("banking_appraisal")
-        dscr_res = dpr_ingestion_adapter.safe_get(m4_app, "dscr_analysis")
+        dscr_res = dpr_ingestion_adapter.safe_get(m4_app, "dscr") or dpr_ingestion_adapter.safe_get(m4_app, "dscr_analysis")
         liq_res = dpr_ingestion_adapter.safe_get(m4_app, "liquidity")
         prof_res = dpr_ingestion_adapter.safe_get(m4_app, "profitability")
         lev_res = dpr_ingestion_adapter.safe_get(m4_app, "leverage")
         be_res = dpr_ingestion_adapter.safe_get(m4_app, "break_even")
         rep_res = dpr_ingestion_adapter.safe_get(m4_app, "repayment_capacity")
-        viab_res = dpr_ingestion_adapter.safe_get(m4_app, "viability_assessment")
+        viab_res = dpr_ingestion_adapter.safe_get(m4_app, "viability") or dpr_ingestion_adapter.safe_get(m4_app, "viability_assessment")
 
         # Fallback to stage 9 core if M4 sub-objects not populated
         st9_dscr = dpr_ingestion_adapter.safe_get(raw, "debt_service", "dscr")
@@ -828,6 +828,27 @@ class DPRPackager:
             y1_tax = dpr_ingestion_adapter.safe_get(r1, "tax_expense")
             y1_tax_status = dpr_ingestion_adapter.safe_get(r1, "tax_status")
 
+        # Extract multi-year DSCR strictly from M4 dscr_res
+        dscr_years = getattr(dscr_res, "years", None) or (dscr_res.get("years") if isinstance(dscr_res, dict) else [])
+        d_y1 = None
+        d_y2 = None
+        d_y3 = None
+        d_y4 = None
+        d_y5 = None
+        if dscr_years and len(dscr_years) >= 1:
+            d_y1 = getattr(dscr_years[0], "dscr", None) or (dscr_years[0].get("dscr") if isinstance(dscr_years[0], dict) else None)
+        if dscr_years and len(dscr_years) >= 2:
+            d_y2 = getattr(dscr_years[1], "dscr", None) or (dscr_years[1].get("dscr") if isinstance(dscr_years[1], dict) else None)
+        if dscr_years and len(dscr_years) >= 3:
+            d_y3 = getattr(dscr_years[2], "dscr", None) or (dscr_years[2].get("dscr") if isinstance(dscr_years[2], dict) else None)
+        if dscr_years and len(dscr_years) >= 4:
+            d_y4 = getattr(dscr_years[3], "dscr", None) or (dscr_years[3].get("dscr") if isinstance(dscr_years[3], dict) else None)
+        if dscr_years and len(dscr_years) >= 5:
+            d_y5 = getattr(dscr_years[4], "dscr", None) or (dscr_years[4].get("dscr") if isinstance(dscr_years[4], dict) else None)
+
+        avg_dscr = getattr(dscr_res, "average_dscr", None) or (dscr_res.get("average_dscr") if isinstance(dscr_res, dict) else None) or st9_dscr
+        min_dscr = getattr(dscr_res, "minimum_dscr", None) or (dscr_res.get("minimum_dscr") if isinstance(dscr_res, dict) else None) or st9_dscr
+
         return BankingMetricsPackage(
             gross_margin_pct=dpr_ingestion_adapter.safe_get(prof_res, "gross_margin_pct"),
             ebitda_margin_pct=dpr_ingestion_adapter.safe_get(prof_res, "ebitda_margin_pct"),
@@ -841,13 +862,13 @@ class DPRPackager:
             current_ratio_y3=dpr_ingestion_adapter.safe_get(liq_res, "current_ratio_y3"),
             quick_ratio=dpr_ingestion_adapter.safe_get(liq_res, "quick_ratio"),
             debt_equity_ratio_initial=dpr_ingestion_adapter.safe_get(lev_res, "initial_debt_equity_ratio"),
-            dscr_y1=dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y1") or st9_dscr,
-            dscr_y2=dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y2"),
-            dscr_y3=dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y3"),
-            dscr_y4=dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y4"),
-            dscr_y5=dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y5"),
-            average_dscr=dpr_ingestion_adapter.safe_get(dscr_res, "average_dscr") or st9_dscr,
-            minimum_dscr=dpr_ingestion_adapter.safe_get(dscr_res, "minimum_dscr") or st9_dscr,
+            dscr_y1=d_y1 or dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y1") or st9_dscr,
+            dscr_y2=d_y2 or dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y2"),
+            dscr_y3=d_y3 or dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y3"),
+            dscr_y4=d_y4 or dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y4"),
+            dscr_y5=d_y5 or dpr_ingestion_adapter.safe_get(dscr_res, "dscr_y5"),
+            average_dscr=avg_dscr,
+            minimum_dscr=min_dscr,
             interest_coverage_ratio=dpr_ingestion_adapter.safe_get(rep_res, "interest_coverage_ratio"),
             break_even_sales_amount=dpr_ingestion_adapter.safe_get(be_res, "break_even_sales") or st9_be,
             break_even_capacity_pct=dpr_ingestion_adapter.safe_get(be_res, "break_even_capacity_utilization_pct") or st9_be_cap,

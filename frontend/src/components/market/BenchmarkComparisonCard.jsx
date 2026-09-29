@@ -1,96 +1,90 @@
 import React from 'react';
-import { Award, ExternalLink, ArrowUpDown, Database } from 'lucide-react';
-import Stage6StatusBadge from './Stage6StatusBadge';
+import { Award, Database } from 'lucide-react';
 
 export const BenchmarkComparisonCard = ({ benchmarkAnalysis = {} }) => {
   const comparisons = benchmarkAnalysis.comparisons || [];
   const benchmarksUsed = benchmarkAnalysis.benchmarks_used || [];
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+    <div className="royal-panel rounded-2xl p-5 sm:p-6 border border-[#79563F]/18 space-y-4 shadow-xs h-auto w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#79563F]/15 pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <Award className="w-5 h-5 text-blue-400" />
-              Official Dataset Benchmarks & Deviations
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base sm:text-lg font-bold text-[#28231F] flex items-center gap-2 font-['Outfit']">
+              <Award className="w-4 h-4 text-[#006F5F]" />
+              Official Dataset Benchmarks &amp; Deviations
             </h3>
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-[#006F5F]/10 text-[#006F5F] border border-[#006F5F]/20 font-mono font-bold">
               Census 2011 / NABARD / MSME
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Deterministic normalization against official Indian national and state-level statistical baselines.
+          <p className="text-xs text-[#62584F] mt-0.5">
+            Statistical normalization against official Indian national and state-level baselines.
           </p>
         </div>
-        <div className="text-right">
-          <span className="text-xs text-slate-400 font-mono">Datasets Loaded:</span>
-          <p className="text-sm font-bold text-blue-400 font-mono">{benchmarksUsed.length} Curated Repositories</p>
+        <div className="text-left sm:text-right shrink-0">
+          <span className="text-[11px] text-[#79563F] font-mono">Repositories: </span>
+          <span className="text-xs font-bold text-[#006F5F] font-mono">{benchmarksUsed.length} Datasets</span>
         </div>
       </div>
 
       {/* Benchmarks Used Badges */}
       {benchmarksUsed.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1">
           {benchmarksUsed.map((b, idx) => (
             <span
               key={idx}
-              className="inline-flex items-center gap-1.5 bg-slate-950 px-3 py-1 rounded-lg border border-slate-800 text-xs text-slate-300 font-mono"
+              className="inline-flex items-center gap-1 bg-[#FAF2E3]/90 px-2 py-0.5 rounded-lg border border-[#79563F]/12 text-[10px] text-[#28231F] font-mono shadow-2xs"
             >
-              <Database className="w-3 h-3 text-blue-400" /> {b}
+              <Database className="w-2.5 h-2.5 text-[#006F5F]" /> {b}
             </span>
           ))}
         </div>
       )}
 
-      {/* Comparisons Table */}
+      {/* Comparisons List */}
       {comparisons.length === 0 ? (
-        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400">
+        <div className="p-2.5 rounded-xl bg-[#FAF2E3]/90 border border-[#79563F]/12 text-xs text-[#62584F]">
           No explicit benchmark deviation records returned for this business context.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-1.5">
           {comparisons.map((c, idx) => {
             const variance = c.variance_percentage;
             const isPositive = variance !== null && variance !== undefined && variance > 0;
             return (
               <div
                 key={idx}
-                className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-200 text-sm">{c.benchmark_name}</span>
-                    <span className="text-[10px] font-mono text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                      ID: {c.benchmark_id}
+                <div className="space-y-0.5 truncate pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#28231F] text-xs truncate">{c.benchmark_name}</span>
+                    <span className="text-[9px] font-mono text-[#79563F] bg-[#F1E4CC]/80 px-1.5 py-0.5 rounded border border-[#79563F]/12 shrink-0">
+                      {c.benchmark_id}
                     </span>
                   </div>
-                  <p className="text-slate-400 text-[11px]">
-                    Evaluation: <strong className="text-slate-300">{c.comparison_result}</strong>
+                  <p className="text-[#62584F] text-[10px] truncate">
+                    Evaluation: <strong className="text-[#28231F]">{c.comparison_result}</strong>
                   </p>
-                  {c.source && (
-                    <p className="text-[10px] text-slate-500">
-                      Source: {c.source}
-                    </p>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-6 shrink-0 font-mono">
+                <div className="flex items-center gap-3 shrink-0 font-mono text-xs">
                   <div>
-                    <span className="text-[10px] text-slate-500 uppercase block">Actual</span>
-                    <strong className="text-slate-200 text-sm">{typeof c.actual_value === 'number' ? c.actual_value.toLocaleString('en-IN') : String(c.actual_value)}</strong>
+                    <span className="text-[8px] text-[#79563F] uppercase block">Actual</span>
+                    <strong className="text-[#28231F]">{typeof c.actual_value === 'number' ? c.actual_value.toLocaleString('en-IN') : String(c.actual_value)}</strong>
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-slate-500 uppercase block">Benchmark</span>
-                    <strong className="text-blue-300 text-sm">{typeof c.benchmark_value === 'number' ? c.benchmark_value.toLocaleString('en-IN') : String(c.benchmark_value)}</strong>
+                    <span className="text-[8px] text-[#79563F] uppercase block">Benchmark</span>
+                    <strong className="text-[#006F5F]">{typeof c.benchmark_value === 'number' ? c.benchmark_value.toLocaleString('en-IN') : String(c.benchmark_value)}</strong>
                   </div>
 
                   {variance !== null && variance !== undefined && (
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase block">Variance</span>
-                      <span className={`font-bold text-sm ${isPositive ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      <span className="text-[8px] text-[#79563F] uppercase block">Variance</span>
+                      <span className={`font-bold ${isPositive ? 'text-[#006F5F]' : 'text-[#C96A3A]'}`}>
                         {isPositive ? `+${variance.toFixed(1)}%` : `${variance.toFixed(1)}%`}
                       </span>
                     </div>

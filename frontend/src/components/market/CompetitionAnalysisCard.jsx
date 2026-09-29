@@ -1,126 +1,129 @@
 import React from 'react';
-import { Building2, ShieldAlert, Activity, Award, Scale, HelpCircle } from 'lucide-react';
+import { Building2, Scale, Activity } from 'lucide-react';
 import Stage6StatusBadge from './Stage6StatusBadge';
-import CalculationProvenanceViewer from './CalculationProvenanceViewer';
 
-export const CompetitionAnalysisCard = ({ competition = {}, provenance = [] }) => {
+export const CompetitionAnalysisCard = ({ competition = {} }) => {
   const direct = competition.direct || { items: [] };
   const adjacent = competition.adjacent || { items: [] };
   const substitute = competition.substitute || { items: [] };
 
   const pressureScore = competition.competitive_pressure_score ?? 0.50;
   const pressureLevel = competition.competitive_pressure || 'MODERATE';
-  const totalComps = competition.total_competitors || (direct.count + adjacent.count + substitute.count) || 0;
   const density = competition.competition_density_per_10k ?? 0.0;
   const drivers = competition.drivers || [];
 
+  const directCount = direct.count ?? direct.items?.length ?? 0;
+  const adjacentCount = adjacent.count ?? adjacent.items?.length ?? 0;
+  const substituteCount = substitute.count ?? substitute.items?.length ?? 0;
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+    <div className="royal-panel rounded-2xl p-5 sm:p-6 border border-[#79563F]/18 space-y-4 shadow-xs h-auto w-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#79563F]/15 pb-3">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-emerald-400" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-base sm:text-lg font-bold text-[#28231F] flex items-center gap-2 font-['Outfit']">
+              <Building2 className="w-4 h-4 text-[#006F5F]" />
               Multi-Tier Competition Analysis
             </h3>
             <Stage6StatusBadge status={pressureLevel} />
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Deterministic 3-tier competitive pressure modeling with distance inverse-square decay. Zero LLM estimations.
+          <p className="text-xs text-[#62584F] mt-0.5">
+            Proximity-weighted competitive pressure across local trade catchment.
           </p>
         </div>
-        <div className="text-right">
-          <span className="text-xs text-slate-400 font-mono">Competitive Pressure Index:</span>
-          <p className="text-xl font-bold text-emerald-400 font-mono">
-            {pressureScore.toFixed(2)} <span className="text-xs font-normal text-slate-400">/ 1.00</span>
-          </p>
+        <div className="text-left sm:text-right shrink-0">
+          <span className="text-[11px] text-[#79563F] font-mono">Pressure Index: </span>
+          <span className="text-base font-bold text-[#28231F] font-mono">
+            {pressureScore.toFixed(2)}
+            <span className="text-[11px] font-normal text-[#62584F]"> / 1.00</span>
+          </span>
         </div>
       </div>
 
-      {/* Summary Scorecards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* 3-Tier Summary Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {/* Direct Tier */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-emerald-500/20">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" /> Direct Competitors
+        <div className="bg-[#FAF2E3]/90 p-3 rounded-xl border border-[#006F5F]/20">
+          <div className="flex justify-between items-center mb-0.5">
+            <span className="text-[11px] font-bold text-[#006F5F] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#006F5F]" /> Direct
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300">
-              Weight: 1.0x
+            <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[#006F5F]/10 text-[#006F5F] font-bold">
+              1.0x wt
             </span>
           </div>
-          <p className="text-2xl font-bold text-slate-100 mt-1">
-            {direct.count ?? direct.items?.length ?? 0}
-            <span className="text-xs font-normal text-slate-400 ml-2">
-              ({(direct.proximity_weighted_count ?? 0).toFixed(2)} weighted)
+          <p className="text-lg font-bold text-[#28231F] font-mono mt-0.5">
+            {directCount}
+            <span className="text-[10px] font-normal text-[#62584F] ml-1">
+              ({(direct.proximity_weighted_count ?? directCount).toFixed(1)} wt)
             </span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Same product/service category in immediate catchment
+          <p className="text-[10px] text-[#62584F] mt-0.5">
+            Primary zone competitors
           </p>
         </div>
 
         {/* Adjacent Tier */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-cyan-500/20">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" /> Adjacent Competitors
+        <div className="bg-[#FAF2E3]/90 p-3 rounded-xl border border-[#79563F]/20">
+          <div className="flex justify-between items-center mb-0.5">
+            <span className="text-[11px] font-bold text-[#79563F] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#79563F]" /> Adjacent
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300">
-              Weight: 0.5x
+            <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[#79563F]/10 text-[#79563F] font-bold">
+              0.5x wt
             </span>
           </div>
-          <p className="text-2xl font-bold text-slate-100 mt-1">
-            {adjacent.count ?? adjacent.items?.length ?? 0}
-            <span className="text-xs font-normal text-slate-400 ml-2">
-              ({(adjacent.proximity_weighted_count ?? 0).toFixed(2)} weighted)
+          <p className="text-lg font-bold text-[#28231F] font-mono mt-0.5">
+            {adjacentCount}
+            <span className="text-[10px] font-normal text-[#62584F] ml-1">
+              ({(adjacent.proximity_weighted_count ?? adjacentCount).toFixed(1)} wt)
             </span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Overlapping customer base or multi-trade rural hubs
+          <p className="text-[10px] text-[#62584F] mt-0.5">
+            Multi-trade overlap hubs
           </p>
         </div>
 
         {/* Substitute Tier */}
-        <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/20">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400" /> Substitute Channels
+        <div className="bg-[#FAF2E3]/90 p-3 rounded-xl border border-[#C96A3A]/20">
+          <div className="flex justify-between items-center mb-0.5">
+            <span className="text-[11px] font-bold text-[#C96A3A] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C96A3A]" /> Substitute
             </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300">
-              Weight: 0.25x
+            <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[#C96A3A]/10 text-[#C96A3A] font-bold">
+              0.25x wt
             </span>
           </div>
-          <p className="text-2xl font-bold text-slate-100 mt-1">
-            {substitute.count ?? substitute.items?.length ?? 0}
-            <span className="text-xs font-normal text-slate-400 ml-2">
-              ({(substitute.proximity_weighted_count ?? 0).toFixed(2)} weighted)
+          <p className="text-lg font-bold text-[#28231F] font-mono mt-0.5">
+            {substituteCount}
+            <span className="text-[10px] font-normal text-[#62584F] ml-1">
+              ({(substitute.proximity_weighted_count ?? substituteCount).toFixed(1)} wt)
             </span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Alternative consumption channels & weekly haats
+          <p className="text-[10px] text-[#62584F] mt-0.5">
+            Alternative &amp; weekly haats
           </p>
         </div>
       </div>
 
-      {/* Drivers & Density Indicators */}
-      <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-        <div className="flex items-center gap-2">
-          <Scale className="w-4 h-4 text-indigo-400" />
-          <span className="text-slate-400">Competition Density:</span>
-          <strong className="text-slate-200 font-mono">{density.toFixed(2)} / 10k population</strong>
+      {/* Density & Saturation Strip */}
+      <div className="bg-[#FAF2E3]/90 p-2.5 rounded-xl border border-[#79563F]/12 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-1.5">
+          <Scale className="w-3.5 h-3.5 text-[#79563F]" />
+          <span className="text-[#62584F] text-[11px]">Density:</span>
+          <strong className="text-[#28231F] font-mono text-[11px]">{density.toFixed(2)} / 10k pop</strong>
         </div>
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span className="text-slate-400">Saturation Threshold:</span>
-          <strong className="text-slate-200 font-mono">{competition.saturation_threshold || '1.20'}</strong>
+        <div className="flex items-center gap-1.5">
+          <Activity className="w-3.5 h-3.5 text-[#006F5F]" />
+          <span className="text-[#62584F] text-[11px]">Saturation Threshold:</span>
+          <strong className="text-[#28231F] font-mono text-[11px]">{competition.saturation_threshold || '1.20'}</strong>
         </div>
         {drivers.length > 0 && (
-          <div className="w-full pt-2 border-t border-slate-900 flex flex-wrap items-center gap-2">
-            <span className="text-slate-400 font-medium">Primary Drivers:</span>
+          <div className="w-full pt-1.5 border-t border-[#79563F]/10 flex flex-wrap items-center gap-1">
+            <span className="text-[10px] text-[#79563F] font-medium">Key Drivers:</span>
             {drivers.map((d, i) => (
-              <span key={i} className="bg-slate-900 px-2 py-0.5 rounded text-slate-300 border border-slate-800">
+              <span key={i} className="bg-[#F1E4CC]/80 px-1.5 py-0.5 rounded text-[10px] text-[#28231F] border border-[#79563F]/12">
                 {d}
               </span>
             ))}
@@ -128,35 +131,32 @@ export const CompetitionAnalysisCard = ({ competition = {}, provenance = [] }) =
         )}
       </div>
 
-      {/* Individual Competitor Items Tables / Lists */}
-      <div className="space-y-4">
-        {/* Direct Competitors List */}
+      {/* Competitor Listings */}
+      <div className="space-y-2.5">
+        {/* Direct Competitors */}
         <div>
-          <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">
+          <h4 className="text-[11px] font-bold text-[#006F5F] uppercase tracking-wider mb-1.5">
             Direct Competitors in Catchment ({direct.items?.length || 0})
           </h4>
           {(!direct.items || direct.items.length === 0) ? (
-            <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-400">
+            <div className="p-2.5 bg-[#FAF2E3]/90 rounded-lg border border-[#79563F]/12 text-xs text-[#62584F]">
               Zero direct competitors identified in MSME/UDYAM registry within 15 km primary catchment.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {direct.items.map((c, i) => {
                 const dist = c.distance_km || 0.0;
                 const decay = 1 / (1 + 0.1 * dist);
                 const contribution = 1.0 * decay;
                 return (
-                  <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-slate-200">{c.business_name}</p>
-                        <Stage6StatusBadge status={c.is_proxy ? 'PROXY' : 'ACTUAL'} />
-                      </div>
-                      <p className="text-slate-400 text-[11px] mt-0.5">Category: {c.category || 'Direct Niche'}</p>
+                  <div key={i} className="bg-[#FAF2E3]/90 p-2 rounded-lg border border-[#79563F]/12 flex justify-between items-center text-xs">
+                    <div className="truncate pr-2">
+                      <p className="font-semibold text-[#28231F] text-xs truncate">{c.business_name}</p>
+                      <p className="text-[#62584F] text-[10px] truncate">{c.category || 'Direct Niche'}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-emerald-400 font-mono font-bold">{dist.toFixed(1)} km</span>
-                      <p className="text-[10px] text-slate-500 font-mono">Contrib: {contribution.toFixed(2)}</p>
+                      <span className="text-[#006F5F] font-mono font-bold text-xs">{dist.toFixed(1)} km</span>
+                      <p className="text-[9px] text-[#79563F] font-mono">wt: {contribution.toFixed(2)}</p>
                     </div>
                   </div>
                 );
@@ -165,46 +165,41 @@ export const CompetitionAnalysisCard = ({ competition = {}, provenance = [] }) =
           )}
         </div>
 
-        {/* Adjacent & Substitute Lists */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {/* Adjacent */}
-          <div>
-            <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">
-              Adjacent Competitors ({adjacent.items?.length || 0})
-            </h4>
-            <div className="space-y-1.5">
-              {(adjacent.items || []).map((c, i) => (
-                <div key={i} className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 flex justify-between items-center text-xs">
-                  <span className="text-slate-300 font-medium truncate max-w-[200px]">{c.business_name}</span>
-                  <span className="text-cyan-400 font-mono text-[11px]">{c.distance_km} km</span>
-                </div>
-              ))}
+        {/* Adjacent & Substitute Compact Rows */}
+        {(adjacent.items?.length > 0 || substitute.items?.length > 0) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+            {/* Adjacent */}
+            <div>
+              <h4 className="text-[10px] font-bold text-[#79563F] uppercase tracking-wider mb-1">
+                Adjacent ({adjacent.items?.length || 0})
+              </h4>
+              <div className="space-y-1">
+                {(adjacent.items || []).slice(0, 3).map((c, i) => (
+                  <div key={i} className="bg-[#FAF2E3]/90 px-2 py-1 rounded-lg border border-[#79563F]/12 flex justify-between items-center text-xs">
+                    <span className="text-[#28231F] font-medium truncate max-w-[160px] text-[11px]">{c.business_name}</span>
+                    <span className="text-[#79563F] font-mono text-[10px] font-bold shrink-0">{c.distance_km} km</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Substitute */}
-          <div>
-            <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-              Substitute Channels ({substitute.items?.length || 0})
-            </h4>
-            <div className="space-y-1.5">
-              {(substitute.items || []).map((c, i) => (
-                <div key={i} className="bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80 flex justify-between items-center text-xs">
-                  <span className="text-slate-300 font-medium truncate max-w-[200px]">{c.business_name}</span>
-                  <span className="text-amber-400 font-mono text-[11px]">{c.distance_km} km</span>
-                </div>
-              ))}
+            {/* Substitute */}
+            <div>
+              <h4 className="text-[10px] font-bold text-[#C96A3A] uppercase tracking-wider mb-1">
+                Substitute ({substitute.items?.length || 0})
+              </h4>
+              <div className="space-y-1">
+                {(substitute.items || []).slice(0, 3).map((c, i) => (
+                  <div key={i} className="bg-[#FAF2E3]/90 px-2 py-1 rounded-lg border border-[#79563F]/12 flex justify-between items-center text-xs">
+                    <span className="text-[#28231F] font-medium truncate max-w-[160px] text-[11px]">{c.business_name}</span>
+                    <span className="text-[#C96A3A] font-mono text-[10px] font-bold shrink-0">{c.distance_km} km</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Calculation Provenance Box */}
-      <CalculationProvenanceViewer
-        provenance={provenance}
-        metricName="weighted_competitive_pressure"
-        title="Competition Pressure Provenance"
-      />
     </div>
   );
 };

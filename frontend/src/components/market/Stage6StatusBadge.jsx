@@ -5,53 +5,53 @@ export const Stage6StatusBadge = ({ status, type = 'status', className = '' }) =
 
   const normalized = String(status).toUpperCase();
 
-  // Status mapping
+  // Status mapping matching KALPA palette
   const styles = {
-    // Data status
-    ACTUAL: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    LIVE_RETRIEVED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    OFFICIAL_STATIC_DATA: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    PROXY: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    ESTIMATED: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-    PARTIAL: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-    MISSING: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    UNAVAILABLE: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    UNKNOWN: 'bg-slate-800 text-slate-300 border-slate-700',
-    UNKNOWN_DATA_GAP: 'bg-amber-500/15 text-amber-300 border-amber-500/40 font-semibold',
+    // Data status / Positive
+    ACTUAL: 'bg-[#006F5F]/10 text-[#006F5F] border-[#006F5F]/30',
+    LIVE_RETRIEVED: 'bg-[#006F5F]/10 text-[#006F5F] border-[#006F5F]/30',
+    OFFICIAL_STATIC_DATA: 'bg-[#4A3427]/10 text-[#4A3427] border-[#4A3427]/30',
+    PROXY: 'bg-[#C96A3A]/10 text-[#C96A3A] border-[#C96A3A]/30',
+    ESTIMATED: 'bg-[#79563F]/10 text-[#79563F] border-[#79563F]/30',
+    PARTIAL: 'bg-[#C96A3A]/10 text-[#C96A3A] border-[#C96A3A]/25',
+    MISSING: 'bg-[#9E2A2B]/10 text-[#9E2A2B] border-[#9E2A2B]/30',
+    UNAVAILABLE: 'bg-[#9E2A2B]/10 text-[#9E2A2B] border-[#9E2A2B]/30',
+    UNKNOWN: 'bg-[#79563F]/10 text-[#62584F] border-[#79563F]/20',
+    UNKNOWN_DATA_GAP: 'bg-[#C96A3A]/10 text-[#A9552F] border-[#C96A3A]/30 font-medium',
 
     // Readiness & Capacity
-    AVAILABLE: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    LIMITED: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    SATURATED: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-    EXPANSION_OPPORTUNITY: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold',
-    HEALTHY_MARKET: 'bg-teal-500/15 text-teal-300 border-teal-500/40 font-bold',
-    HIGH_SATURATION: 'bg-rose-500/15 text-rose-300 border-rose-500/40 font-bold',
+    AVAILABLE: 'bg-[#006F5F]/10 text-[#006F5F] border-[#006F5F]/30 font-semibold',
+    LIMITED: 'bg-[#C96A3A]/10 text-[#C96A3A] border-[#C96A3A]/30 font-semibold',
+    SATURATED: 'bg-[#9E2A2B]/10 text-[#9E2A2B] border-[#9E2A2B]/30 font-semibold',
+    EXPANSION_OPPORTUNITY: 'bg-[#006F5F]/15 text-[#006F5F] border-[#006F5F]/40 font-bold',
+    HEALTHY_MARKET: 'bg-[#006F5F]/15 text-[#006F5F] border-[#006F5F]/40 font-bold',
+    HIGH_SATURATION: 'bg-[#9E2A2B]/15 text-[#9E2A2B] border-[#9E2A2B]/40 font-bold',
 
     // Risk / Pressure
-    LOW: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    MODERATE: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-    SEVERE: 'bg-rose-500/15 text-rose-300 border-rose-500/40 font-bold',
-    CRITICAL: 'bg-rose-500/20 text-rose-200 border-rose-500/50 font-bold',
-    WARNING: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
-    INFO: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    LOW: 'bg-[#006F5F]/10 text-[#006F5F] border-[#006F5F]/30 font-semibold',
+    MODERATE: 'bg-[#C96A3A]/10 text-[#A9552F] border-[#C96A3A]/30 font-semibold',
+    HIGH: 'bg-[#C96A3A]/15 text-[#C96A3A] border-[#C96A3A]/40 font-bold',
+    SEVERE: 'bg-[#9E2A2B]/15 text-[#9E2A2B] border-[#9E2A2B]/40 font-bold',
+    CRITICAL: 'bg-[#9E2A2B]/20 text-[#9E2A2B] border-[#9E2A2B]/50 font-bold',
+    WARNING: 'bg-[#C96A3A]/15 text-[#A9552F] border-[#C96A3A]/40',
+    INFO: 'bg-[#79563F]/10 text-[#4A3427] border-[#79563F]/30',
 
     // Strength
-    STRONG: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold',
-    EMERGING: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30',
-    WEAK: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    STRONG: 'bg-[#006F5F]/15 text-[#006F5F] border-[#006F5F]/40 font-bold',
+    EMERGING: 'bg-[#006F5F]/10 text-[#075648] border-[#006F5F]/30',
+    WEAK: 'bg-[#9E2A2B]/10 text-[#9E2A2B] border-[#9E2A2B]/30',
 
     // Precision / Catchment
-    PRIMARY: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-    SECONDARY: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
-    EXTENDED: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
-    OUTSIDE: 'bg-slate-800 text-slate-400 border-slate-700',
+    PRIMARY: 'bg-[#006F5F]/10 text-[#006F5F] border-[#006F5F]/30',
+    SECONDARY: 'bg-[#79563F]/10 text-[#79563F] border-[#79563F]/30',
+    EXTENDED: 'bg-[#79563F]/10 text-[#62584F] border-[#79563F]/25',
+    OUTSIDE: 'bg-[#79563F]/10 text-[#62584F] border-[#79563F]/20',
   };
 
-  const style = styles[normalized] || 'bg-slate-800 text-slate-300 border-slate-700';
+  const style = styles[normalized] || 'bg-[#79563F]/10 text-[#4A3427] border-[#79563F]/20';
 
   const formatText = (txt) => {
-    if (txt === 'UNKNOWN_DATA_GAP') return 'UNKNOWN (DATA GAP)';
+    if (txt === 'UNKNOWN_DATA_GAP') return 'DATA GAP';
     return txt.replace(/_/g, ' ');
   };
 

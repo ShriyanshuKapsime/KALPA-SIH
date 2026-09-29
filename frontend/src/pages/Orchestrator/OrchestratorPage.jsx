@@ -27,10 +27,12 @@ import {
 } from 'lucide-react';
 import apiService from '../../services/api';
 import { useWorkflow } from '../../context/WorkflowContext';
+import { useLanguage, TranslatedText } from '../../context/LanguageContext';
 
 export default function OrchestratorPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
 
   const {
     sessionId: ctxSessionId,
@@ -100,7 +102,7 @@ export default function OrchestratorPage() {
 
   const runOrchestrator = async (forceLlm = false) => {
     if (!sessionId && !analysisId) {
-      setError('Please provide a valid Session ID or Analysis ID to run the Orchestrator.');
+      setError(t('pleaseProvideSessionId', 'Please provide a valid Session ID or Analysis ID to run the Orchestrator.'));
       return;
     }
     setExecuting(true);
@@ -109,7 +111,8 @@ export default function OrchestratorPage() {
       const payload = {
         session_id: sessionId || undefined,
         analysis_id: analysisId || undefined,
-        force_llm: forceLlm
+        force_llm: forceLlm,
+        language: language || 'en'
       };
       const response = await apiService.orchestrator.start(sessionId, payload);
       setOrchestratorData(response);
@@ -129,7 +132,7 @@ export default function OrchestratorPage() {
       markStageComplete(4, 5);
     } catch (err) {
       console.error('Error running Stage 4 Orchestrator:', err);
-      setError(err.message || 'Failed to execute KALPA Manager Orchestrator');
+      setError(err.message || t('failedToExecuteOrchestrator', 'Failed to execute KALPA Manager Orchestrator'));
     } finally {
       setExecuting(false);
     }
@@ -152,33 +155,31 @@ export default function OrchestratorPage() {
   const businessContext = orchestratorData?.business_context || {};
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#2C2420] py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen text-[#2C2420] py-6 px-4 sm:px-6 lg:px-8 relative">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header Banner */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#EBE3D5] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#FFF0E0] via-transparent to-transparent rounded-bl-full pointer-events-none" />
-
+        <div className="royal-panel rounded-2xl shadow-xs border border-[#79563F]/18 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
           <div className="space-y-2 relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#FFF3E5] text-[#D95D0F] border border-[#FED7AA]">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#C96A3A]/10 text-[#C96A3A] border border-[#C96A3A]/25">
               <Cpu className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '8s' }} />
-              STAGE 4: KALPA MANAGER AGENT &middot; TRUE AGENTIC ORCHESTRATOR
+              {t('stage4KalpaManager', 'STAGE 4: KALPA MANAGER AGENT · TRUE AGENTIC ORCHESTRATOR')}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#1E1915] flex items-center gap-3">
-              Multi-Agent Orchestration Engine
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#28231F] flex items-center gap-3">
+              {t('multiAgentOrchestrationEngine', 'Multi-Agent Orchestration Engine')}
               {orchestratorData?.orchestration_status === 'ORCHESTRATION_COMPLETE' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <CheckCircle2 className="w-4 h-4" /> COMPLETE
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#006F5F]/10 text-[#006F5F] border border-[#006F5F]/20">
+                  <CheckCircle2 className="w-4 h-4" /> {t('complete', 'COMPLETE')}
                 </span>
               )}
               {orchestratorData?.orchestration_status === 'CLARIFICATION_REQUIRED' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                  <HelpCircle className="w-4 h-4" /> CLARIFICATION NEEDED
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#C96A3A]/10 text-[#C96A3A] border border-[#C96A3A]/25">
+                  <HelpCircle className="w-4 h-4" /> {t('clarificationNeeded', 'CLARIFICATION NEEDED')}
                 </span>
               )}
             </h1>
-            <p className="text-sm text-[#736357] max-w-2xl">
-              LangGraph-powered stateful agent orchestration with deterministic routing, 6-factor explainable confidence, and benchmark synthesis.
+            <p className="text-sm text-[#62584F] max-w-2xl">
+              {t('orchestratorSubtitle', 'LangGraph-powered stateful agent orchestration with deterministic routing, 6-factor explainable confidence, and benchmark synthesis.')}
             </p>
           </div>
 
@@ -186,41 +187,41 @@ export default function OrchestratorPage() {
             <button
               onClick={() => runOrchestrator(false)}
               disabled={executing || loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#D95D0F] hover:bg-[#C24F0A] shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+              className="saffron-gradient-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${executing ? 'animate-spin' : ''}`} />
-              {executing ? 'Executing LangGraph...' : 'Run Orchestrator'}
+              {executing ? t('executingLangGraph', 'Executing LangGraph...') : t('runOrchestrator', 'Run Orchestrator')}
             </button>
             <button
               onClick={() => runOrchestrator(true)}
               disabled={executing || loading}
               title="Runs orchestrator with LLM escalation path enabled"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#8C3F0D] bg-[#FFF3E5] hover:bg-[#FFE6CC] border border-[#FED7AA] transition-all disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#28231F] bg-[#FAF2E3] hover:bg-[#F1E4CC] border border-[#79563F]/20 transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
             >
-              <Sparkles className="w-4 h-4" />
-              Force LLM Escalation
+              <Sparkles className="w-4 h-4 text-[#C96A3A]" />
+              {t('forceLlmEscalation', 'Force LLM Escalation')}
             </button>
           </div>
         </div>
 
         {/* Input Identifier Toolbar */}
-        <div className="bg-white rounded-xl shadow-xs border border-[#EBE3D5] p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-[#FAF2E3] rounded-xl shadow-xs border border-[#79563F]/18 p-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
             <div>
-              <span className="text-[#8C7B70] uppercase">Session ID: </span>
-              <span className="text-[#2C2420] font-semibold">{sessionId || 'Not specified'}</span>
+              <span className="text-[#8C7B70] uppercase">{t('sessionIdLabel', 'Session ID')}: </span>
+              <span className="text-[#2C2420] font-semibold">{sessionId || t('notSpecified', 'Not specified')}</span>
             </div>
             <div className="hidden sm:block text-[#EBE3D5]">|</div>
             <div>
-              <span className="text-[#8C7B70] uppercase">Analysis ID: </span>
-              <span className="text-[#2C2420] font-semibold">{analysisId || 'Generated on run'}</span>
+              <span className="text-[#8C7B70] uppercase">{t('analysisIdLabel', 'Analysis ID')}: </span>
+              <span className="text-[#2C2420] font-semibold">{analysisId || t('generatedOnRun', 'Generated on run')}</span>
             </div>
             {businessContext.specific_business && (
               <>
                 <div className="hidden sm:block text-[#EBE3D5]">|</div>
                 <div>
-                  <span className="text-[#8C7B70] uppercase">Business: </span>
-                  <span className="text-[#D95D0F] font-bold">{businessContext.specific_business} ({businessContext.sector})</span>
+                  <span className="text-[#8C7B70] uppercase">{t('businessLabel', 'Business')}: </span>
+                  <span className="text-[#D95D0F] font-bold"><TranslatedText text={businessContext.specific_business} /> (<TranslatedText text={businessContext.sector} />)</span>
                 </div>
               </>
             )}
@@ -229,7 +230,7 @@ export default function OrchestratorPage() {
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="Load by Session ID..."
+              placeholder={t('loadBySessionId', 'Load by Session ID...')}
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
               className="text-xs px-3 py-1.5 rounded-lg border border-[#D9CFC4] bg-[#FDFBF7] focus:outline-none focus:ring-1 focus:ring-[#D95D0F]"
@@ -239,7 +240,7 @@ export default function OrchestratorPage() {
               disabled={loading || !sessionId}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#5A4A42] bg-[#EBE3D5] hover:bg-[#DFD4C4] transition-all cursor-pointer"
             >
-              Load
+              {t('load', 'Load')}
             </button>
           </div>
         </div>
@@ -249,7 +250,7 @@ export default function OrchestratorPage() {
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-sm font-semibold text-rose-800">Orchestration Notification</h3>
+              <h3 className="text-sm font-semibold text-rose-800">{t('orchestrationNotification', 'Orchestration Notification')}</h3>
               <p className="text-xs text-rose-700 mt-0.5">{error}</p>
             </div>
           </div>
@@ -261,9 +262,9 @@ export default function OrchestratorPage() {
             <div className="inline-block p-4 rounded-full bg-[#FFF3E5] text-[#D95D0F] animate-bounce">
               <Cpu className="w-8 h-8 animate-spin" style={{ animationDuration: '4s' }} />
             </div>
-            <h3 className="text-lg font-bold text-[#2C2420]">LangGraph Orchestrator Running...</h3>
+            <h3 className="text-lg font-bold text-[#2C2420]">{t('langGraphOrchestratorRunning', 'LangGraph Orchestrator Running...')}</h3>
             <p className="text-sm text-[#736357] max-w-md mx-auto">
-              Observing canonical profile &middot; Validating data quality &middot; Resolving DAG dependencies &middot; Invoking registered agent adapters
+              {t('observingCanonicalProfile', 'Observing canonical profile · Validating data quality · Resolving DAG dependencies · Invoking registered agent adapters')}
             </p>
           </div>
         )}
@@ -278,22 +279,22 @@ export default function OrchestratorPage() {
               {/* Card 1: Decision Routing */}
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">Decision Engine</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">{t('decisionEngine', 'Decision Engine')}</span>
                   <ShieldCheck className="w-4 h-4 text-[#D95D0F]" />
                 </div>
                 <div className="text-xl font-bold text-[#1E1915] capitalize flex items-center gap-2">
-                  {routingSummary.decision_source === 'deterministic' && 'Deterministic AI'}
-                  {routingSummary.decision_source === 'hybrid_llm' && 'Hybrid LLM Planner'}
-                  {routingSummary.decision_source === 'deterministic_fallback' && 'Deterministic Fallback'}
-                  {!routingSummary.decision_source && 'Hybrid Routing'}
+                  {routingSummary.decision_source === 'deterministic' && t('deterministicAi', 'Deterministic AI')}
+                  {routingSummary.decision_source === 'hybrid_llm' && t('hybridLlmPlanner', 'Hybrid LLM Planner')}
+                  {routingSummary.decision_source === 'deterministic_fallback' && t('deterministicFallback', 'Deterministic Fallback')}
+                  {!routingSummary.decision_source && t('hybridRouting', 'Hybrid Routing')}
                 </div>
                 <p className="text-xs text-[#736357] leading-relaxed">
-                  {routingSummary.explanation || 'Workflow sequenced based on deterministic profile match and DAG dependencies.'}
+                  <TranslatedText text={routingSummary.explanation || 'Workflow sequenced based on deterministic profile match and DAG dependencies.'} />
                 </p>
                 <div className="pt-2 border-t border-[#F2EDE4] flex items-center justify-between text-xs">
-                  <span className="text-[#8C7B70]">LLM Token Cost:</span>
+                  <span className="text-[#8C7B70]">{t('llmTokenCost', 'LLM Token Cost:')}</span>
                   <span className="font-semibold text-emerald-600">
-                    {routingSummary.llm_used ? 'Escalated (1 call)' : '0 Calls (Conserved)'}
+                    {routingSummary.llm_used ? t('escalatedOneCall', 'Escalated (1 call)') : t('zeroCallsConserved', '0 Calls (Conserved)')}
                   </span>
                 </div>
               </div>
@@ -301,21 +302,21 @@ export default function OrchestratorPage() {
               {/* Card 2: Deterministic Confidence */}
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">Confidence Score</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">{t('confidenceScore', 'Confidence Score')}</span>
                   <Zap className="w-4 h-4 text-amber-500" />
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-black text-[#D95D0F]">
                     {Math.round((routingSummary.deterministic_confidence || 0.95) * 100)}%
                   </span>
-                  <span className="text-xs text-[#8C7B70]">Explainable Metric</span>
+                  <span className="text-xs text-[#8C7B70]">{t('explainableMetric', 'Explainable Metric')}</span>
                 </div>
 
                 {/* Factors Mini-bars */}
                 <div className="space-y-1.5 pt-1">
                   {Object.entries(routingSummary.factors || {}).map(([key, val]) => (
                     <div key={key} className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#736357] capitalize">{key.replace(/_/g, ' ')}</span>
+                      <span className="text-[#736357] capitalize"><TranslatedText text={key.replace(/_/g, ' ')} /></span>
                       <span className="font-semibold text-[#2C2420]">{Math.round(val * 100)}%</span>
                     </div>
                   ))}
@@ -325,26 +326,26 @@ export default function OrchestratorPage() {
               {/* Card 3: Execution Pipeline Stats */}
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">Agent Execution</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8C7B70]">{t('agentExecution', 'Agent Execution')}</span>
                   <Layers className="w-4 h-4 text-blue-500" />
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-black text-emerald-600">
                     {summary.completed?.length || 0}
                   </span>
-                  <span className="text-xs text-[#8C7B70]">/ {summary.total_planned || executionPlan.length} Planned</span>
+                  <span className="text-xs text-[#8C7B70]">/ {summary.total_planned || executionPlan.length} {t('planned', 'Planned')}</span>
                 </div>
                 <div className="space-y-1 text-xs text-[#736357]">
                   <div className="flex justify-between">
-                    <span>Completed Agents:</span>
+                    <span>{t('completedAgents', 'Completed Agents:')}</span>
                     <span className="font-semibold text-emerald-600">{summary.completed?.length || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Pending / Scoped:</span>
+                    <span>{t('pendingScoped', 'Pending / Scoped:')}</span>
                     <span className="font-semibold text-amber-600">{summary.pending?.length || 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Failed / Retried:</span>
+                    <span>{t('failedRetried', 'Failed / Retried:')}</span>
                     <span className="font-semibold text-slate-500">{summary.failed?.length || 0}</span>
                   </div>
                 </div>
@@ -354,11 +355,11 @@ export default function OrchestratorPage() {
             {/* Navigation Tabs */}
             <div className="bg-white rounded-xl border border-[#EBE3D5] p-1.5 flex flex-wrap gap-1">
               {[
-                { id: 'plan', label: 'Agent Execution Plan', icon: Layers },
-                { id: 'trace', label: 'Agent Decision Trace', icon: Compass },
-                { id: 'knowledge', label: 'Domain Knowledge & Benchmarks', icon: Database },
-                { id: 'adapters', label: 'Prototype Engine Scopes', icon: TrendingUp },
-                { id: 'raw', label: 'Canonical Orchestration JSON', icon: FileCode }
+                { id: 'plan', label: t('agentExecutionPlan', 'Agent Execution Plan'), icon: Layers },
+                { id: 'trace', label: t('agentDecisionTrace', 'Agent Decision Trace'), icon: Compass },
+                { id: 'knowledge', label: t('domainKnowledgeBenchmarks', 'Domain Knowledge & Benchmarks'), icon: Database },
+                { id: 'adapters', label: t('prototypeEngineScopes', 'Prototype Engine Scopes'), icon: TrendingUp },
+                { id: 'raw', label: t('canonicalOrchestrationJson', 'Canonical Orchestration JSON'), icon: FileCode }
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -383,8 +384,8 @@ export default function OrchestratorPage() {
             {activeTab === 'plan' && (
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-6 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-[#1E1915]">Dynamic Agent Execution DAG</h3>
-                  <span className="text-xs text-[#8C7B70]">{executionPlan.length} Registered Nodes</span>
+                  <h3 className="text-base font-bold text-[#1E1915]">{t('dynamicAgentExecutionDag', 'Dynamic Agent Execution DAG')}</h3>
+                  <span className="text-xs text-[#8C7B70]">{executionPlan.length} {t('registeredNodes', 'Registered Nodes')}</span>
                 </div>
 
                 <div className="space-y-3">
@@ -409,17 +410,17 @@ export default function OrchestratorPage() {
                         </div>
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-sm font-bold text-[#2C2420]">{stepItem.agent}</h4>
+                            <h4 className="text-sm font-bold text-[#2C2420]"><TranslatedText text={stepItem.agent} /></h4>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
                               stepItem.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
                             }`}>
-                              {stepItem.priority} Priority
+                              {stepItem.priority} {t('priority', 'Priority')}
                             </span>
                           </div>
-                          <p className="text-xs text-[#736357]">{stepItem.purpose}</p>
+                          <p className="text-xs text-[#736357]"><TranslatedText text={stepItem.purpose} /></p>
                           {stepItem.dependencies?.length > 0 && (
                             <div className="text-[11px] text-[#8C7B70] flex items-center gap-1">
-                              <span>Requires:</span>
+                              <span>{t('requires', 'Requires')}:</span>
                               <span className="font-mono text-[#D95D0F]">{stepItem.dependencies.join(', ')}</span>
                             </div>
                           )}
@@ -429,17 +430,17 @@ export default function OrchestratorPage() {
                       <div className="shrink-0">
                         {stepItem.status === 'completed' && (
                           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Executed
+                            <CheckCircle2 className="w-3.5 h-3.5" /> {t('executed', 'Executed')}
                           </span>
                         )}
                         {stepItem.status === 'pending' && (
                           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                            <Clock className="w-3.5 h-3.5" /> Queued
+                            <Clock className="w-3.5 h-3.5" /> {t('queued', 'Queued')}
                           </span>
                         )}
                         {stepItem.status === 'ready' && (
                           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                            <Zap className="w-3.5 h-3.5" /> Ready
+                            <Zap className="w-3.5 h-3.5" /> {t('ready', 'Ready')}
                           </span>
                         )}
                       </div>
@@ -454,17 +455,16 @@ export default function OrchestratorPage() {
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-[#1E1915]">Agentic Decision Trace</h3>
-                    <p className="text-xs text-[#736357]">Explainable step-by-step reasoning recorded at every LangGraph state transition</p>
+                    <h3 className="text-base font-bold text-[#1E1915]">{t('agenticDecisionTrace', 'Agentic Decision Trace')}</h3>
+                    <p className="text-xs text-[#736357]">{t('explainableStepByStepReasoning', 'Explainable step-by-step reasoning recorded at every LangGraph state transition')}</p>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded-full bg-[#FFF3E5] text-[#D95D0F] font-bold">
-                    {decisionHistory.length} Trace Events
+                    {decisionHistory.length} {t('traceEvents', 'Trace Events')}
                   </span>
                 </div>
 
                 <div className="relative border-l-2 border-[#FED7AA] ml-3 pl-6 space-y-6">
                   {decisionHistory.map((trace, idx) => {
-                    const isExpanded = expandedTraceIdx === idx;
                     return (
                       <div key={idx} className="relative group">
                         <div className="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full bg-[#D95D0F] border-2 border-white ring-2 ring-[#FED7AA]" />
@@ -478,23 +478,23 @@ export default function OrchestratorPage() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
                             <div>
-                              <span className="font-semibold text-[#8C7B70]">Observation: </span>
-                              <span className="text-[#2C2420]">{trace.observation}</span>
+                              <span className="font-semibold text-[#8C7B70]">{t('observation', 'Observation')}: </span>
+                              <span className="text-[#2C2420]"><TranslatedText text={trace.observation} /></span>
                             </div>
                             <div>
-                              <span className="font-semibold text-[#8C7B70]">Decision: </span>
-                              <span className="text-[#2C2420] font-medium">{trace.decision}</span>
+                              <span className="font-semibold text-[#8C7B70]">{t('decision', 'Decision')}: </span>
+                              <span className="text-[#2C2420] font-medium"><TranslatedText text={trace.decision} /></span>
                             </div>
                           </div>
 
                           <div className="text-xs bg-white rounded-lg p-2.5 border border-[#F2EDE4] text-[#5A4A42]">
-                            <span className="font-semibold text-[#D95D0F]">Reason: </span>
-                            {trace.reason}
+                            <span className="font-semibold text-[#D95D0F]">{t('reason', 'Reason')}: </span>
+                            <TranslatedText text={trace.reason} />
                           </div>
 
                           <div className="flex items-center justify-between text-[11px] pt-1 text-[#8C7B70]">
-                            <span>Confidence: <strong className="text-[#2C2420]">{Math.round((trace.confidence || 1.0) * 100)}%</strong></span>
-                            <span>Source: <strong className="text-[#D95D0F] capitalize">{trace.decision_source || 'deterministic'}</strong></span>
+                            <span>{t('confidence', 'Confidence')}: <strong className="text-[#2C2420]">{Math.round((trace.confidence || 1.0) * 100)}%</strong></span>
+                            <span>{t('source', 'Source')}: <strong className="text-[#D95D0F] capitalize">{trace.decision_source || 'deterministic'}</strong></span>
                           </div>
                         </div>
                       </div>
@@ -508,8 +508,8 @@ export default function OrchestratorPage() {
             {activeTab === 'knowledge' && (
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-6 space-y-6">
                 <div>
-                  <h3 className="text-base font-bold text-[#1E1915]">Domain Knowledge & Benchmark Database</h3>
-                  <p className="text-xs text-[#736357]">Sector-specific standards and operational rules extracted by DomainKnowledgeAgent</p>
+                  <h3 className="text-base font-bold text-[#1E1915]">{t('domainKnowledgeBenchmarkDb', 'Domain Knowledge & Benchmark Database')}</h3>
+                  <p className="text-xs text-[#736357]">{t('sectorSpecificStandardsRules', 'Sector-specific standards and operational rules extracted by DomainKnowledgeAgent')}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -518,12 +518,12 @@ export default function OrchestratorPage() {
                   <div className="bg-[#FDFBF7] rounded-xl border border-[#EBE3D5] p-5 space-y-4">
                     <h4 className="text-sm font-bold text-[#2C2420] flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-[#D95D0F]" />
-                      MSME Financial & Operating Benchmarks
+                      {t('msmeFinancialOperatingBenchmarks', 'MSME Financial & Operating Benchmarks')}
                     </h4>
                     <div className="space-y-2 text-xs">
                       {knowledgeContext.benchmarks && Object.entries(knowledgeContext.benchmarks).map(([k, v]) => (
                         <div key={k} className="flex justify-between py-1 border-b border-[#F2EDE4]">
-                          <span className="text-[#736357] capitalize">{k.replace(/_/g, ' ')}:</span>
+                          <span className="text-[#736357] capitalize"><TranslatedText text={k.replace(/_/g, ' ')} />:</span>
                           <span className="font-semibold text-[#2C2420]">
                             {Array.isArray(v) ? `INR ${v[0]?.toLocaleString()} - ${v[1]?.toLocaleString()}` : String(v)}
                           </span>
@@ -536,25 +536,25 @@ export default function OrchestratorPage() {
                   <div className="bg-[#FDFBF7] rounded-xl border border-[#EBE3D5] p-5 space-y-4">
                     <h4 className="text-sm font-bold text-[#2C2420] flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-[#D95D0F]" />
-                      Competitor Landscape Taxonomies
+                      {t('competitorLandscapeTaxonomies', 'Competitor Landscape Taxonomies')}
                     </h4>
                     <div className="space-y-3 text-xs">
                       <div>
-                        <span className="font-semibold text-[#8C7B70]">Direct Competitors:</span>
+                        <span className="font-semibold text-[#8C7B70]">{t('directCompetitors', 'Direct Competitors')}:</span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {knowledgeContext.competitor_landscape?.direct?.map((c, i) => (
                             <span key={i} className="px-2.5 py-1 rounded-md bg-white border border-[#EBE3D5] text-[#2C2420]">
-                              {c}
+                              <TranslatedText text={c} />
                             </span>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <span className="font-semibold text-[#8C7B70]">Adjacent Competitors:</span>
+                        <span className="font-semibold text-[#8C7B70]">{t('adjacentCompetitors', 'Adjacent Competitors')}:</span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {knowledgeContext.competitor_landscape?.adjacent?.map((c, i) => (
                             <span key={i} className="px-2.5 py-1 rounded-md bg-white border border-[#EBE3D5] text-[#2C2420]">
-                              {c}
+                              <TranslatedText text={c} />
                             </span>
                           ))}
                         </div>
@@ -566,13 +566,13 @@ export default function OrchestratorPage() {
                   <div className="bg-[#FDFBF7] rounded-xl border border-[#EBE3D5] p-5 space-y-3 md:col-span-2">
                     <h4 className="text-sm font-bold text-[#2C2420] flex items-center gap-2">
                       <Layers className="w-4 h-4 text-[#D95D0F]" />
-                      Prescribed Infrastructure Specifications
+                      {t('prescribedInfrastructureSpecs', 'Prescribed Infrastructure Specifications')}
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       {knowledgeContext.infrastructure_requirements?.map((req, idx) => (
                         <div key={idx} className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-[#F2EDE4]">
                           <CheckCircle2 className="w-3.5 h-3.5 text-[#D95D0F] shrink-0" />
-                          <span className="text-[#2C2420]">{req}</span>
+                          <span className="text-[#2C2420]"><TranslatedText text={req} /></span>
                         </div>
                       ))}
                     </div>
@@ -585,8 +585,8 @@ export default function OrchestratorPage() {
             {activeTab === 'adapters' && (
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-6 space-y-6">
                 <div>
-                  <h3 className="text-base font-bold text-[#1E1915]">Prototype Engine Adapter Results</h3>
-                  <p className="text-xs text-[#736357]">Structured scopes prepared for future Market, Finance, Opportunity, and Feasibility engines</p>
+                  <h3 className="text-base font-bold text-[#1E1915]">{t('prototypeEngineAdapterResults', 'Prototype Engine Adapter Results')}</h3>
+                  <p className="text-xs text-[#736357]">{t('structuredScopesPrepared', 'Structured scopes prepared for future Market, Finance, Opportunity, and Feasibility engines')}</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -612,15 +612,15 @@ export default function OrchestratorPage() {
               <div className="bg-white rounded-2xl border border-[#EBE3D5] p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-bold text-[#1E1915]">Canonical Stage 4 Orchestration Document</h3>
-                    <p className="text-xs text-[#736357]">Machine-readable JSON schema consumable by downstream KALPA agents</p>
+                    <h3 className="text-base font-bold text-[#1E1915]">{t('canonicalStage4OrchestrationDoc', 'Canonical Stage 4 Orchestration Document')}</h3>
+                    <p className="text-xs text-[#736357]">{t('machineReadableJsonSchema', 'Machine-readable JSON schema consumable by downstream KALPA agents')}</p>
                   </div>
                   <button
                     onClick={copyRawJSON}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#5A4A42] bg-[#FDFBF7] border border-[#D9CFC4] hover:bg-[#FAF6F0] transition-all cursor-pointer"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? 'Copied' : 'Copy JSON'}
+                    {copied ? t('copied', 'Copied') : t('copyJson', 'Copy JSON')}
                   </button>
                 </div>
 
@@ -635,19 +635,19 @@ export default function OrchestratorPage() {
               <div className="space-y-1 text-center md:text-left">
                 <h3 className="text-sm font-bold text-[#8C3F0D] uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
                   <Sparkles className="w-4 h-4 text-[#D95D0F]" />
-                  Stage 4 Orchestration Complete &middot; Ready for Stage 5
+                  {t('stage4OrchestrationComplete', 'Stage 4 Orchestration Complete · Ready for Stage 5')}
                 </h3>
                 <p className="text-xs text-[#736357]">
-                  DAG execution plan, benchmark context, and prototype engine requirements have been verified and persisted to PostgreSQL.
+                  {t('dagExecutionPlanVerified', 'DAG execution plan, benchmark context, and prototype engine requirements have been verified and persisted to PostgreSQL.')}
                 </p>
               </div>
 
               <button
                 disabled
-                title="Stage 5 Opportunity Evaluation Engine will be unlocked in next phase"
+                title={t('opportunityEngineLocked', 'Stage 5 Opportunity Evaluation Engine will be unlocked in next phase')}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold text-white bg-slate-400 opacity-80 cursor-not-allowed shadow-sm"
               >
-                Proceed to Stage 5: Opportunity Evaluation (Locked)
+                {t('proceedToStage5Opportunity', 'Proceed to Stage 5: Opportunity Evaluation (Locked)')}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

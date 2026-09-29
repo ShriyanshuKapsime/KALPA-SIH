@@ -19,6 +19,7 @@ from app.api.routes import (
     swot_router,
     assistant_router,
     dpr_router,
+    translation_router,
 )
 
 
@@ -84,6 +85,7 @@ def create_application() -> FastAPI:
     app.include_router(swot_router, prefix=settings.API_V1_STR)
     app.include_router(assistant_router, prefix=settings.API_V1_STR)
     app.include_router(dpr_router, prefix=settings.API_V1_STR)
+    app.include_router(translation_router, prefix=settings.API_V1_STR)
 
     return app
 

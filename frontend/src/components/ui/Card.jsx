@@ -4,7 +4,7 @@ export const Card = ({ children, className = '', hover = false, onClick, ...prop
   return (
     <div
       onClick={onClick}
-      className={`royal-card rounded-2xl p-6 ${
+      className={`royal-card rounded-lg p-6 ${
         hover ? 'hover:-translate-y-0.5 cursor-pointer' : ''
       } ${className}`}
       {...props}
@@ -19,11 +19,11 @@ export const CardHeader = ({ children, className = '' }) => (
 );
 
 export const CardTitle = ({ children, className = '' }) => (
-  <h3 className={`text-lg font-bold text-[#1C1917] font-['Outfit'] ${className}`}>{children}</h3>
+  <h3 className={`text-lg font-bold text-[#26332F] font-['Outfit'] ${className}`}>{children}</h3>
 );
 
 export const CardDescription = ({ children, className = '' }) => (
-  <p className={`text-sm text-[#57534E] mt-1 leading-relaxed ${className}`}>{children}</p>
+  <p className={`text-sm text-[#6F746E] mt-1 leading-relaxed ${className}`}>{children}</p>
 );
 
 export const CardContent = ({ children, className = '' }) => (
