@@ -21,12 +21,14 @@ import OpportunityEvaluationPage from './pages/OpportunityEvaluation/Opportunity
 import FinancialAnalysisPage from './pages/FinancialAnalysis/FinancialAnalysisPage';
 import { WorkflowProvider } from './context/WorkflowContext';
 import { LanguageProvider } from './context/LanguageContext';
+import StartupLoader from './components/common/StartupLoader';
 
 function App() {
   return (
     <LanguageProvider>
       <WorkflowProvider>
-      <Routes>
+        <StartupLoader />
+        <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="journey" element={<JourneyPage />} />

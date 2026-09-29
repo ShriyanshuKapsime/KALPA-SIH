@@ -1,28 +1,31 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
 /**
  * Kalpa3DCard
- * Subtle 3D perspective mouse-follow tilt component for KALPA dashboard cards.
- * Designed with restrained ±4-5° tilt, smooth spring physics, and elevation on hover.
+ * Rich 3D perspective mouse-follow tilt component for KALPA dashboard cards.
+ * Designed with dynamic ±8.5° 3D tilt, specular glare lighting, and tangible 3D elevation.
  */
 export const Kalpa3DCard = ({ children, className = '', containerClassName = '' }) => {
   const cardRef = useRef(null);
+  const [isHovered, setIsHovered] = useState(false);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // Smooth, subtle spring physics
+  // Smooth, snappy spring physics
   const springConfig = {
-    damping: 20,
-    stiffness: 180,
+    damping: 18,
+    stiffness: 220,
   };
 
   const springX = useSpring(mouseX, springConfig);
   const springY = useSpring(mouseY, springConfig);
 
-  // Restrained maximum ±4.5 degrees rotation for clean financial dashboard cards
-  const rotateX = useTransform(springY, [-0.5, 0.5], ['4.5deg', '-4.5deg']);
-  const rotateY = useTransform(springX, [-0.5, 0.5], ['-4.5deg', '4.5deg']);
+  // 3D rotation angles up to ±8.5 degrees
+  const rotateX = useTransform(springY, [-0.5, 0.5], ['8.5deg', '-8.5deg']);
+  const rotateY = useTransform(springX, [-0.5, 0.5], ['-8.5deg', '8.5deg']);
+  const glareX = useTransform(springX, [-0.5, 0.5], ['0%', '100%']);
+  const glareY = useTransform(springY, [-0.5, 0.5], ['0%', '100%']);
 
   const handleMouseMove = (e) => {
     if (!cardRef.current) return;
@@ -38,7 +41,12 @@ export const Kalpa3DCard = ({ children, className = '', containerClassName = '' 
     mouseY.set(mousePosY / height - 0.5);
   };
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+
   const handleMouseLeave = () => {
+    setIsHovered(false);
     mouseX.set(0);
     mouseY.set(0);
   };
@@ -47,8 +55,9 @@ export const Kalpa3DCard = ({ children, className = '', containerClassName = '' 
     <div
       ref={cardRef}
       onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`[perspective:1000px] h-full w-full ${containerClassName}`}
+      className={`[perspective:1200px] h-full w-full ${containerClassName}`}
     >
       <motion.div
         style={{
@@ -57,17 +66,27 @@ export const Kalpa3DCard = ({ children, className = '', containerClassName = '' 
           transformStyle: 'preserve-3d',
         }}
         whileHover={{
-          y: -3,
-          scale: 1.015,
+          y: -6,
+          scale: 1.025,
         }}
         transition={{
           type: 'spring',
-          stiffness: 320,
-          damping: 24,
+          stiffness: 340,
+          damping: 22,
         }}
-        className={`h-full w-full select-none ${className}`}
+        className={`relative h-full w-full select-none transition-shadow duration-300 rounded-xl ${className}`}
       >
         {children}
+
+        {/* 3D Dynamic Specular Light Glare on Hover */}
+        {isHovered && (
+          <motion.div
+            className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden mix-blend-overlay opacity-30"
+            style={{
+              background: `radial-gradient(circle at ${glareX} ${glareY}, rgba(255,255,255,0.8) 0%, transparent 60%)`,
+            }}
+          />
+        )}
       </motion.div>
     </div>
   );

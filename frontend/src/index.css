@@ -6,6 +6,7 @@
 
 :root {
   /* Paper Palette */
+  --kalpa-loader-bg: #F6E5CD;
   --kalpa-paper: #F3E8D2;
   --kalpa-paper-light: #F8F0E1;
   --kalpa-paper-deep: #E8D6B7;

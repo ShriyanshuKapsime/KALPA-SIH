@@ -38,13 +38,15 @@ export const CoverflowCarousel = ({
 
   const total = items.length;
 
-  // Responsive card dimensions
+  // Responsive card dimensions (clean, comfortable size)
   const cardWidth =
     containerWidth < 640
       ? Math.min(200, containerWidth * 0.55)
       : containerWidth < 1024
       ? 240
-      : 290;
+      : 280;
+
+  const cardHeight = cardWidth * 1.55;
 
   // Update container width on resize
   useEffect(() => {
@@ -204,7 +206,7 @@ export const CoverflowCarousel = ({
     const touch = e.touches[0];
     dragStartXRef.current = touch.clientX;
     dragStartPosRef.current = currentPosRef.current;
-    lastDragTimeRef.current = Date.now();
+    lastDragTimeRef.now = Date.now();
     lastDragXRef.current = touch.clientX;
     velocityRef.current = 0;
   };
@@ -232,7 +234,7 @@ export const CoverflowCarousel = ({
     handlePointerUp();
   };
 
-  // Calculate 3D transformation for each card
+  // Classic Coverflow 3D transformation
   const getCardTransformStyle = (index) => {
     if (total === 0) return {};
 
@@ -292,13 +294,13 @@ export const CoverflowCarousel = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 3D Viewport Stage */}
+      {/* 3D Viewport Stage — Pure Picture Only, Zero Shadows, Zero Borders */}
       <div
         className="kalpa-coverflow-stage relative w-full flex items-center justify-center overflow-hidden py-6"
         style={{
           perspective: `${perspectivePx}px`,
           perspectiveOrigin: 'center 50%',
-          height: `${cardWidth * 1.55 + 40}px`,
+          height: `${cardHeight + 40}px`,
         }}
       >
         <div
@@ -318,8 +320,8 @@ export const CoverflowCarousel = ({
                 )}
                 style={{
                   width: `${cardWidth}px`,
-                  height: `${cardWidth * 1.55}px`,
-                  marginTop: `-${(cardWidth * 1.55) / 2}px`,
+                  height: `${cardHeight}px`,
+                  marginTop: `-${cardHeight / 2}px`,
                   marginLeft: `-${cardWidth / 2}px`,
                   transformStyle: 'preserve-3d',
                   willChange: 'transform, opacity',
@@ -336,7 +338,7 @@ export const CoverflowCarousel = ({
                 aria-label={item.alt || `Step ${idx + 1}`}
                 aria-current={isCenter ? 'true' : 'false'}
               >
-                {/* Pure Picture Only — Zero shadows, frames, or borders */}
+                {/* Pure Picture Only — Zero shadows, frames, borders, or backgrounds */}
                 <img
                   src={item.src || item.image}
                   alt={item.alt || `KALPA Journey Step ${item.id || idx + 1}`}
